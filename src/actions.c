@@ -242,8 +242,18 @@ ACTION_TABLE ActionTable[] = {
   {ACTIONS,             "None",                 "NONE",         TYPE_NONE}
 };
 
-static guint timer = 0;
-static gboolean timer_released;
+//
+// Supporting repeated actions if a key is pressed for a long time:
+//
+// In this case, a repeat timer is  initiated. Since there casen only by
+// one repeat timer active at one moment, we can use static storage to
+// 'remember' the action.
+// The benefit of this is that there is no need to defer the g_free o a
+// recently allocated PROCESS_ACTION structure.
+//
+static guint repeat_timer = 0;
+static gboolean repeat_timer_released;
+static PROCESS_ACTION repeat_action;
 static gboolean multi_select_active;
 static gboolean multi_first = TRUE;
 static unsigned int multi_action = 0;
@@ -284,15 +294,21 @@ MULTI_TABLE multi_action_table[] = {
   {ZOOM,             "Zoom"}
 };
 
-static int timeout_cb(gpointer data) {
-  if (timer_released) {
-    g_free(data);
-    timer = 0;
+static int repeat_cb(gpointer data) {
+  //
+  // This is periodically called to execute the same action
+  // again and agin (e.g. while the RIT button is kept being
+  // pressed. The action is stored in repeat_action.
+  //
+  if (repeat_timer_released) {
+    repeat_timer = 0;
     return G_SOURCE_REMOVE;
   }
 
-  // process the action;
-  process_action(data);
+  // process the repeat_action
+  PROCESS_ACTION *a = g_new(PROCESS_ACTION, 1);
+  *a = repeat_action;
+  process_action(a);
   return TRUE;
 }
 
@@ -383,9 +399,8 @@ int process_action(void *data) {
   PROCESS_ACTION *a = (PROCESS_ACTION *)data;
   double value;
   int i;
-  gboolean free_action = TRUE;
 
-  //t_print("%s: action=%d mode=%d value=%d\n",__FUNCTION__,a->action,a->mode,a->val);
+  //t_print("%s: a=%p action=%d mode=%d value=%d\n",__FUNCTION__,a,a->action,a->mode,a->val);
   switch (a->action) {
   case A_SWAP_B:
     if (a->mode == PRESSED) {
@@ -427,7 +442,7 @@ int process_action(void *data) {
         active_receiver->agc = 0;
       }
 
-      rx_set_agc(active_receiver, active_receiver->agc);
+      rx_set_agc(active_receiver);
       g_idle_add(ext_vfo_update, NULL);
     }
 
@@ -454,10 +469,10 @@ int process_action(void *data) {
   case ANF:
     if (a->mode == PRESSED) {
       int id = active_receiver->id;
-      active_receiver->anf = NOT(active_receiver->anf);
+      TOGGLE(active_receiver->anf);
 
       if (id == 0) {
-          mode_settings[vfo[id].mode].anf = active_receiver->anf;
+        mode_settings[vfo[id].mode].anf = active_receiver->anf;
       }
 
       update_noise();
@@ -750,8 +765,9 @@ int process_action(void *data) {
 
   case COMP_ENABLE:
     if (can_transmit && a->mode == PRESSED) {
-      tx_set_compressor(transmitter, NOT(transmitter->compressor));
+      TOGGLE(transmitter->compressor);
       mode_settings[vfo_get_tx_mode()].compressor = transmitter->compressor;
+      tx_set_compressor(transmitter);
       g_idle_add(ext_vfo_update, NULL);
     }
 
@@ -760,10 +776,11 @@ int process_action(void *data) {
   case COMPRESSION:
     if (can_transmit) {
       value = KnobOrWheel(a, transmitter->compressor_level, 0.0, 20.0, 1.0);
-      tx_set_compressor_level(transmitter, value);
-      tx_set_compressor(transmitter, value > 0.5);
+      transmitter->compressor = SET(value > 0.5);
+      transmitter->compressor_level = value;
       mode_settings[vfo_get_tx_mode()].compressor = transmitter->compressor;
       mode_settings[vfo_get_tx_mode()].compressor_level = transmitter->compressor_level;
+      tx_set_compressor(transmitter);
       g_idle_add(ext_vfo_update, NULL);
     }
 
@@ -841,9 +858,13 @@ int process_action(void *data) {
     break;
 
   case DUPLEX:
+
+    //
+    // Ignore DUPLEX action while transmitting
+    //
     if (can_transmit && !radio_is_transmitting() && a->mode == PRESSED) {
       TOGGLE(duplex);
-      g_idle_add(ext_set_duplex, NULL);
+      g_idle_add(ext_set_duplex, NULL);  // can just use setDuplex ?
     }
 
     break;
@@ -960,18 +981,14 @@ int process_action(void *data) {
 
   case LOCK:
     if (a->mode == PRESSED) {
-#ifdef CLIENT_SERVER
-
       if (radio_is_remote) {
+#ifdef CLIENT_SERVER
         send_lock(client_socket, NOT(locked));
-      } else {
 #endif
+      } else {
         TOGGLE(locked);
         g_idle_add(ext_vfo_update, NULL);
-#ifdef CLIENT_SERVER
       }
-
-#endif
     }
 
     break;
@@ -1354,9 +1371,9 @@ int process_action(void *data) {
     if (a->mode == PRESSED) {
       if (can_transmit) {
         if (transmitter->puresignal == 0) {
-          tx_set_ps(transmitter, 1);
+          tx_ps_onoff(transmitter, 1);
         } else {
-          tx_set_ps(transmitter, 0);
+          tx_ps_onoff(transmitter, 0);
         }
       }
     }
@@ -1433,14 +1450,13 @@ int process_action(void *data) {
     if (a->mode == PRESSED) {
       vfo_rit_incr(active_receiver->id, -rit_increment);
 
-      if (timer == 0) {
-        timer = g_timeout_add(250, timeout_cb, a);
-        timer_released = FALSE;
+      if (repeat_timer == 0) {
+        repeat_action = *a;
+        repeat_timer = g_timeout_add(250, repeat_cb, NULL);
+        repeat_timer_released = FALSE;
       }
-
-      free_action = FALSE;
     } else {
-      timer_released = TRUE;
+      repeat_timer_released = TRUE;
     }
 
     break;
@@ -1449,14 +1465,13 @@ int process_action(void *data) {
     if (a->mode == PRESSED) {
       vfo_rit_incr(active_receiver->id, rit_increment);
 
-      if (timer == 0) {
-        timer = g_timeout_add(250, timeout_cb, a);
-        timer_released = FALSE;
+      if (repeat_timer == 0) {
+        repeat_action = *a;
+        repeat_timer = g_timeout_add(250, repeat_cb, NULL);
+        repeat_timer_released = FALSE;
       }
-
-      free_action = FALSE;
     } else {
-      timer_released = TRUE;
+      repeat_timer_released = TRUE;
     }
 
     break;
@@ -1718,32 +1733,30 @@ int process_action(void *data) {
 
   case XIT_MINUS:
     if (a->mode == PRESSED) {
-      vfo_xit_incr(-rit_increment);
+      vfo_xit_incr(-10 * rit_increment);
 
-      if (timer == 0) {
-        timer = g_timeout_add(250, timeout_cb, a);
-        timer_released = FALSE;
+      if (repeat_timer == 0) {
+        repeat_action = *a;
+        repeat_timer = g_timeout_add(250, repeat_cb, NULL);
+        repeat_timer_released = FALSE;
       }
-
-      free_action = FALSE;
     } else {
-      timer_released = TRUE;
+      repeat_timer_released = TRUE;
     }
 
     break;
 
   case XIT_PLUS:
     if (a->mode == PRESSED) {
-      vfo_xit_incr(rit_increment);
+      vfo_xit_incr(10 * rit_increment);
 
-      if (timer == 0) {
-        timer = g_timeout_add(250, timeout_cb, a);
-        timer_released = FALSE;
+      if (repeat_timer == 0) {
+        repeat_action = *a;
+        repeat_timer = g_timeout_add(250, repeat_cb, NULL);
+        repeat_timer_released = FALSE;
       }
-
-      free_action = FALSE;
     } else {
-      timer_released = TRUE;
+      repeat_timer_released = TRUE;
     }
 
     break;
@@ -1836,10 +1849,7 @@ int process_action(void *data) {
     break;
   }
 
-  if (free_action) {
-    g_free(data);
-  }
-
+  g_free(data);
   return 0;
 }
 

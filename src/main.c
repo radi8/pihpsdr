@@ -27,7 +27,8 @@
 #include <sys/resource.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include <wdsp.h>
+
+#include <wdsp.h>    // only needed for WDSPwisdom() and wisdom_get_status()
 
 #include "appearance.h"
 #include "audio.h"
@@ -71,7 +72,7 @@ int this_monitor;
 static GdkCursor *cursor_arrow;
 static GdkCursor *cursor_watch;
 
-GtkWidget *top_window;
+GtkWidget *top_window = NULL;
 GtkWidget *topgrid;
 
 static GtkWidget *status_label;
@@ -532,17 +533,19 @@ int fatal_error(void *data) {
   }
 
   quit = 1;
+
   if (top_window) {
     GtkDialogFlags flags = GTK_DIALOG_DESTROY_WITH_PARENT;
     GtkWidget *dialog = gtk_message_dialog_new_with_markup (GTK_WINDOW(top_window),
-          flags,
-          GTK_MESSAGE_ERROR,
-          GTK_BUTTONS_CLOSE,
-          "<span color='red' size='x-large' weight='bold'>piHPSDR termination due to fatal error:</span>"
-          "\n\n<span size='x-large'>   %s</span>\n\n",
-          msg);
+                        flags,
+                        GTK_MESSAGE_ERROR,
+                        GTK_BUTTONS_CLOSE,
+                        "<span color='red' size='x-large' weight='bold'>piHPSDR termination due to fatal error:</span>"
+                        "\n\n<span size='x-large'>   %s</span>\n\n",
+                        msg);
     gtk_dialog_run(GTK_DIALOG(dialog));
     gtk_widget_destroy(dialog);
   }
+
   exit(1);
 }

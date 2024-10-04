@@ -20,7 +20,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <signal.h>
-#include <wdsp.h>
+
+#include <wdsp.h>   // only needed for the resampler
 
 #include <SoapySDR/Constants.h>
 #include <SoapySDR/Device.h>
@@ -207,7 +208,7 @@ void soapy_protocol_start_receiver(RECEIVER *rx) {
 
   if (rc != 0) {
     t_print("%s: SoapySDRDevice_activateStream failed: %s\n", __FUNCTION__, SoapySDR_errToStr(rc));
-    g_idle_add(fatal_error,"Soapy Start RX Stream failed");
+    g_idle_add(fatal_error, "Soapy Start RX Stream failed");
   }
 
   t_print("%s: create receiver_thread\n", __FUNCTION__);
@@ -232,7 +233,7 @@ void soapy_protocol_create_transmitter(TRANSMITTER *tx) {
 
   if (rc != 0) {
     t_print("%s: SoapySDRDevice_setupStream (TX) failed: %s\n", __FUNCTION__, SoapySDR_errToStr(rc));
-    g_idle_add(fatal_error,"Soapy Setup TX Stream Failed");
+    g_idle_add(fatal_error, "Soapy Setup TX Stream Failed");
   }
 
 #else
@@ -240,7 +241,7 @@ void soapy_protocol_create_transmitter(TRANSMITTER *tx) {
 
   if (tx_stream == NULL) {
     t_print("%s: SoapySDRDevice_setupStream (TX) failed: %s\n", __FUNCTION__, SoapySDR_errToStr(rc));
-    g_idle_add(fatal_error,"Soapy Setup TX Stream Failed");
+    g_idle_add(fatal_error, "Soapy Setup TX Stream Failed");
   }
 
 #endif
@@ -285,7 +286,7 @@ void soapy_protocol_stop_transmitter(TRANSMITTER *tx) {
 
   if (rc != 0) {
     t_print("soapy_protocol_stop_transmitter: SoapySDRDevice_deactivateStream failed: %s\n", SoapySDR_errToStr(rc));
-    g_idle_add(fatal_error,"Soapy Stop TX Stream Failed");
+    g_idle_add(fatal_error, "Soapy Stop TX Stream Failed");
   }
 }
 
@@ -316,7 +317,7 @@ void soapy_protocol_init(gboolean hf) {
 
   if (soapy_device == NULL) {
     t_print("%s: SoapySDRDevice_make failed: %s\n", __FUNCTION__, SoapySDRDevice_lastError());
-    g_idle_add(fatal_error,"Soapy Make Device Failed");
+    g_idle_add(fatal_error, "Soapy Make Device Failed");
   }
 
   SoapySDRKwargs_clear(&args);
@@ -333,6 +334,11 @@ void soapy_protocol_init(gboolean hf) {
 }
 
 static void *receive_thread(void *arg) {
+  //
+  //  Since no mic samples arrive in SOAPY, we must use
+  //  the incoming RX samples as a "heart beat" for the
+  //  transmitter.
+  //
   double isample;
   double qsample;
   int flags = 0;

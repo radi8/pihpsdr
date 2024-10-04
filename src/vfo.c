@@ -436,28 +436,28 @@ void vfo_apply_mode_settings(RECEIVER *rx) {
       transmitter->eq_freq[i]       = mode_settings[m].tx_eq_freq[i];
     }
 
-    tx_set_compressor_level(transmitter, mode_settings[m].compressor_level);
-    tx_set_compressor      (transmitter, mode_settings[m].compressor      );
+    transmitter->compressor = mode_settings[m].compressor;
+    transmitter->compressor_level = mode_settings[m].compressor_level;
+    tx_set_compressor      (transmitter);
   }
 
   //
   // make changes effective and put them on the VFO display
   //
-  rx_set_agc(rx, rx->agc);
+  rx_set_agc(rx);
   update_noise();
   update_eq();
   g_idle_add(ext_vfo_update, NULL);
 }
 
 void vfo_band_changed(int id, int b) {
-#ifdef CLIENT_SERVER
-
   if (radio_is_remote) {
+#ifdef CLIENT_SERVER
     send_band(client_socket, id, b);
+#endif
     return;
   }
 
-#endif
   const BAND *band;
   BANDSTACK *bandstack;
   int   oldmode = vfo[id].mode;
@@ -522,7 +522,9 @@ void vfo_band_changed(int id, int b) {
   }
 
   if (can_transmit) {
-    tx_set_ctcss(transmitter, entry->ctcss_enabled, entry->ctcss);
+    transmitter->ctcss_enabled = entry->ctcss_enabled;
+    transmitter->ctcss         = entry->ctcss;
+    tx_set_ctcss(transmitter);
   }
 
   //
@@ -563,7 +565,9 @@ void vfo_bandstack_changed(int b) {
   }
 
   if (can_transmit) {
-    tx_set_ctcss(transmitter, entry->ctcss_enabled, entry->ctcss);
+    transmitter->ctcss_enabled = entry->ctcss_enabled;
+    transmitter->ctcss         = entry->ctcss;
+    tx_set_ctcss(transmitter);
   }
 
   if (id < receivers && oldmode != vfo[id].mode) {
@@ -579,14 +583,13 @@ void vfo_mode_changed(int m) {
 }
 
 void vfo_id_mode_changed(int id, int m) {
-#ifdef CLIENT_SERVER
-
   if (radio_is_remote) {
+#ifdef CLIENT_SERVER
     send_mode(client_socket, id, m);
+#endif
     return;
   }
 
-#endif
   vfo[id].mode = m;
 
   if (id < receivers) {
@@ -629,14 +632,12 @@ void vfo_filter_changed(int f) {
 }
 
 void vfo_id_filter_changed(int id, int f) {
-#ifdef CLIENT_SERVER
-
   if (radio_is_remote) {
+#ifdef CLIENT_SERVER
     send_filter(client_socket, id, f);
+#endif
     return;
   }
-
-#endif
 
   // store changed filter in the mode settings
   if (id == 0) {
@@ -788,14 +789,12 @@ void vfo_step(int steps) {
 }
 
 void vfo_id_step(int id, int steps) {
-#ifdef CLIENT_SERVER
-
   if (radio_is_remote) {
+#ifdef CLIENT_SERVER
     update_vfo_step(id, steps);
+#endif
     return;
   }
-
-#endif
 
   if (!locked) {
     long long delta;
@@ -897,15 +896,14 @@ void vfo_id_step(int id, int steps) {
 //
 void vfo_id_move(int id, long long hz, int round) {
   long long delta;
-#ifdef CLIENT_SERVER
 
   if (radio_is_remote) {
+#ifdef CLIENT_SERVER
     //send_vfo_move(client_socket,id,hz,round);
     update_vfo_move(id, hz, round);
+#endif
     return;
   }
-
-#endif
 
   if (!locked) {
     if (vfo[id].ctun) {
@@ -1010,14 +1008,13 @@ void vfo_move_to(long long hz) {
 }
 
 void vfo_id_move_to(int id, long long hz) {
-#ifdef CLIENT_SERVER
-
   if (radio_is_remote) {
+#ifdef CLIENT_SERVER
     send_vfo_move_to(client_socket, id, hz);
+#endif
     return;
   }
 
-#endif
   // hz is the offset from the min displayed frequency
   const RECEIVER *myrx;
 
