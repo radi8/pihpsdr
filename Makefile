@@ -91,7 +91,7 @@ WDSP_LIBS=wdsp/libwdsp.a `$(PKG_CONFIG) --libs fftw3`
 ifeq ($(EXTENDED_NR), ON)
 EXTNR_OPTIONS=-DEXTNR
 WDSP_INCLUDE=
-WDSP_LIBS=-lwdsp `$(PKG_CONFIG) --libs fftw3`
+WDSP_LIBS=-lwdsp
 endif
 CPP_DEFINES += -DEXTNR
 CPP_INCLUDE +=$(WDSP_INCLUDE)
