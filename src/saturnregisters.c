@@ -554,6 +554,7 @@ void SetClassEPA(bool IsClassE) {
 //
 // SetOpenCollectorOutputs(unsigned int bits)
 // sets the 7 open collector output bits
+// which are in b0:6 or "bits"
 //
 void SetOpenCollectorOutputs(unsigned int bits) {
   uint32_t Register;                              // FPGA register content
