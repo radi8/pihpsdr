@@ -2931,6 +2931,17 @@ static int remote_command(void *data) {
     int r = mode_command->id;
     short m = htons(mode_command->mode);
     vfo_mode_changed(m);
+    //
+    // A change of the mode implies that all sorts of other settings
+    // those "stored with the mode" are changed as well. So we need
+    // to send back MUCH of data to the client, including
+    //
+    // - filter, cw peak filter                      (send_vfo_data)
+    // - VFO step size                               (send_vfo_data)
+    // - noise reduction settings                    (send_noise)
+    // - equalizer settings                          (not yet implemented)
+    // - TX compressor, mic gain, CFC, DExp settings (n/a)
+    //
     send_vfo_data(client, VFO_A);
     send_vfo_data(client, VFO_B);
     send_filter(client->socket, r, m);
@@ -2938,6 +2949,11 @@ static int remote_command(void *data) {
   break;
 
   case CMD_RESP_RX_FILTER: {
+    //
+    // Here we should digest both the nominal filter edges
+    // (to be changed for var1/var2) and the actual filter edges
+    // (stored in RECEIVER)
+    //
     FILTER_COMMAND *filter_command = (FILTER_COMMAND *)data;
     int r = filter_command->id;
     short f = htons(filter_command->filter);
