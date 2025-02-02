@@ -1256,7 +1256,6 @@ void rx_add_div_iq_samples(RECEIVER *rx, double i0, double q0, double i1, double
 }
 
 void rx_update_zoom(RECEIVER *rx) {
-  CLIENT_WDSP;
   //
   // This is called whenever rx->zoom or rx->width changes,
   // since in both cases the analyzer must be restarted.
