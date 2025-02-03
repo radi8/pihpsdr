@@ -71,6 +71,7 @@ enum _header_type_enum {
   CMD_RESP_RX_BAND,
   CMD_RESP_RX_MODE,
   CMD_RESP_RX_FILTER,
+  CMD_RESP_RX_FILTER_CUT,
   CMD_RESP_RX_AGC,
   CMD_RESP_RX_NOISE,
   CMD_RESP_RX_ZOOM,
@@ -357,6 +358,13 @@ typedef struct __attribute__((__packed__)) _mode_command {
   uint8_t id;
   uint16_t mode;
 } MODE_COMMAND;
+
+typedef struct __attribute__((__packed__)) _filter_cut_command {
+  HEADER header;
+  uint8_t id;
+  uint16_t filter_low;
+  uint16_t filter_high;
+} FILTER_CUT_COMMAND;
 
 typedef struct __attribute__((__packed__)) _filter_command {
   HEADER header;

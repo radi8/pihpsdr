@@ -1578,6 +1578,20 @@ void send_mode(int s, int rx, int mode) {
   send_bytes(s, (char *)&command, sizeof(command));
 }
 
+void send_rx_filter_cut(int s, int rx) {
+  //
+  // This changes the filter cuts in the "receiver"
+  //
+  FILTER_CUT_COMMAND command;
+  command.header.sync = REMOTE_SYNC;
+  command.header.data_type = htons(CMD_RESP_RX_FILTER_CUT);
+  command.header.version = htonl(CLIENT_SERVER_VERSION);
+  command.id = rx;
+  command.filter_low  =  htons(receiver[rx]->filter_low);
+  command.filter_high =  htons(receiver[rx]->filter_high);
+  send_bytes(s, (char *)&command, sizeof(command));
+}
+
 void send_filter(int s, int v, int filter) {
   //
   // invoked upon filter selection.
@@ -2466,12 +2480,12 @@ static void *client_thread(void* arg) {
     }
     break;
 
-    case CMD_RESP_RX_FILTER: {
-      FILTER_COMMAND filter_cmd;
-      bytes_read = recv_bytes(client_socket, (char *)&filter_cmd.id, sizeof(filter_cmd) - sizeof(header));
+    case CMD_RESP_RX_FILTER_CUT: {
+      FILTER_CUT_COMMAND cmd;
+      bytes_read = recv_bytes(client_socket, (char *)&cmd.id, sizeof(cmd) - sizeof(header));
 
       if (bytes_read <= 0) {
-        t_print("client_thread: short read for FILTER_CMD\n");
+        t_print("client_thread: short read for FILTER_CUT_CMD\n");
         t_perror("client_thread");
         // dialog box?
         return NULL;
@@ -2482,21 +2496,14 @@ static void *client_thread(void* arg) {
       // on the client side.
       //
       // cppcheck-suppress uninitStructMember
-      int v = filter_cmd.id;
-      int m = filter_cmd.mode;
-      int f = filter_cmd.filter;
-      int low = ntohs(filter_cmd.filter_low);
-      int high = ntohs(filter_cmd.filter_high);
-      t_print("%s: RxFilter v=%d m=%d f=%d low=%d high=%d\n", v,m,f,low,high);
+      int rx = cmd.id;
+      short low = ntohs(cmd.filter_low);
+      short high = ntohs(cmd.filter_high);
       //
       // Store the filter edges in RX if it exists
       //
-      for (int i = 0; i < receivers; i++) {
-        if (vfo[i].filter == f) {
-          receiver[i]->filter_low = low;
-          receiver[i]->filter_high = high;
-        }
-      }
+      receiver[rx]->filter_low = low;
+      receiver[rx]->filter_high = high;
       g_idle_add(ext_vfo_update, NULL);
     }
     break;
@@ -3048,7 +3055,7 @@ static int remote_command(void *data) {
     // filter edges in receiver(s) may have changed
     //
     for (int id = 0; id < receivers; id++) {
-      send_rx_data(client, id);
+      send_rx_filter_cut(client->socket, id);
     }
   }
   break;
