@@ -107,10 +107,10 @@ void rx_set_active(RECEIVER *rx) {
   //
   // Changing the active receiver flips the TX vfo
   //
-  if (can_transmit) {
+  if (!radio_is_remote) {
     radio_tx_vfo_changed();
+    radio_set_alex_antennas();
   }
-  radio_set_alex_antennas();
 }
 
 // cppcheck-suppress constParameterPointer

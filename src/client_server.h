@@ -276,7 +276,7 @@ typedef struct __attribute__((__packed__)) _spectrum_data {
   uint64_t vfo_a_offset;
   uint64_t vfo_b_offset;
   mydouble meter;
-  uint16_t samples;
+  uint16_t width;
   uint16_t sample[SPECTRUM_DATA_SIZE];
 } SPECTRUM_DATA;
 

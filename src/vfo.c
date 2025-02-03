@@ -506,6 +506,7 @@ static inline void vfo_adjust_band(int v, long long f) {
 }
 
 void vfo_xvtr_changed() {
+  CLIENT_MISSING;
   //
   // It may happen that the XVTR band is messed up in the sense
   // that the resulting radio frequency exceeds the limits.
@@ -631,7 +632,9 @@ void vfo_apply_mode_settings(RECEIVER *rx) {
   //
   // defer update_eq() until here since it also applies TX EQ settings
   //
-  rx_set_agc(rx);
+  if (!radio_is_remote) {
+    rx_set_agc(rx);
+  }
   update_noise();
   update_eq();
   g_idle_add(ext_vfo_update, NULL);

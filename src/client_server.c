@@ -296,7 +296,7 @@ static int send_spectrum(void *arg) {
         spectrum_data.vfo_a_offset = htonll(vfo[VFO_A].offset);
         spectrum_data.vfo_b_offset = htonll(vfo[VFO_B].offset);
         spectrum_data.meter = htond(receiver[r]->meter);
-        spectrum_data.samples = htons(rx->width);
+        spectrum_data.width = htons(rx->width);
         samples = rx->pixel_samples;
 
         // Added quick and dirty fix as to send only the first SPECTRUM_DATA_SIZE pixels
@@ -1871,7 +1871,7 @@ static void *listen_thread(void *arg) {
     if ((client->socket = accept(listen_socket, (struct sockaddr * )&client->address, &client->address_length)) < 0) {
       t_print("listen_thread: accept failed\n");
       g_free(client);
-      continue;
+      break;
     }
 
     char s[128];
@@ -2225,24 +2225,27 @@ static void *client_thread(void* arg) {
 
       // cppcheck-suppress uninitStructMember
       int r = spectrum_data.rx;
+      RECEIVER *rx = receiver[r];
       long long frequency_a = ntohll(spectrum_data.vfo_a_freq);
       long long frequency_b = ntohll(spectrum_data.vfo_b_freq);
       long long ctun_frequency_a = ntohll(spectrum_data.vfo_a_ctun_freq);
       long long ctun_frequency_b = ntohll(spectrum_data.vfo_b_ctun_freq);
       long long offset_a = ntohll(spectrum_data.vfo_a_offset);
       long long offset_b = ntohll(spectrum_data.vfo_b_offset);
-      receiver[r]->meter = ntohd(spectrum_data.meter);
-      short samples = ntohs(spectrum_data.samples);
+      rx->meter = ntohd(spectrum_data.meter);
+      short width = ntohs(spectrum_data.width);
 
-      if (receiver[r]->pixel_samples == NULL) {
-        receiver[r]->pixel_samples = g_new(float, (int)samples);
+      if (width > rx->width) { width = rx->width; }
+
+      if (rx->pixel_samples == NULL) {
+        rx->pixel_samples = g_new(float, (int) width);
       }
 
       // Added quick and dirty fix as to use at most SPECTRUM_DATA_SIZE pixels
 
-      for (int i = 0; (i < samples) && (i < SPECTRUM_DATA_SIZE); i++) {
+      for (int i = 0; (i < width) && (i < SPECTRUM_DATA_SIZE); i++) {
         short sample = ntohs(spectrum_data.sample[i]);
-        receiver[r]->pixel_samples[i] = (float)sample;
+        rx->pixel_samples[i] = (float)sample;
       }
 
       if (vfo[VFO_A].frequency != frequency_a || vfo[VFO_B].frequency != frequency_b
@@ -2257,7 +2260,7 @@ static void *client_thread(void* arg) {
         g_idle_add(ext_vfo_update, NULL);
       }
 
-      g_idle_add(ext_rx_remote_update_display, receiver[r]);
+      g_idle_add(ext_rx_remote_update_display, rx);
     }
     break;
 
