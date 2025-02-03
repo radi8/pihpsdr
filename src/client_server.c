@@ -328,7 +328,7 @@ void send_varfilter_data(const REMOTE_CLIENT *client) {
   //
   VARFILTER_DATA varfilter_data;
   varfilter_data.header.sync = REMOTE_SYNC;
-  varfilter_data.header.data_type = htons(INFO_RADIO);
+  varfilter_data.header.data_type = htons(INFO_VARFILTER);
   varfilter_data.header.version = htonl(CLIENT_SERVER_VERSION);
 
   varfilter_data.modes = MODES;
