@@ -375,7 +375,7 @@ extern void my_combo_attach(GtkGrid *grid, GtkWidget *combo, int row, int col, i
 #else
 #define CLIENT_MISSING
 #define CLIENT_WDSP
-#define CLIENT_WDSP_RET
+#define CLIENT_WDSP_RET(x)
 #endif
 
 //
