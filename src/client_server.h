@@ -23,6 +23,7 @@
 #include <stdint.h>
 #include <netinet/in.h>
 
+#include "mode.h"
 #include "receiver.h"
 
 #ifndef __APPLE__
@@ -46,6 +47,7 @@ typedef enum {
 
 enum _header_type_enum {
   INFO_RADIO,
+  INFO_VARFILTER,
   INFO_ADC,
   INFO_RECEIVER,
   INFO_TRANSMITTER,
@@ -141,6 +143,15 @@ typedef struct __attribute__((__packed__)) _header {
     REMOTE_CLIENT *client;
   } context;
 } HEADER;
+
+typedef struct __attribute__((__packed__)) _varfilter_data {
+  HEADER header;
+  uint8_t  modes;
+  uint16_t var1low[MODES];
+  uint16_t var1high[MODES];
+  uint16_t var2low[MODES];
+  uint16_t var2high[MODES];
+} VARFILTER_DATA;
 
 typedef struct __attribute__((__packed__)) _radio_data {
   HEADER header;

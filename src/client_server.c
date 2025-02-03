@@ -321,6 +321,28 @@ static int send_spectrum(void *arg) {
   return result;
 }
 
+void send_varfilter_data(const REMOTE_CLIENT *client) {
+  //
+  // Used at program  startup to send the filter edges of the
+  // variable filters
+  //
+  VARFILTER_DATA varfilter_data;
+  varfilter_data.header.sync = REMOTE_SYNC;
+  varfilter_data.header.data_type = htons(INFO_RADIO);
+  varfilter_data.header.version = htonl(CLIENT_SERVER_VERSION);
+
+  varfilter_data.modes = MODES;
+
+  for (int m = 0; m < MODES; m++) {
+    varfilter_data.var1low[m]  = htons(filters[m][filterVar1].low);
+    varfilter_data.var1high[m] = htons(filters[m][filterVar1].high);
+    varfilter_data.var2low[m]  = htons(filters[m][filterVar2].low);
+    varfilter_data.var2high[m] = htons(filters[m][filterVar2].high);
+  }
+
+  send_bytes(client->socket, (char *)&varfilter_data, sizeof(varfilter_data));
+}
+
 void send_radio_data(const REMOTE_CLIENT *client) {
   RADIO_DATA radio_data;
   radio_data.header.sync = REMOTE_SYNC;
@@ -447,9 +469,10 @@ static void *server_thread(void *arg) {
   // The server starts with sending much of the radio data in order
   // to initialize data structures on the client side.
   //
-  send_radio_data(client);                 // send INFO_RADIO packet
-  send_adc_data(client, 0);                // send INFO_ADC   packet
-  send_adc_data(client, 1);                // send INFO_ADC   packet
+  send_radio_data(client);                 // send INFO_RADIO     packet
+  send_varfilter_data(client);             // send INFO_VARFILTER packet
+  send_adc_data(client, 0);                // send INFO_ADC       packet
+  send_adc_data(client, 1);                // send INFO_ADC       packet
 
   for (int i = 0; i < RECEIVERS; i++) {
     send_rx_data(client, i);               // send INFO_RECEIVER packet
@@ -1565,15 +1588,14 @@ void send_filter(int s, int v, int filter) {
   //
   FILTER_COMMAND command;
   int mode = vfo[v].mode;
-  t_print("send_filter vfo=%d mode=%d filter=%d\n", vfo, mode, filter);
   command.header.sync = REMOTE_SYNC;
   command.header.data_type = htons(CMD_RESP_RX_FILTER);
   command.header.version = htonl(CLIENT_SERVER_VERSION);
   command.id = v;
   command.mode = mode;
   command.filter = filter;
-  command.filter_low = filters[mode][filter].low;
-  command.filter_high = filters[mode][filter].high;
+  command.filter_low =  htons(filters[mode][filter].low);
+  command.filter_high = htons(filters[mode][filter].high);
   send_bytes(s, (char *)&command, sizeof(command));
 }
 
@@ -1994,6 +2016,31 @@ static void *client_thread(void* arg) {
       t_print("have_rx_gain=%d rx_gain_calibration=%d filter_board=%d\n", have_rx_gain, rx_gain_calibration, filter_board);
       snprintf(title, 128, "piHPSDR: %s remote at %s", radio->name, server);
       g_idle_add(ext_set_title, (void *)title);
+    }
+    break;
+
+    case INFO_VARFILTER: {
+      VARFILTER_DATA varfilter_data;
+      bytes_read = recv_bytes(client_socket, (char *)&varfilter_data.modes, sizeof(varfilter_data) - sizeof(header));
+
+      if (bytes_read <= 0) {
+        t_print("client_thread: short read for VARFILTER_DATA\n");
+        t_perror("client_thread");
+        // dialog box?
+        return NULL;
+      }
+
+      if (varfilter_data.modes == MODES) {
+        for (int m = 0; m < MODES; m++) {
+          filters[m][filterVar1].low  = (short) ntohs(varfilter_data.var1low[m]);
+          filters[m][filterVar1].high = (short) ntohs(varfilter_data.var1high[m]);
+          filters[m][filterVar2].low  = (short) ntohs(varfilter_data.var2low[m]);
+          filters[m][filterVar2].high = (short) ntohs(varfilter_data.var2high[m]);
+          t_print("VARFILTER: m=% v1l=%d v1h=%d v2l=%d v2h=%d\n", m,
+              filters[m][filterVar1].low, filters[m][filterVar1].high,
+              filters[m][filterVar2].low, filters[m][filterVar2].high);
+        }
+      }
     }
     break;
 
@@ -2980,12 +3027,16 @@ static int remote_command(void *data) {
     int v = filter_command->id;
     int m = filter_command->mode;
     int f = filter_command->filter;
+    // since ntohs produces an uint16_t, we must cast to short
+    // if we have negative numbers
+    short low = ntohs(filter_command->filter_low);
+    short high = ntohs(filter_command->filter_high);
     // 
     // If this is a var1/var2 filter, update filter edges
     //
     if (f == filterVar1 || f == filterVar2) {
-      filters[m][f].low  = filter_command->filter_low;
-      filters[m][f].high = filter_command->filter_high;
+      filters[m][f].low  = low;
+      filters[m][f].high = high;
     }
     if (m != vfo[v].mode) {
       vfo_id_mode_changed(v, m);

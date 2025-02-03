@@ -231,17 +231,7 @@ static void var_spin_low_cb (GtkWidget *widget, gpointer data) {
     break;
   }
 
-  //t_print("%s: new values=(%d:%d)\n", __FUNCTION__, filter->low, filter->high);
-  //
-  // Change all receivers that use *this* variable filter
-  //
-  for (int i = 0; i < receivers; i++) {
-    if (vfo[i].filter == f) {
-      rx_filter_changed(receiver[i]);
-    }
-  }
-
-  g_idle_add(ext_vfo_update, NULL);
+  vfo_id_filter_changed(id, f);
 }
 
 //
@@ -295,17 +285,7 @@ static void var_spin_high_cb (GtkWidget *widget, gpointer data) {
     break;
   }
 
-  //t_print("%s: new values=(%d:%d)\n", __FUNCTION__, filter->low, filter->high);
-  //
-  // Change all receivers that use *this* variable filter
-  //
-  for (int i = 0; i < receivers; i++) {
-    if (vfo[i].filter == f) {
-      rx_filter_changed(receiver[i]);
-    }
-  }
-
-  g_idle_add(ext_vfo_update, NULL);
+  vfo_id_filter_changed(id, f);
 }
 
 void filter_menu(GtkWidget *parent) {
