@@ -1393,7 +1393,6 @@ void rx_create_remote(RECEIVER *rx) {
 //#define WDSPRXDEBUG
 
 void rx_change_sample_rate(RECEIVER *rx, int sample_rate) {
-  CLIENT_WDSP;
   // ToDo: move this outside of the WDSP wrappers and encapsulate WDSP calls
   //       in this function
 #ifdef WDSPRXDEBUG
@@ -1401,13 +1400,14 @@ void rx_change_sample_rate(RECEIVER *rx, int sample_rate) {
 #endif
   g_mutex_lock(&rx->mutex);
   rx->sample_rate = sample_rate;
-  schedule_receive_specific();
   int scale = rx->sample_rate / 48000;
-  rx->output_samples = rx->buffer_size / scale;
   rx->hz_per_pixel = (double)rx->sample_rate / (double)rx->width;
+  rx->output_samples = rx->buffer_size / scale;
   t_print("%s: id=%d rate=%d scale=%d buffer_size=%d output_samples=%d\n", __FUNCTION__, rx->id, sample_rate, scale,
           rx->buffer_size, rx->output_samples);
 
+  if (!radio_is_remote) {
+  schedule_receive_specific();
   //
   // In the old protocol, the RX_FEEDBACK sample rate is tied
   // to the radio's sample rate and therefore may vary.
@@ -1453,6 +1453,7 @@ void rx_change_sample_rate(RECEIVER *rx, int sample_rate) {
 
 #endif
   rx_on(rx);
+  }
   //
   // for a non-PS receiver, adjust pixels and hz_per_pixel depending on the zoom value
   //

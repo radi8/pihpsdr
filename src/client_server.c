@@ -2146,6 +2146,7 @@ static void *client_thread(void* arg) {
       //
       receiver[rx]->pixel_samples = NULL;
       g_mutex_init(&receiver[rx]->display_mutex);
+      g_mutex_init(&receiver[rx]->mutex);
       receiver[rx]->hz_per_pixel = (double)receiver[rx]->sample_rate / (double)receiver[rx]->pixels;
       //receiver[rx]->playback_handle=NULL;
       receiver[rx]->local_audio_buffer = NULL;
