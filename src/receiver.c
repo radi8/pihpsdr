@@ -107,7 +107,9 @@ void rx_set_active(RECEIVER *rx) {
   //
   // Changing the active receiver flips the TX vfo
   //
-  radio_tx_vfo_changed();
+  if (can_transmit) {
+    radio_tx_vfo_changed();
+  }
   radio_set_alex_antennas();
 }
 
