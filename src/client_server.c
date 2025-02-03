@@ -321,7 +321,7 @@ static int send_spectrum(void *arg) {
   return result;
 }
 
-void send_varfilter_data(const REMOTE_CLIENT *client) {
+void send_varfilter_data(int sock) {
   //
   // Used at program  startup to send the filter edges of the
   // variable filters
@@ -340,10 +340,10 @@ void send_varfilter_data(const REMOTE_CLIENT *client) {
     varfilter_data.var2high[m] = htons(filters[m][filterVar2].high);
   }
 
-  send_bytes(client->socket, (char *)&varfilter_data, sizeof(varfilter_data));
+  send_bytes(sock, (char *)&varfilter_data, sizeof(varfilter_data));
 }
 
-void send_radio_data(const REMOTE_CLIENT *client) {
+void send_radio_data(int sock) {
   RADIO_DATA radio_data;
   radio_data.header.sync = REMOTE_SYNC;
   radio_data.header.data_type = htons(INFO_RADIO);
@@ -367,10 +367,10 @@ void send_radio_data(const REMOTE_CLIENT *client) {
   radio_data.have_rx_gain = have_rx_gain;
   radio_data.rx_gain_calibration = htons(rx_gain_calibration);
   radio_data.filter_board = htons(filter_board);
-  send_bytes(client->socket, (char *)&radio_data, sizeof(radio_data));
+  send_bytes(sock, (char *)&radio_data, sizeof(radio_data));
 }
 
-void send_adc_data(const REMOTE_CLIENT *client, int i) {
+void send_adc_data(int sock, int i) {
   ADC_DATA adc_data;
   adc_data.header.sync = REMOTE_SYNC;
   adc_data.header.data_type = htons(INFO_ADC);
@@ -387,10 +387,10 @@ void send_adc_data(const REMOTE_CLIENT *client, int i) {
   adc_data.gain = htond(adc[i].gain);
   adc_data.min_gain = htond(adc[i].min_gain);
   adc_data.max_gain = htond(adc[i].max_gain);
-  send_bytes(client->socket, (char *)&adc_data, sizeof(adc_data));
+  send_bytes(sock, (char *)&adc_data, sizeof(adc_data));
 }
 
-void send_rx_data(const REMOTE_CLIENT *client, int rx) {
+void send_rx_data(int sock, int rx) {
   RECEIVER_DATA rx_data;
   rx_data.header.sync = REMOTE_SYNC;
   rx_data.header.data_type = htons(INFO_RECEIVER);
@@ -433,10 +433,10 @@ void send_rx_data(const REMOTE_CLIENT *client, int rx) {
   rx_data.display_detector_mode = receiver[rx]->display_detector_mode;
   rx_data.display_average_mode = receiver[rx]->display_average_mode;
   rx_data.display_average_time = htons((int)receiver[rx]->display_average_time);
-  send_bytes(client->socket, (char *)&rx_data, sizeof(rx_data));
+  send_bytes(sock, (char *)&rx_data, sizeof(rx_data));
 }
 
-void send_vfo_data(const REMOTE_CLIENT *client, int v) {
+void send_vfo_data(int sock, int v) {
   VFO_DATA vfo_data;
   vfo_data.header.sync = REMOTE_SYNC;
   vfo_data.header.data_type = htons(INFO_VFO);
@@ -454,7 +454,7 @@ void send_vfo_data(const REMOTE_CLIENT *client, int v) {
   vfo_data.lo = htonll(vfo[v].lo);
   vfo_data.offset = htonll(vfo[v].offset);
   vfo_data.step   = htonll(vfo[v].step);
-  send_bytes(client->socket, (char *)&vfo_data, sizeof(vfo_data));
+  send_bytes(sock, (char *)&vfo_data, sizeof(vfo_data));
 }
 
 //
@@ -469,17 +469,17 @@ static void *server_thread(void *arg) {
   // The server starts with sending much of the radio data in order
   // to initialize data structures on the client side.
   //
-  send_radio_data(client);                 // send INFO_RADIO     packet
-  send_varfilter_data(client);             // send INFO_VARFILTER packet
-  send_adc_data(client, 0);                // send INFO_ADC       packet
-  send_adc_data(client, 1);                // send INFO_ADC       packet
+  send_radio_data(client->socket);         // send INFO_RADIO     packet
+  send_varfilter_data(client->socket);     // send INFO_VARFILTER packet
+  send_adc_data(client->socket, 0);        // send INFO_ADC       packet
+  send_adc_data(client->socket, 1);        // send INFO_ADC       packet
 
   for (int i = 0; i < RECEIVERS; i++) {
-    send_rx_data(client, i);               // send INFO_RECEIVER packet
+    send_rx_data(client->socket, i);       // send INFO_RECEIVER packet
   }
 
-  send_vfo_data(client, VFO_A);            // send INFO_VFO packet
-  send_vfo_data(client, VFO_B);            // send INFO_VFO packet
+  send_vfo_data(client->socket, VFO_A);    // send INFO_VFO packet
+  send_vfo_data(client->socket, VFO_B);    // send INFO_VFO packet
 
   //
   // get and parse client commands
@@ -2813,8 +2813,8 @@ static int remote_command(void *data) {
     long long f = ntohll(freq_command->hz);
     vfo_set_frequency(v, f);
     vfo_update();
-    send_vfo_data(client, VFO_A);
-    send_vfo_data(client, VFO_B);
+    send_vfo_data(client->socket, VFO_A);
+    send_vfo_data(client->socket, VFO_B);
 
     if (temp != active_receiver->pan) {
       send_pan(client->socket, active_receiver->id, active_receiver->pan);
@@ -2828,8 +2828,8 @@ static int remote_command(void *data) {
     short steps = ntohs(step_command->steps);
     vfo_step(steps);
 
-    //send_vfo_data(client,VFO_A);
-    //send_vfo_data(client,VFO_B);
+    //send_vfo_data(client->socket,VFO_A);
+    //send_vfo_data(client->socket,VFO_B);
     if (temp != active_receiver->pan) {
       send_pan(client->socket, active_receiver->id, active_receiver->pan);
     }
@@ -2842,8 +2842,8 @@ static int remote_command(void *data) {
     long long hz = ntohll(move_command->hz);
     vfo_move(hz, move_command->round);
 
-    //send_vfo_data(client,VFO_A);
-    //send_vfo_data(client,VFO_B);
+    //send_vfo_data(client->socket,VFO_A);
+    //send_vfo_data(client->socket,VFO_B);
     if (temp != active_receiver->pan) {
       send_pan(client->socket, active_receiver->id, active_receiver->pan);
     }
@@ -2855,8 +2855,8 @@ static int remote_command(void *data) {
     temp = active_receiver->pan;
     long long hz = ntohll(move_to_command->hz);
     vfo_move_to(hz);
-    send_vfo_data(client, VFO_A);
-    send_vfo_data(client, VFO_B);
+    send_vfo_data(client->socket, VFO_A);
+    send_vfo_data(client->socket, VFO_B);
 
     if (temp != active_receiver->pan) {
       send_pan(client->socket, active_receiver->id, active_receiver->pan);
@@ -3003,8 +3003,8 @@ static int remote_command(void *data) {
     CHECK_RX(r);
     short b = htons(band_command->band);
     vfo_band_changed(r, b);
-    send_vfo_data(client, VFO_A);
-    send_vfo_data(client, VFO_B);
+    send_vfo_data(client->socket, VFO_A);
+    send_vfo_data(client->socket, VFO_B);
   }
   break;
 
@@ -3024,7 +3024,7 @@ static int remote_command(void *data) {
     // - equalizer settings                          (not yet implemented)
     // - TX compressor, mic gain, CFC, DExp settings (n/a)
     //
-    send_vfo_data(client, v);
+    send_vfo_data(client->socket, v);
 }
   break;
 
@@ -3114,7 +3114,7 @@ static int remote_command(void *data) {
     rx_set_offset(active_receiver, vfo[v].offset);
     g_idle_add(ext_vfo_update, NULL);
     send_ctun(client->socket, v, vfo[v].ctun);
-    send_vfo_data(client, v);
+    send_vfo_data(client->socket, v);
   }
   break;
 
@@ -3155,8 +3155,8 @@ static int remote_command(void *data) {
       break;
     }
 
-    send_vfo_data(client, VFO_A);
-    send_vfo_data(client, VFO_B);
+    send_vfo_data(client->socket, VFO_A);
+    send_vfo_data(client->socket, VFO_B);
   }
   break;
 
@@ -3164,7 +3164,7 @@ static int remote_command(void *data) {
     const RIT_TOGGLE_COMMAND *rit_toggle_command = (RIT_TOGGLE_COMMAND *)data;
     int rx = rit_toggle_command->id;
     vfo_rit_toggle(rx);
-    send_vfo_data(client, rx);
+    send_vfo_data(client->socket, rx);
   }
   break;
 
@@ -3172,7 +3172,7 @@ static int remote_command(void *data) {
     const RIT_CLEAR_COMMAND *rit_clear_command = (RIT_CLEAR_COMMAND *)data;
     int rx = rit_clear_command->id;
     vfo_rit_value(rx, 0);
-    send_vfo_data(client, rx);
+    send_vfo_data(client->socket, rx);
   }
   break;
 
@@ -3181,25 +3181,25 @@ static int remote_command(void *data) {
     int rx = rit_command->id;
     short rit = ntohs(rit_command->rit);
     vfo_rit_incr(rx, (int)rit * rit_increment);
-    send_vfo_data(client, rx);
+    send_vfo_data(client->socket, rx);
   }
   break;
 
   case CMD_RESP_XIT_TOGGLE: {
-    send_vfo_data(client, VFO_A);
-    send_vfo_data(client, VFO_B);
+    send_vfo_data(client->socket, VFO_A);
+    send_vfo_data(client->socket, VFO_B);
   }
   break;
 
   case CMD_RESP_XIT_CLEAR: {
-    send_vfo_data(client, VFO_A);
-    send_vfo_data(client, VFO_B);
+    send_vfo_data(client->socket, VFO_A);
+    send_vfo_data(client->socket, VFO_B);
   }
   break;
 
   case CMD_RESP_XIT: {
-    send_vfo_data(client, VFO_A);
-    send_vfo_data(client, VFO_B);
+    send_vfo_data(client->socket, VFO_A);
+    send_vfo_data(client->socket, VFO_B);
   }
   break;
 

@@ -231,7 +231,18 @@ static void var_spin_low_cb (GtkWidget *widget, gpointer data) {
     break;
   }
 
-  vfo_id_filter_changed(id, f);
+  //
+  // If THIS variable filter is currently selected, change the receiver
+  // etc. via vfo_id_filter_changed().
+  // If not, we have to report the changed edges to the server
+  //
+  if (f == vfo[id].filter) {
+    vfo_id_filter_changed(id, f);
+  } else if (radio_is_remote) {
+#ifdef CLIENT_SERVER
+    send_varfilter_data(client_socket);
+#endif
+  }
 }
 
 //
@@ -285,7 +296,19 @@ static void var_spin_high_cb (GtkWidget *widget, gpointer data) {
     break;
   }
 
-  vfo_id_filter_changed(id, f);
+  //
+  // If THIS variable filter is currently selected, change the receiver
+  // etc. via vfo_id_filter_changed().
+  // If not, we have to report the changed edges to the server
+  //
+  if (f == vfo[id].filter) {
+    vfo_id_filter_changed(id, f);
+  } else if (radio_is_remote) {
+#ifdef CLIENT_SERVER
+    send_varfilter_data(client_socket);
+#endif
+  }
+
 }
 
 void filter_menu(GtkWidget *parent) {

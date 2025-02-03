@@ -545,10 +545,10 @@ extern int destroy_hpsdr_server(void);
 
 extern int radio_connect_remote(char *host, int port);
 
-extern void send_radio_data(const REMOTE_CLIENT *client);
-extern void send_adc_data(const REMOTE_CLIENT *client, int i);
-extern void send_receiver_data(const REMOTE_CLIENT *client, int rx);
-extern void send_vfo_data(const REMOTE_CLIENT *client, int v);
+extern void send_radio_data(int sock);
+extern void send_adc_data(int sock, int i);
+extern void send_receiver_data(int sock, int rx);
+extern void send_vfo_data(int sock, int v);
 
 extern void send_start_spectrum(int s, int rx);
 extern void send_vfo_frequency(int s, int rx, long long hz);
@@ -590,6 +590,7 @@ extern void send_filter_board(int s, int filter_board);
 extern void send_swap_iq(int s, int swap_iq);
 extern void send_region(int s, int region);
 extern void send_mute_rx(int s, int mute);
+extern void send_varfilter_data(int s);
 
 extern void remote_audio(const RECEIVER *rx, short left_sample, short right_sample);
 
