@@ -350,7 +350,8 @@ typedef struct __attribute__((__packed__)) _mode_command {
 typedef struct __attribute__((__packed__)) _filter_command {
   HEADER header;
   uint8_t id;
-  uint16_t filter;
+  uint8_t mode;
+  uint8_t filter;
   uint16_t filter_low;
   uint16_t filter_high;
 } FILTER_COMMAND;
@@ -548,7 +549,7 @@ extern void send_squelch(int s, int rx, int enable, int squelch);
 extern void send_noise(int s, const RECEIVER *rx);
 extern void send_band(int s, int rx, int band);
 extern void send_mode(int s, int rx, int mode);
-extern void send_filter(int s, int rx, int filter);
+extern void send_filter(int s, int vfo, int filter);
 extern void send_split(int s, int split);
 extern void send_sat(int s, int sat);
 extern void send_dup(int s, int dup);

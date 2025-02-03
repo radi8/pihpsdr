@@ -90,6 +90,7 @@
 #include "dac.h"
 #include "discovered.h"
 #include "ext.h"
+#include "filter.h"
 #include "main.h"
 #include "message.h"
 #include "mystring.h"
@@ -1554,16 +1555,25 @@ void send_mode(int s, int rx, int mode) {
   send_bytes(s, (char *)&command, sizeof(command));
 }
 
-void send_filter(int s, int rx, int filter) {
+void send_filter(int s, int v, int filter) {
+  //
+  // invoked upon filter selection.
+  // It sends the VFO number, its mode and its filter,
+  // and the nominal edges of that filter.
+  // Sending the mode should not be necessary but  who knows.
+  // Sending the filter edges is only necessary for var1/var2
+  //
   FILTER_COMMAND command;
-  t_print("send_filter rx=%d filter=%d\n", rx, filter);
+  int mode = vfo[v].mode;
+  t_print("send_filter vfo=%d mode=%d filter=%d\n", vfo, mode, filter);
   command.header.sync = REMOTE_SYNC;
   command.header.data_type = htons(CMD_RESP_RX_FILTER);
   command.header.version = htonl(CLIENT_SERVER_VERSION);
-  command.id = rx;
-  command.filter = htons(filter);
-  command.filter_low = htons(receiver[rx]->filter_low);
-  command.filter_high = htons(receiver[rx]->filter_high);
+  command.id = v;
+  command.mode = mode;
+  command.filter = filter;
+  command.filter_low = filters[mode][filter].low;
+  command.filter_high = filters[mode][filter].high;
   send_bytes(s, (char *)&command, sizeof(command));
 }
 
@@ -2420,12 +2430,26 @@ static void *client_thread(void* arg) {
         return NULL;
       }
 
+      //
+      // This commands is only used to set the RX filter edges
+      // on the client side.
+      //
       // cppcheck-suppress uninitStructMember
-      int rx = filter_cmd.id;
-      short low = ntohs(filter_cmd.filter_low);
-      short high = ntohs(filter_cmd.filter_high);
-      receiver[rx]->filter_low = (int)low;
-      receiver[rx]->filter_high = (int)high;
+      int v = filter_cmd.id;
+      int m = filter_cmd.mode;
+      int f = filter_cmd.filter;
+      int low = ntohs(filter_cmd.filter_low);
+      int high = ntohs(filter_cmd.filter_high);
+      t_print("%s: RxFilter v=%d m=%d f=%d low=%d high=%d\n", v,m,f,low,high);
+      //
+      // Store the filter edges in RX if it exists
+      //
+      for (int i = 0; i < receivers; i++) {
+        if (vfo[i].filter == f) {
+          receiver[i]->filter_low = low;
+          receiver[i]->filter_high = high;
+        }
+      }
       g_idle_add(ext_vfo_update, NULL);
     }
     break;
@@ -2928,8 +2952,8 @@ static int remote_command(void *data) {
 
   case CMD_RESP_RX_MODE: {
     MODE_COMMAND *mode_command = (MODE_COMMAND *)data;
-    int r = mode_command->id;
-    short m = htons(mode_command->mode);
+    int v = mode_command->id;
+    int m = htons(mode_command->mode);
     vfo_mode_changed(m);
     //
     // A change of the mode implies that all sorts of other settings
@@ -2942,25 +2966,32 @@ static int remote_command(void *data) {
     // - equalizer settings                          (not yet implemented)
     // - TX compressor, mic gain, CFC, DExp settings (n/a)
     //
-    send_vfo_data(client, VFO_A);
-    send_vfo_data(client, VFO_B);
-    send_filter(client->socket, r, m);
-  }
+    send_vfo_data(client, v);
+}
   break;
 
   case CMD_RESP_RX_FILTER: {
     //
-    // Here we should digest both the nominal filter edges
-    // (to be changed for var1/var2) and the actual filter edges
-    // (stored in RECEIVER)
+    // Set the new filter. If mode does not match, change it
+    // (this should not happen). For var1/var2 set filter
+    // edges.
     //
     FILTER_COMMAND *filter_command = (FILTER_COMMAND *)data;
-    int r = filter_command->id;
-    short f = htons(filter_command->filter);
-    vfo_filter_changed(f);
-    send_vfo_data(client, VFO_A);
-    send_vfo_data(client, VFO_B);
-    send_filter(client->socket, r, f);
+    int v = filter_command->id;
+    int m = filter_command->mode;
+    int f = filter_command->filter;
+    // 
+    // If this is a var1/var2 filter, update filter edges
+    //
+    if (f == filterVar1 || f == filterVar2) {
+      filters[m][f].low  = filter_command->filter_low;
+      filters[m][f].high = filter_command->filter_high;
+    }
+    if (m != vfo[v].mode) {
+      vfo_id_mode_changed(v, m);
+      // TODO report all data changed upon a mode change
+    }
+    vfo_id_filter_changed(v, f);
   }
   break;
 
