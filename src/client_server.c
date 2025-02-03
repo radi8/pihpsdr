@@ -3039,10 +3039,17 @@ static int remote_command(void *data) {
       filters[m][f].high = high;
     }
     if (m != vfo[v].mode) {
+      t_print("%s: WARNING: mode did  not mach in CMD_RESP_RX_FILTER\n", __FUNCTION__);
       vfo_id_mode_changed(v, m);
-      // TODO report all data changed upon a mode change
+      // TODO: change all changed "mode settings" data not contained in rx
     }
     vfo_id_filter_changed(v, f);
+    //
+    // filter edges in receiver(s) may have changed
+    //
+    for (int id = 0; id < receivers; id++) {
+      send_rx_data(client, id);
+    }
   }
   break;
 
