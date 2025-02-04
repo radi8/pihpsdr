@@ -824,7 +824,7 @@ void vfo_filter_changed(int f) {
 void vfo_id_filter_changed(int id, int f) {
   if (radio_is_remote) {
 #ifdef CLIENT_SERVER
-    send_filter(client_socket, id, f);
+    send_filter_sel(client_socket, id, f);
 #endif
     return;
   }
