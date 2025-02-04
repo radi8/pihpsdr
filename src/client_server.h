@@ -47,7 +47,6 @@ typedef enum {
 
 enum _header_type_enum {
   INFO_RADIO,
-  INFO_VARFILTER,
   INFO_ADC,
   INFO_RECEIVER,
   INFO_TRANSMITTER,
@@ -96,6 +95,7 @@ enum _header_type_enum {
   CMD_SWAP_IQ,
   CMD_REGION,
   CMD_MUTE_RX,
+  CLIENT_SERVER_COMMANDS,
 };
 
 enum _vfo_action_enum {
@@ -104,9 +104,9 @@ enum _vfo_action_enum {
   VFO_A_SWAP_B,
 };
 
-#define CLIENT_SERVER_VERSION 1234567LL  // This indicates a test version
+#define CLIENT_SERVER_VERSION 0xFFFF     // This indicates a test version
 
-#define SPECTRUM_DATA_SIZE 2048          // Maximum width of a panadapter
+#define SPECTRUM_DATA_SIZE 1024          // Maximum width of a panadapter
 #define AUDIO_DATA_SIZE 1024
 
 #define REMOTE_SYNC (uint16_t)0xFAFA
@@ -139,21 +139,13 @@ typedef struct _remote_client {
 typedef struct __attribute__((__packed__)) _header {
   uint16_t sync;
   uint16_t data_type;
-  uint64_t version;
+  uint16_t version;
+  uint16_t payload;  //  length of what follows the header
   union {
     uint64_t i;
     REMOTE_CLIENT *client;
   } context;
 } HEADER;
-
-typedef struct __attribute__((__packed__)) _varfilter_data {
-  HEADER header;
-  uint8_t  modes;
-  uint16_t var1low[MODES];
-  uint16_t var1high[MODES];
-  uint16_t var2low[MODES];
-  uint16_t var2high[MODES];
-} VARFILTER_DATA;
 
 typedef struct __attribute__((__packed__)) _radio_data {
   HEADER header;
