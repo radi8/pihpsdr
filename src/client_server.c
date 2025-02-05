@@ -309,13 +309,15 @@ static int send_spectrum(void *arg) {
         }
 
         //
-        // spectrum commands should have a variable length
+        // spectrum commands have a variable length, since this depends on the
+        // width of the screen. To this end, calculate the total number of bytes
+        // in THIS command (xferlen) and the length  of the payload.
         //
         int xferlen = sizeof(spectrum_data) - (SPECTRUM_DATA_SIZE - numsamples)*sizeof(uint16_t);
         int payload = xferlen - sizeof(HEADER);
         spectrum_data.header.payload = htons(payload);
 
-        int bytes_sent = send_bytes(client->socket, (char *)&spectrum_data, sizeof(spectrum_data));
+        int bytes_sent = send_bytes(client->socket, (char *)&spectrum_data, xferlen);
 
         if (bytes_sent < 0) {
           result = FALSE;
@@ -2189,12 +2191,12 @@ static void *client_thread(void* arg) {
     case INFO_SPECTRUM: {
       SPECTRUM_DATA spectrum_data;
       //
-      // This is variable length
+      // The length of the payload is included in the header, only
+      // read the number of bytes specified there.
       //
       size_t payload = ntohs(header.payload);
       bytes_read = recv_bytes(client_socket, (char *)&spectrum_data.rx, payload);
 
-      t_print("Spec Bytes Read: %d\n", (int) bytes_read);
       if (bytes_read <= 0) {
         t_print("client_thread: short read for SPECTRUM_DATA\n");
         t_perror("client_thread");
