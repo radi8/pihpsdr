@@ -306,7 +306,11 @@ static int send_spectrum(void *arg) {
           spectrum_data.sample[i] = htons(s);
         }
 
-        // send the buffer
+        //
+        // Because we are both  in a mutex-protected region and in the GTK queue,
+        // pihpsdr freezes if this send_bytes does  not return, e.g. because the
+        // client died.
+        //
         int bytes_sent = send_bytes(client->socket, (char *)&spectrum_data, sizeof(spectrum_data));
 
         if (bytes_sent < 0) {
@@ -1329,6 +1333,14 @@ static void *server_thread(void *arg) {
   if (client->socket != -1) {
     close(client->socket);
     client->socket = -1;
+  }
+
+  //
+  // Stop sending spectra to the client
+  //
+  if (client->spectrum_update_timer_id != 0) {
+    g_source_remove(client->spectrum_update_timer_id);
+    client->spectrum_update_timer_id = 0;
   }
 
   delete_client(client);
