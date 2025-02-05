@@ -106,7 +106,7 @@ enum _vfo_action_enum {
 
 #define CLIENT_SERVER_VERSION 0xFFFF     // This indicates a test version
 
-#define SPECTRUM_DATA_SIZE 1024          // Maximum width of a panadapter
+#define SPECTRUM_DATA_SIZE 4096          // Maximum width of a panadapter
 #define AUDIO_DATA_SIZE 1024
 
 #define REMOTE_SYNC (uint16_t)0xFAFA

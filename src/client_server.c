@@ -297,20 +297,24 @@ static int send_spectrum(void *arg) {
         spectrum_data.vfo_b_offset = htonll(vfo[VFO_B].offset);
         spectrum_data.meter = htond(receiver[r]->meter);
         spectrum_data.width = htons(rx->width);
+        
         samples = rx->pixel_samples;
 
-        // Added quick and dirty fix as to send only the first SPECTRUM_DATA_SIZE pixels
-
-        for (int i = 0; (i < rx->width) && (i < SPECTRUM_DATA_SIZE) ; i++) {
+        int numsamples = rx->width;
+        if (numsamples > SPECTRUM_DATA_SIZE) { numsamples = SPECTRUM_DATA_SIZE; }
+         
+        for (int i = 0; i < numsamples; i++) {
           s = (short)samples[i + rx->pan];
           spectrum_data.sample[i] = htons(s);
         }
 
         //
-        // Because we are both  in a mutex-protected region and in the GTK queue,
-        // pihpsdr freezes if this send_bytes does  not return, e.g. because the
-        // client died.
+        // spectrum commands should have a variable length
         //
+        int xferlen = sizeof(spectrum_data) - (SPECTRUM_DATA_SIZE - numsamples)*sizeof(uint16_t);
+        int payload = xferlen - sizeof(HEADER);
+        spectrum_data.header.payload = htons(payload);
+
         int bytes_sent = send_bytes(client->socket, (char *)&spectrum_data, sizeof(spectrum_data));
 
         if (bytes_sent < 0) {
@@ -2185,10 +2189,12 @@ static void *client_thread(void* arg) {
     case INFO_SPECTRUM: {
       SPECTRUM_DATA spectrum_data;
       //
-      // This need be reworked if one allows a variable width
+      // This is variable length
       //
-      bytes_read = recv_bytes(client_socket, (char *)&spectrum_data.rx, sizeof(spectrum_data) - sizeof(header));
+      size_t payload = ntohs(header.payload);
+      bytes_read = recv_bytes(client_socket, (char *)&spectrum_data.rx, payload);
 
+      t_print("Spec Bytes Read: %d\n", (int) bytes_read);
       if (bytes_read <= 0) {
         t_print("client_thread: short read for SPECTRUM_DATA\n");
         t_perror("client_thread");
@@ -2214,9 +2220,7 @@ static void *client_thread(void* arg) {
         rx->pixel_samples = g_new(float, (int) width);
       }
 
-      // Added quick and dirty fix as to use at most SPECTRUM_DATA_SIZE pixels
-
-      for (int i = 0; (i < width) && (i < SPECTRUM_DATA_SIZE); i++) {
+      for (int i = 0; i < width; i++) {
         short sample = ntohs(spectrum_data.sample[i]);
         rx->pixel_samples[i] = (float)sample;
       }
