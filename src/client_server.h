@@ -535,7 +535,7 @@ extern void send_adc_data(int sock, int i);
 extern void send_receiver_data(int sock, int rx);
 extern void send_vfo_data(int sock, int v);
 
-extern void send_start_spectrum(int s, int rx);
+extern void send_startstop_spectrum(int s, int rx, int state);
 extern void send_vfo_frequency(int s, int rx, long long hz);
 extern void send_vfo_move_to(int s, int rx, long long hz);
 extern void send_vfo_move(int s, int rx, long long hz, int round);

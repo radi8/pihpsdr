@@ -479,8 +479,6 @@ static void *server_thread(void *arg) {
       continue;
     }
 
-    t_print("header.sync is %x\n", header.sync);
-
     if (header.sync != REMOTE_SYNC) {
       t_print("header.sync is %x wanted %x\n", header.sync, REMOTE_SYNC);
       int syncs = 0;
@@ -1337,13 +1335,13 @@ static void *server_thread(void *arg) {
   return NULL;
 }
 
-void send_start_spectrum(int s, int rx) {
+void send_startstop_spectrum(int s, int rx, int state) {
   SPECTRUM_COMMAND command;
   command.header.sync = REMOTE_SYNC;
   command.header.data_type = htons(CMD_SPECTRUM);
   command.header.version = htons(CLIENT_SERVER_VERSION);
   command.id = rx;
-  command.start_stop = 1;
+  command.start_stop = state;
   send_bytes(s, (char *)&command, sizeof(command));
 }
 
@@ -1932,7 +1930,7 @@ int start_spectrum(void *data) {
     return TRUE;
   }
 
-  send_start_spectrum(client_socket, rx->id);
+  send_startstop_spectrum(client_socket, rx->id, 1);
   return FALSE;
 }
 
