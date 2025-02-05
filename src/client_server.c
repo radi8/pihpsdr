@@ -2396,7 +2396,7 @@ static void *client_thread(void* arg) {
 
       int r = (int)receivers_cmd.receivers;
       t_print("CMD_RECEIVERS: receivers=%d\n", r);
-      radio_change_receivers(r);
+      g_idle_add(ext_radio_change_receivers, GINT_TO_POINTER(r));
     }    
     break;
 

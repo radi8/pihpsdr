@@ -456,14 +456,12 @@ void radio_reconfigure_screen() {
   int last_fullscreen = SET(ws & GDK_WINDOW_STATE_FULLSCREEN);
   int my_fullscreen = SET(full_screen);  // this will not change during this procedure
 
-  t_print("aaaa");
   if (last_fullscreen != my_fullscreen) {
     if (full_screen_timeout > 0) {
       g_source_remove(full_screen_timeout);
       full_screen_timeout = 0;
     }
   }
-  t_print("aabb");
 
   //
   // Re-configure the piHPSDR screen after dimensions have changed
@@ -477,19 +475,16 @@ void radio_reconfigure_screen() {
     gtk_container_remove(GTK_CONTAINER(fixed), toolbar);
     toolbar = NULL;
   }
-  t_print("aacc");
 
   if (sliders) {
     gtk_container_remove(GTK_CONTAINER(fixed), sliders);
     sliders = NULL;
   }
-  t_print("aadd");
 
   if (zoompan) {
     gtk_container_remove(GTK_CONTAINER(fixed), zoompan);
     zoompan = NULL;
   }
-  t_print("aaee");
 
   choose_vfo_layout();
   VFO_HEIGHT = vfo_layout_list[vfo_layout].height;
@@ -499,7 +494,6 @@ void radio_reconfigure_screen() {
   //
   // If there is enough space, increase the meter width
   //
-  t_print("bbbb");
 
   //
   // Change sizes of main window, Hide and Menu buttons, meter, and vfo
@@ -515,7 +509,6 @@ void radio_reconfigure_screen() {
     //
     full_screen_timeout = g_timeout_add(1000, set_full_screen, GINT_TO_POINTER(0));
   }
-  t_print("bbcc");
 
   if (last_fullscreen != full_screen && my_fullscreen) {
     //
@@ -525,29 +518,18 @@ void radio_reconfigure_screen() {
     //
     gtk_window_move(GTK_WINDOW(top_window), 0, 0);
   }
-  t_print("bbdd");
 
   gtk_window_resize(GTK_WINDOW(top_window), my_width, my_height);
-  t_print("bbee");
   gtk_widget_set_size_request(hide_b, MENU_WIDTH, MENU_HEIGHT);
-  t_print("bbff");
   gtk_widget_set_size_request(menu_b, MENU_WIDTH, MENU_HEIGHT);
-  t_print("bbgg");
-  gtk_widget_set_size_request(menu_b, MENU_WIDTH, MENU_HEIGHT);
-  t_print("bbhh");
   gtk_widget_set_size_request(meter,  METER_WIDTH, METER_HEIGHT);
-  t_print("bbii");
   gtk_widget_set_size_request(vfo_panel, VFO_WIDTH, VFO_HEIGHT);
-  t_print("bbkk");
   //
   // Move Hide and Menu buttons, meter to new position
   //
   gtk_fixed_move(GTK_FIXED(fixed), hide_b, VFO_WIDTH + METER_WIDTH, 0);
-  t_print("bbll");
   gtk_fixed_move(GTK_FIXED(fixed), menu_b, VFO_WIDTH + METER_WIDTH, MENU_HEIGHT);
-  t_print("bbmm");
   gtk_fixed_move(GTK_FIXED(fixed), meter, VFO_WIDTH, 0);
-  t_print("bbnn");
 
   //
   // Adjust position of the TX panel.
@@ -562,9 +544,7 @@ void radio_reconfigure_screen() {
   //
   // This re-creates all the panels and the Toolbar/Slider/Zoom area
   //
-  t_print("cccc");
   radio_reconfigure();
-  t_print("ccdd");
 
   if (last_fullscreen != my_fullscreen && my_fullscreen) {
     //
@@ -573,7 +553,6 @@ void radio_reconfigure_screen() {
     //
     full_screen_timeout = g_timeout_add(1000, set_full_screen, GINT_TO_POINTER(1));
   }
-  t_print("zzzz");
 
   g_idle_add(ext_vfo_update, NULL);
 }
@@ -1644,7 +1623,6 @@ void radio_change_receivers(int r) {
 
   switch (r) {
   case 1:
-    t_print("deactivate RX2\n");
     receiver[1]->displaying = 0;
     rx_set_displaying(receiver[1]);
     gtk_container_remove(GTK_CONTAINER(fixed), receiver[1]->panel);
@@ -1657,7 +1635,6 @@ void radio_change_receivers(int r) {
     break;
 
   case 2:
-    t_print("activate RX2\n");
     gtk_fixed_put(GTK_FIXED(fixed), receiver[1]->panel, 0, 0);
     receiver[1]->displaying = 1;
     rx_set_displaying(receiver[1]);
@@ -1672,16 +1649,13 @@ void radio_change_receivers(int r) {
     // Make sure RX2 shares the sample rate  with RX1 when running P1.
     //
     if (protocol == ORIGINAL_PROTOCOL && receiver[1]->sample_rate != receiver[0]->sample_rate) {
-      t_print("Align sample rates\n");
       rx_change_sample_rate(receiver[1], receiver[0]->sample_rate);
     }
 
     break;
   }
 
-  t_print("1111\n");
   radio_reconfigure_screen();
-  t_print("1112\n");
   rx_set_active(receiver[0]);
 
   if (!radio_is_remote) {
@@ -1691,7 +1665,6 @@ void radio_change_receivers(int r) {
       old_protocol_run();
     }
   }
-  t_print("1113\n");
 }
 
 void radio_change_sample_rate(int rate) {
