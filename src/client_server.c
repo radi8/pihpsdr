@@ -2850,7 +2850,7 @@ static int remote_command(void *data) {
     temp = active_receiver->pan;
     int v = freq_command->id;
     long long f = ntohll(freq_command->hz);
-    vfo_set_frequency(v, f);
+    vfo_id_set_frequency(v, f);
     vfo_update();
     send_vfo_data(client->socket, VFO_A);
     send_vfo_data(client->socket, VFO_B);
@@ -3040,7 +3040,7 @@ static int remote_command(void *data) {
     int r = header->info1;
     CHECK_RX(r);
     int b = header->info2;
-    vfo_band_changed(r, b);
+    vfo_id_band_changed(r, b);
     send_vfo_data(client->socket, VFO_A);
     send_vfo_data(client->socket, VFO_B);
   }
@@ -3195,7 +3195,7 @@ static int remote_command(void *data) {
   case CMD_RIT_TOGGLE: {
     const RIT_TOGGLE_COMMAND *rit_toggle_command = (RIT_TOGGLE_COMMAND *)data;
     int rx = rit_toggle_command->id;
-    vfo_rit_toggle(rx);
+    vfo_id_rit_toggle(rx);
     send_vfo_data(client->socket, rx);
   }
   break;
@@ -3203,7 +3203,7 @@ static int remote_command(void *data) {
   case CMD_RIT_CLEAR: {
     const RIT_CLEAR_COMMAND *rit_clear_command = (RIT_CLEAR_COMMAND *)data;
     int rx = rit_clear_command->id;
-    vfo_rit_value(rx, 0);
+    vfo_id_rit_value(rx, 0);
     send_vfo_data(client->socket, rx);
   }
   break;
@@ -3212,7 +3212,7 @@ static int remote_command(void *data) {
     RIT_COMMAND *rit_command = (RIT_COMMAND *)data;
     int id = rit_command->id;
     short rit = ntohs(rit_command->rit);
-    vfo_rit_incr(id, (int)rit * vfo[id].rit_step);
+    vfo_id_rit_incr(id, (int)rit * vfo[id].rit_step);
     send_vfo_data(client->socket, id);
   }
   break;
