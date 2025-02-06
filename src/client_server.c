@@ -127,8 +127,8 @@ static GThread *listen_thread_id;
 static gboolean running;
 static int listen_socket;
 
-static int audio_buffer_index = 0;
-AUDIO_DATA audio_data;
+static int audio_buffer_index[2] = { 0, 0};
+AUDIO_DATA audio_data[2];  // for up to 2 receivers
 
 static int remote_command(void * data);
 
@@ -230,22 +230,25 @@ static int send_bytes(int s, char *buffer, int bytes) {
 }
 
 void remote_audio(const RECEIVER *rx, short left_sample, short right_sample) {
-  int i = audio_buffer_index * 2;
-  audio_data.sample[i] = htons(left_sample);
-  audio_data.sample[i + 1] = htons(right_sample);
-  audio_buffer_index++;
 
-  if (audio_buffer_index >= AUDIO_DATA_SIZE) {
+  int id = rx->id;
+
+  int i = audio_buffer_index[id] * 2;
+  audio_data[id].sample[i] = htons(left_sample);
+  audio_data[id].sample[i + 1] = htons(right_sample);
+  audio_buffer_index[id]++;
+
+  if (audio_buffer_index[id] >= AUDIO_DATA_SIZE) {
     g_mutex_lock(&client_mutex);
     REMOTE_CLIENT *c = remoteclients;
 
     while (c != NULL && c->socket != -1) {
-      audio_data.header.sync = REMOTE_SYNC;
-      audio_data.header.data_type = htons(INFO_AUDIO);
-      audio_data.header.version = htons(CLIENT_SERVER_VERSION);
-      audio_data.rx = rx->id;
-      audio_data.samples = ntohs(audio_buffer_index);
-      int bytes_sent = send_bytes(c->socket, (char *)&audio_data, sizeof(audio_data));
+      audio_data[id].header.sync = REMOTE_SYNC;
+      audio_data[id].header.data_type = htons(INFO_AUDIO);
+      audio_data[id].header.version = htons(CLIENT_SERVER_VERSION);
+      audio_data[id].rx = id;
+      audio_data[id].samples = ntohs(audio_buffer_index[id]);
+      int bytes_sent = send_bytes(c->socket, (char *)&audio_data[id], sizeof(AUDIO_DATA));
 
       if (bytes_sent < 0) {
         t_perror("remote_audio");
@@ -257,7 +260,7 @@ void remote_audio(const RECEIVER *rx, short left_sample, short right_sample) {
     }
 
     g_mutex_unlock(&client_mutex);
-    audio_buffer_index = 0;
+    audio_buffer_index[id] = 0;
   }
 }
 
@@ -2220,6 +2223,12 @@ static void *client_thread(void* arg) {
         for (int i = 0; i < samples; i++) {
           short left_sample = ntohs(adata.sample[(i * 2)]);
           short right_sample = ntohs(adata.sample[(i * 2) + 1]);
+          if (rx != active_receiver && rx->mute_when_not_active) {
+            left_sample = 0;
+            right_sample = 0;
+          }
+          if (rx->audio_channel == LEFT)  { right_sample = 0; }
+          if (rx->audio_channel == RIGHT) { left_sample  = 0; }
           audio_write(rx, (float)left_sample / 32767.0, (float)right_sample / 32767.0);
         }
       }
