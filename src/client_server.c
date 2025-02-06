@@ -315,7 +315,7 @@ static int send_spectrum(void *arg) {
         //
         int xferlen = sizeof(spectrum_data) - (SPECTRUM_DATA_SIZE - numsamples)*sizeof(uint16_t);
         int payload = xferlen - sizeof(HEADER);
-        spectrum_data.header.payload = htons(payload);
+        spectrum_data.header.info3 = htons(payload);
 
         int bytes_sent = send_bytes(client->socket, (char *)&spectrum_data, xferlen);
 
@@ -840,20 +840,13 @@ static void *server_thread(void *arg) {
     case CMD_RX_BAND:
       t_print("%s: CMD_RX_BAND\n", __FUNCTION__);
       {
-        BAND_COMMAND *band_command = g_new(BAND_COMMAND, 1);
-        band_command->header.data_type = header.data_type;
-        band_command->header.version = header.version;
-        band_command->header.context.client = client;
-        bytes_read = recv_bytes(client->socket, (char *)&band_command->id, sizeof(BAND_COMMAND) - sizeof(header));
-
-        if (bytes_read <= 0) {
-          t_print("%s: short read for BAND_COMMAND\n", __FUNCTION__);
-          t_perror("server_thread");
-          // dialog box?
-          return NULL;
-        }
-
-        g_idle_add(remote_command, band_command);
+        HEADER *command = g_new(HEADER, 1);
+        command->data_type = header.data_type;
+        command->version = header.version;
+        command->context.client = client;
+        command->info1 = header.info1;
+        command->info2 = header.info2;
+        g_idle_add(remote_command, command);
       }
 
       break;
@@ -861,20 +854,14 @@ static void *server_thread(void *arg) {
     case CMD_RX_MODE:
       t_print("%s: CMD_RX_MODE\n", __FUNCTION__);
       {
-        MODE_COMMAND *mode_command = g_new(MODE_COMMAND, 1);
-        mode_command->header.data_type = header.data_type;
-        mode_command->header.version = header.version;
-        mode_command->header.context.client = client;
-        bytes_read = recv_bytes(client->socket, (char *)&mode_command->id, sizeof(MODE_COMMAND) - sizeof(header));
+        HEADER *command = g_new(HEADER, 1);
+        command->data_type = header.data_type;
+        command->version = header.version;
+        command->context.client = client;
+        command->info1 = header.info1;
+        command->info2 = header.info2;
 
-        if (bytes_read <= 0) {
-          t_print("%s: short read for MODE_COMMAND\n", __FUNCTION__);
-          t_perror("server_thread");
-          // dialog box?
-          return NULL;
-        }
-
-        g_idle_add(remote_command, mode_command);
+        g_idle_add(remote_command, command);
       }
 
       break;
@@ -1030,41 +1017,14 @@ static void *server_thread(void *arg) {
     case CMD_RX_SELECT:
       t_print("%s: CMD_RX_SELECT\n", __FUNCTION__);
       {
-        RX_SELECT_COMMAND *rx_select_command = g_new(RX_SELECT_COMMAND, 1);
-        rx_select_command->header.data_type = header.data_type;
-        rx_select_command->header.version = header.version;
-        rx_select_command->header.context.client = client;
-        bytes_read = recv_bytes(client->socket, (char *)&rx_select_command->id, sizeof(RX_SELECT_COMMAND) - sizeof(header));
+        // short command, header only
+        HEADER *command = g_new(HEADER, 1);
+        command->data_type = header.data_type;
+        command->version = header.version;
+        command->context.client = client;
+        command->info1 = header.info1;
 
-        if (bytes_read <= 0) {
-          t_print("%s: short read for RX_SELECT\n", __FUNCTION__);
-          t_perror("server_thread");
-          // dialog box?
-          return NULL;
-        }
-
-        g_idle_add(remote_command, rx_select_command);
-      }
-
-      break;
-
-    case CMD_VFO:
-      t_print("%s: CMD_VFO\n", __FUNCTION__);
-      {
-        VFO_COMMAND *vfo_command = g_new(VFO_COMMAND, 1);
-        vfo_command->header.data_type = header.data_type;
-        vfo_command->header.version = header.version;
-        vfo_command->header.context.client = client;
-        bytes_read = recv_bytes(client->socket, (char *)&vfo_command->id, sizeof(VFO_COMMAND) - sizeof(header));
-
-        if (bytes_read <= 0) {
-          t_print("%s: short read for VFO\n", __FUNCTION__);
-          t_perror("server_thread");
-          // dialog box?
-          return NULL;
-        }
-
-        g_idle_add(remote_command, vfo_command);
+        g_idle_add(remote_command, command);
       }
 
       break;
@@ -1559,25 +1519,25 @@ void send_noise(int s, const RECEIVER *rx) {
 }
 
 void send_band(int s, int rx, int band) {
-  BAND_COMMAND command;
+  HEADER header;
   t_print("send_band rx=%d band=%d\n", rx, band);
-  command.header.sync = REMOTE_SYNC;
-  command.header.data_type = htons(CMD_RX_BAND);
-  command.header.version = htons(CLIENT_SERVER_VERSION);
-  command.id = rx;
-  command.band = htons(band);
-  send_bytes(s, (char *)&command, sizeof(command));
+  header.sync = REMOTE_SYNC;
+  header.data_type = htons(CMD_RX_BAND);
+  header.version = htons(CLIENT_SERVER_VERSION);
+  header.info1 = rx;
+  header.info2 = band;
+  send_bytes(s, (char *)&header, sizeof(header));
 }
 
 void send_mode(int s, int rx, int mode) {
-  MODE_COMMAND command;
+  HEADER header;
   t_print("send_mode rx=%d mode=%d\n", rx, mode);
-  command.header.sync = REMOTE_SYNC;
-  command.header.data_type = htons(CMD_RX_MODE);
-  command.header.version = htons(CLIENT_SERVER_VERSION);
-  command.id = rx;
-  command.mode = htons(mode);
-  send_bytes(s, (char *)&command, sizeof(command));
+  header.sync = REMOTE_SYNC;
+  header.data_type = htons(CMD_RX_MODE);
+  header.version = htons(CLIENT_SERVER_VERSION);
+  header.info1 = rx;
+  header.info2 = mode;
+  send_bytes(s, (char *)&header, sizeof(header));
 }
 
 void send_filter_var(int s, int m, int f) {
@@ -1689,23 +1649,13 @@ void send_ctun(int s, int vfo, int ctun) {
 }
 
 void send_rx_select(int s, int rx) {
-  RX_SELECT_COMMAND command;
+  HEADER header;
   t_print("send_rx_select rx=%d\n", rx);
-  command.header.sync = REMOTE_SYNC;
-  command.header.data_type = htons(CMD_RX_SELECT);
-  command.header.version = htons(CLIENT_SERVER_VERSION);
-  command.id = rx;
-  send_bytes(s, (char *)&command, sizeof(command));
-}
-
-void send_vfo(int s, int action) {
-  VFO_COMMAND command;
-  t_print("send_vfo action=%d\n", action);
-  command.header.sync = REMOTE_SYNC;
-  command.header.data_type = htons(CMD_VFO);
-  command.header.version = htons(CLIENT_SERVER_VERSION);
-  command.id = action;
-  send_bytes(s, (char *)&command, sizeof(command));
+  header.sync = REMOTE_SYNC;
+  header.data_type = htons(CMD_RX_SELECT);
+  header.version = htons(CLIENT_SERVER_VERSION);
+  header.info1 = rx;
+  send_bytes(s, (char *)&header, sizeof(header));
 }
 
 void send_rit_toggle(int s, int rx) {
@@ -2194,7 +2144,7 @@ static void *client_thread(void* arg) {
       // The length of the payload is included in the header, only
       // read the number of bytes specified there.
       //
-      size_t payload = ntohs(header.payload);
+      size_t payload = ntohs(header.info3);
       bytes_read = recv_bytes(client_socket, (char *)&spectrum_data.rx, payload);
 
       if (bytes_read <= 0) {
@@ -2432,19 +2382,8 @@ static void *client_thread(void* arg) {
     break;
 
     case CMD_RX_MODE: {
-      MODE_COMMAND mode_cmd;
-      bytes_read = recv_bytes(client_socket, (char *)&mode_cmd.id, sizeof(mode_cmd) - sizeof(header));
-
-      if (bytes_read <= 0) { 
-        t_print("client_thread: short read for MODE_CMD\n");
-        t_perror("client_thread");
-        // dialog box? 
-        return NULL;
-      }    
-
-      // cppcheck-suppress uninitStructMember
-      int rx = mode_cmd.id;
-      short m = ntohs(mode_cmd.mode);
+      int rx = header.info1;
+      int m = header.info2;
       vfo[rx].mode = m; 
       g_idle_add(ext_vfo_update, NULL);
     }    
@@ -2705,26 +2644,25 @@ static void *client_thread(void* arg) {
     break;
 
     case CMD_RX_SELECT: {
-      RX_SELECT_COMMAND rx_select_cmd;
-      bytes_read = recv_bytes(client_socket, (char *)&rx_select_cmd.id, sizeof(rx_select_cmd) - sizeof(header));
-
-      if (bytes_read <= 0) {
-        t_print("client_thread: short read for RX_SELECT_CMD\n");
-        t_perror("client_thread");
-        // dialog box?
-        return NULL;
-      }
-
-      // cppcheck-suppress uninitStructMember
-      int rx = rx_select_cmd.id;
+      int rx = header.info1;
       rx_set_active(receiver[rx]);
     }
 
     g_idle_add(ext_vfo_update, NULL);
     break;
 
-    case CMD_VFO: {
-      t_print("%s: CMD_VFO should not occur\n");
+    case CMD_VFO_A_TO_B: {
+      t_print("%s: CMD_VFO_A_TO_B should not occur\n");
+    }
+    break;
+
+    case CMD_VFO_B_TO_A: {
+      t_print("%s: CMD_VFO_B_TO_A should not occur\n");
+    }
+    break;
+
+    case CMD_VFO_SWAP: {
+      t_print("%s: CMD_VFO_SWAP should not occur\n");
     }
     break;
 
@@ -3092,10 +3030,9 @@ static int remote_command(void *data) {
   break;
 
   case CMD_RX_BAND: {
-    BAND_COMMAND *band_command = (BAND_COMMAND *)data;
-    int r = band_command->id;
+    int r = header->info1;
     CHECK_RX(r);
-    short b = htons(band_command->band);
+    int b = header->info2;
     vfo_band_changed(r, b);
     send_vfo_data(client->socket, VFO_A);
     send_vfo_data(client->socket, VFO_B);
@@ -3103,9 +3040,8 @@ static int remote_command(void *data) {
   break;
 
   case CMD_RX_MODE: {
-    MODE_COMMAND *mode_command = (MODE_COMMAND *)data;
-    int v = mode_command->id;
-    int m = htons(mode_command->mode);
+    int v = header->info1;
+    int m = header->info2;
     vfo_mode_changed(m);
     //
     // A change of the mode implies that all sorts of other settings
@@ -3119,7 +3055,7 @@ static int remote_command(void *data) {
     // - TX compressor, mic gain, CFC, DExp settings (n/a)
     //
     send_vfo_data(client->socket, v);
-}
+  }
   break;
 
   case CMD_RX_FILTER_VAR: {
@@ -3223,32 +3159,27 @@ static int remote_command(void *data) {
   break;
 
   case CMD_RX_SELECT: {
-    const RX_SELECT_COMMAND *rx_select_command = (RX_SELECT_COMMAND *)data;
-    int rx = rx_select_command->id;
+    int rx = header->info1;
     CHECK_RX(rx);
     rx_set_active(receiver[rx]);
     send_rx_select(client->socket, rx);
   }
   break;
 
-  case CMD_VFO: {
-    const VFO_COMMAND *vfo_command = (VFO_COMMAND *)data;
-    int action = vfo_command->id;
+  case CMD_VFO_A_TO_B: {
+    vfo_a_to_b();
+    send_vfo_data(client->socket, VFO_B);
+  }
+  break;
 
-    switch (action) {
-    case VFO_A_TO_B:
-      vfo_a_to_b();
-      break;
+  case CMD_VFO_B_TO_A: {
+    vfo_b_to_a();
+    send_vfo_data(client->socket, VFO_A);
+  }
+  break;
 
-    case VFO_B_TO_A:
-      vfo_b_to_a();
-      break;
-
-    case VFO_A_SWAP_B:
-      vfo_a_swap_b();
-      break;
-    }
-
+  case CMD_VFO_SWAP: {
+    vfo_a_swap_b();
     send_vfo_data(client->socket, VFO_A);
     send_vfo_data(client->socket, VFO_B);
   }
