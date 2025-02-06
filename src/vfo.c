@@ -400,6 +400,7 @@ void vfo_save_state() {
     SetPropI1("vfo.%d.cw_apf", i,           vfo[i].cwAudioPeakFilter);
     SetPropI1("vfo.%d.deviation", i,        vfo[i].deviation);
     SetPropI1("vfo.%d.step", i,             vfo[i].step);
+    SetPropI1("vfo.%d.rit_step", i,         vfo[i].rit_step);
   }
 
   modesettingsSaveState();

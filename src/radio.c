@@ -1625,11 +1625,13 @@ void radio_change_receivers(int r) {
     rx_set_displaying(receiver[1]);
     gtk_container_remove(GTK_CONTAINER(fixed), receiver[1]->panel);
     receivers = 1;
+
     if (radio_is_remote) {
 #ifdef CLIENT_SERVER
       send_startstop_spectrum(client_socket, 1, 0);
 #endif
     }
+
     break;
 
   case 2:
@@ -1637,6 +1639,7 @@ void radio_change_receivers(int r) {
     receiver[1]->displaying = 1;
     rx_set_displaying(receiver[1]);
     receivers = 2;
+
     if (radio_is_remote) {
 #ifdef CLIENT_SERVER
       send_startstop_spectrum(client_socket, 1, 1);

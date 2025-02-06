@@ -244,7 +244,7 @@ static void var_spin_low_cb (GtkWidget *widget, gpointer data) {
   for (int v = 0; v < receivers; v++) {
     if ((vfo[v].mode == m) && (vfo[v].filter == f)) {
       vfo_id_filter_changed(v, f);
-     }
+    }
   }
 }
 
@@ -307,12 +307,12 @@ static void var_spin_high_cb (GtkWidget *widget, gpointer data) {
 
   //
   // Perform a "filter changed" operation on all receivers which
-  // use THIS filter. 
+  // use THIS filter.
   //
   for (int v = 0; v < receivers; v++) {
     if ((vfo[v].mode == m) && (vfo[v].filter == f)) {
       vfo_id_filter_changed(v, f);
-     }
+    }
   }
 }
 
