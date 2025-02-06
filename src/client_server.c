@@ -2716,8 +2716,8 @@ static void *client_thread(void* arg) {
         return NULL;
       }
 
-      rit_step = ntohs(rit_increment_cmd.increment);
-      t_print("CMD_RIT_INCREMENT: increment=%d\n", rit_step);
+      int step = ntohs(rit_increment_cmd.increment);
+      vfo_set_rit_step(step);
     }
     break;
 
@@ -3210,10 +3210,10 @@ static int remote_command(void *data) {
 
   case CMD_RIT: {
     RIT_COMMAND *rit_command = (RIT_COMMAND *)data;
-    int rx = rit_command->id;
+    int id = rit_command->id;
     short rit = ntohs(rit_command->rit);
-    vfo_rit_incr(rx, (int)rit * rit_step);
-    send_vfo_data(client->socket, rx);
+    vfo_rit_incr(id, (int)rit * vfo[id].rit_step);
+    send_vfo_data(client->socket, id);
   }
   break;
 
@@ -3260,9 +3260,9 @@ static int remote_command(void *data) {
 
   case CMD_RIT_INCREMENT: {
     const RIT_INCREMENT_COMMAND *rit_increment_command = (RIT_INCREMENT_COMMAND *)data;
-    short increment = ntohs(rit_increment_command->increment);
-    rit_step = (int)increment;
-    send_rit_step(client->socket, rit_step);
+    int step = ntohs(rit_increment_command->increment);
+    vfo_set_rit_step(step);
+    send_rit_step(client->socket, step);
   }
   break;
 
