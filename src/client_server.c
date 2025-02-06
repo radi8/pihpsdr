@@ -1742,13 +1742,13 @@ void send_receivers(int s, int receivers) {
   send_bytes(s, (char *)&command, sizeof(command));
 }
 
-void send_rit_increment(int s, int increment) {
+void send_rit_step(int s, int step) {
   RIT_INCREMENT_COMMAND command;
-  t_print("send_rit_increment increment=%d\n", increment);
+  t_print("send_rit_step step=%d\n", step);
   command.header.sync = REMOTE_SYNC;
   command.header.data_type = htons(CMD_RIT_INCREMENT);
   command.header.version = htons(CLIENT_SERVER_VERSION);
-  command.increment = htons(increment);
+  command.increment = htons(step);
   send_bytes(s, (char *)&command, sizeof(command));
 }
 
@@ -2166,15 +2166,23 @@ static void *client_thread(void* arg) {
       rx->meter = ntohd(spectrum_data.meter);
       short width = ntohs(spectrum_data.width);
 
-      if (width > rx->width) { width = rx->width; }
-
       if (rx->pixel_samples == NULL) {
-        rx->pixel_samples = g_new(float, (int) width);
+        rx->pixel_samples = g_new(float, (int) rx->width);
       }
 
-      for (int i = 0; i < width; i++) {
-        short sample = ntohs(spectrum_data.sample[i]);
-        rx->pixel_samples[i] = (float)sample;
+      if (width != rx->width) {
+        //
+        // The spectral data does not fit to the panadapter,
+        // simply draw a line at -100 dBm
+        //
+        for (int i = 0; i < rx->width; i++) {
+          rx->pixel_samples[i] = -100.0;
+        }
+      } else {
+        for (int i = 0; i < rx->width; i++) {
+          short sample = ntohs(spectrum_data.sample[i]);
+          rx->pixel_samples[i] = (float)sample;
+        }
       }
 
       if (vfo[VFO_A].frequency != frequency_a || vfo[VFO_B].frequency != frequency_b
@@ -2708,9 +2716,8 @@ static void *client_thread(void* arg) {
         return NULL;
       }
 
-      int increment = ntohs(rit_increment_cmd.increment);
-      t_print("CMD_RIT_INCREMENT: increment=%d\n", increment);
-      rit_increment = increment;
+      rit_step = ntohs(rit_increment_cmd.increment);
+      t_print("CMD_RIT_INCREMENT: increment=%d\n", rit_step);
     }
     break;
 
@@ -3205,7 +3212,7 @@ static int remote_command(void *data) {
     RIT_COMMAND *rit_command = (RIT_COMMAND *)data;
     int rx = rit_command->id;
     short rit = ntohs(rit_command->rit);
-    vfo_rit_incr(rx, (int)rit * rit_increment);
+    vfo_rit_incr(rx, (int)rit * rit_step);
     send_vfo_data(client->socket, rx);
   }
   break;
@@ -3254,8 +3261,8 @@ static int remote_command(void *data) {
   case CMD_RIT_INCREMENT: {
     const RIT_INCREMENT_COMMAND *rit_increment_command = (RIT_INCREMENT_COMMAND *)data;
     short increment = ntohs(rit_increment_command->increment);
-    rit_increment = (int)increment;
-    send_rit_increment(client->socket, rit_increment);
+    rit_step = (int)increment;
+    send_rit_step(client->socket, rit_step);
   }
   break;
 

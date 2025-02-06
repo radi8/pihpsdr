@@ -196,7 +196,7 @@ DAC dac[2];                            // only first entry used
 
 int locked = 0;
 
-int rit_increment = 10;
+int rit_step = 10;
 
 int cw_keys_reversed = 0;              // 0=disabled 1=enabled
 int cw_keyer_speed = 16;               // 1-60 WPM
@@ -2519,7 +2519,7 @@ static void radio_restore_state() {
   GetPropI0("OCfull_tune_time",                              OCfull_tune_time);
   GetPropI0("OCmemory_tune_time",                            OCmemory_tune_time);
   GetPropI0("analog_meter",                                  analog_meter);
-  GetPropI0("rit_increment",                                 rit_increment);
+  GetPropI0("rit_increment",                                 rit_step);
   GetPropI0("vox_enabled",                                   vox_enabled);
   GetPropF0("vox_threshold",                                 vox_threshold);
   GetPropF0("vox_hang",                                      vox_hang);
@@ -2711,7 +2711,7 @@ void radio_save_state() {
   SetPropI0("OCfull_tune_time",                              OCfull_tune_time);
   SetPropI0("OCmemory_tune_time",                            OCmemory_tune_time);
   SetPropI0("analog_meter",                                  analog_meter);
-  SetPropI0("rit_increment",                                 rit_increment);
+  SetPropI0("rit_increment",                                 rit_step);
   SetPropI0("vox_enabled",                                   vox_enabled);
   SetPropF0("vox_threshold",                                 vox_threshold);
   SetPropF0("vox_hang",                                      vox_hang);
