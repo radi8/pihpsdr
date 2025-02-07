@@ -67,11 +67,11 @@ enum _header_type_enum {
   CMD_RX_STEP,
   CMD_RX_MOVE,
   CMD_RX_MOVETO,
-  CMD_RX_BAND,               // short command: id = info1, band = info2
-  CMD_RX_MODE,               // short command: id = info1, mode = info2
-  CMD_RX_FILTER_SEL,
-  CMD_RX_FILTER_VAR,
-  CMD_RX_FILTER_CUT,
+  CMD_RX_BAND,               // short command: vfo=b1, band=b2
+  CMD_RX_MODE,               // short command: vfo=b1, mode=b2
+  CMD_RX_FILTER_SEL,         // short command: vfo=b1, filter=b2
+  CMD_RX_FILTER_VAR,         // short command: mode=b1, filter=b2, low=s1, high=s2
+  CMD_RX_FILTER_CUT,         // short command: rx=b1, low=s1, high=s2
   CMD_RX_AGC,
   CMD_RX_NOISE,
   CMD_RX_ZOOM,
@@ -82,17 +82,17 @@ enum _header_type_enum {
   CMD_RX_GAIN,
   CMD_RX_SQUELCH,
   CMD_RX_FPS,
-  CMD_RX_SELECT,             // short command: rx = info1
+  CMD_RX_SELECT,             // short command: rx = b1
   CMD_VFO_A_TO_B,            // short command: no parameters
   CMD_VFO_B_TO_A,            // short command: no parameters
   CMD_VFO_SWAP,              // short command: no parameters
   CMD_RIT_TOGGLE,
   CMD_RIT_CLEAR,
-  CMD_RIT,
+  CMD_RIT_INCR,              // short command: vfo=b1, incr=s1
   CMD_XIT_TOGGLE,
   CMD_XIT_CLEAR,
   CMD_XIT,
-  CMD_RIT_INCREMENT,
+  CMD_RIT_STEP,              // short command: vfo=b1, step=s1
   CMD_FILTER_BOARD,
   CMD_SWAP_IQ,
   CMD_REGION,
@@ -142,11 +142,19 @@ typedef struct __attribute__((__packed__)) _header {
   uint16_t sync;
   uint16_t data_type;
   uint16_t version;
-  uint8_t info1;
-  uint8_t info2;
-  uint16_t info3;
+  //
+  // two bytes and two shorts that can be used to
+  // store infor for commands that need little
+  // data, so these commands only need the header
+  //
+  uint8_t b1;
+  uint8_t b2;
+  uint16_t s1;
+  uint16_t s2;
   union {
-    uint64_t i_do_not_know_what_to_do_with_this_data;
+    // The payload can be used by some variable-length
+    // commands such as INFO_SPECTRUM
+    uint64_t payload;
     REMOTE_CLIENT *client;
   } context;
 } HEADER;
@@ -244,25 +252,22 @@ typedef struct __attribute__((__packed__)) _receiver_data {
 
 typedef struct __attribute__((__packed__)) _vfo_data {
   HEADER header;
-  uint8_t vfo;
-  uint16_t band;
-  uint16_t bandstack;
+  uint8_t  vfo;
+  uint8_t  band;
+  uint8_t  bandstack;
+  uint8_t  mode;
+  uint8_t  filter;
+  uint8_t  ctun;
+  uint8_t  rit_enabled;
+  uint16_t rit_step;
   uint64_t frequency;
-  uint16_t mode;
-  uint16_t filter;
-  uint8_t ctun;
   uint64_t ctun_frequency;
-  uint8_t rit_enabled;
   uint64_t rit;
   uint64_t lo;
   uint64_t offset;
   uint64_t step;
 } VFO_DATA;
 
-//
-// TODO: make the spectrum variable-size since displays
-//       now can change size
-//
 typedef struct __attribute__((__packed__)) _spectrum_data {
   HEADER header;
   uint8_t rx;
@@ -343,18 +348,6 @@ typedef struct __attribute__((__packed__)) _volume_command {
   uint8_t id;
   mydouble volume;
 } VOLUME_COMMAND;
-
-//typedef struct __attribute__((__packed__)) _band_command {
-//  HEADER header;
-//  uint8_t id;
-//  uint16_t band;
-//} BAND_COMMAND;
-
-//typedef struct __attribute__((__packed__)) _mode_command {
-//  HEADER header;
-//  uint8_t id;
-//  uint16_t mode;
-//} MODE_COMMAND;
 
 typedef struct __attribute__((__packed__)) _filter_command {
   HEADER header;
@@ -449,16 +442,6 @@ typedef struct __attribute__((__packed__)) _ctun_command {
   uint8_t ctun;
 } CTUN_COMMAND;
 
-//typedef struct __attribute__((__packed__)) _rx_select_command {
-//  HEADER header;
-//  uint8_t id;
-//} RX_SELECT_COMMAND;
-
-//typedef struct __attribute__((__packed__)) _vfo_command {
-//  HEADER header;
-//  uint8_t id;
-//} VFO_COMMAND;
-
 typedef struct __attribute__((__packed__)) _lock_command {
   HEADER header;
   uint8_t lock;
@@ -474,12 +457,6 @@ typedef struct __attribute__((__packed__)) _rit_clear_command {
   uint8_t id;
 } RIT_CLEAR_COMMAND;
 
-typedef struct __attribute__((__packed__)) _rit_command {
-  HEADER header;
-  uint8_t id;
-  uint16_t rit;
-} RIT_COMMAND;
-
 typedef struct __attribute__((__packed__)) _xit_toggle_command {
   HEADER header;
 } XIT_TOGGLE_COMMAND;
@@ -492,11 +469,6 @@ typedef struct __attribute__((__packed__)) _xit_command {
   HEADER header;
   uint16_t xit;
 } XIT_COMMAND;
-
-typedef struct __attribute__((__packed__)) _rit_increment {
-  HEADER header;
-  uint16_t increment;
-} RIT_INCREMENT_COMMAND;
 
 typedef struct __attribute__((__packed__)) _filter_board {
   HEADER header;
@@ -569,7 +541,7 @@ extern void send_rx_select(int s, int rx);
 extern void send_lock(int s, int lock);
 extern void send_rit_toggle(int s, int rx);
 extern void send_rit_clear(int s, int rx);
-extern void send_rit(int s, int rx, int rit);
+extern void send_rit_incr(int s, int rx, int incr);
 extern void send_xit_toggle(int s);
 extern void send_xit_clear(int s);
 extern void send_xit(int s, int xit);

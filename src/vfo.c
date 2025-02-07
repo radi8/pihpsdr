@@ -2286,7 +2286,12 @@ void vfo_xit_incr(int incr) {
 }
 
 void vfo_id_rit_incr(int id, int incr) {
-  CLIENT_MISSING;
+  if (radio_is_remote) {
+#ifdef CLIENT_SERVER
+    send_rit_incr(client_socket, id, incr);
+#endif
+    return;
+  }
   long long value = vfo[id].rit + incr;
 
   if (value < -9999) {

@@ -318,7 +318,7 @@ static int send_spectrum(void *arg) {
         //
         int xferlen = sizeof(spectrum_data) - (SPECTRUM_DATA_SIZE - numsamples)*sizeof(uint16_t);
         int payload = xferlen - sizeof(HEADER);
-        spectrum_data.header.info3 = htons(payload);
+        spectrum_data.header.context.payload = htonll(payload);
 
         int bytes_sent = send_bytes(client->socket, (char *)&spectrum_data, xferlen);
 
@@ -433,11 +433,11 @@ void send_vfo_data(int sock, int v) {
   vfo_data.header.data_type = htons(INFO_VFO);
   vfo_data.header.version = htons(CLIENT_SERVER_VERSION);
   vfo_data.vfo = v;
-  vfo_data.band = htons(vfo[v].band);
-  vfo_data.bandstack = htons(vfo[v].bandstack);
+  vfo_data.band = vfo[v].band;
+  vfo_data.bandstack = vfo[v].bandstack;
   vfo_data.frequency = htonll(vfo[v].frequency);
-  vfo_data.mode = htons(vfo[v].mode);
-  vfo_data.filter = htons(vfo[v].filter);
+  vfo_data.mode = vfo[v].mode;
+  vfo_data.filter = vfo[v].filter;
   vfo_data.ctun = vfo[v].ctun;
   vfo_data.ctun_frequency = htonll(vfo[v].ctun_frequency);
   vfo_data.rit_enabled = vfo[v].rit_enabled;
@@ -445,6 +445,7 @@ void send_vfo_data(int sock, int v) {
   vfo_data.lo = htonll(vfo[v].lo);
   vfo_data.offset = htonll(vfo[v].offset);
   vfo_data.step   = htonll(vfo[v].step);
+  vfo_data.rit_step = htons(vfo[v].rit_step);
   send_bytes(sock, (char *)&vfo_data, sizeof(vfo_data));
 }
 
@@ -525,9 +526,10 @@ static void *server_thread(void *arg) {
       continue;
     }
 
-    t_print("%s: received header: type=%d\n", __FUNCTION__, ntohs(header.data_type));
+    int data_type = ntohs(header.data_type);
+    t_print("%s: received header: type=%d\n", __FUNCTION__, data_type);
 
-    switch (ntohs(header.data_type)) {
+    switch (data_type) {
     case CMD_SPECTRUM: {
       SPECTRUM_COMMAND spectrum_command;
       bytes_read = recv_bytes(client->socket, (char *)&spectrum_command.id, sizeof(SPECTRUM_COMMAND) - sizeof(header));
@@ -840,57 +842,6 @@ static void *server_thread(void *arg) {
 
       break;
 
-    case CMD_RX_BAND:
-      t_print("%s: CMD_RX_BAND\n", __FUNCTION__);
-      {
-        HEADER *command = g_new(HEADER, 1);
-        command->data_type = header.data_type;
-        command->version = header.version;
-        command->context.client = client;
-        command->info1 = header.info1;
-        command->info2 = header.info2;
-        g_idle_add(remote_command, command);
-      }
-
-      break;
-
-    case CMD_RX_MODE:
-      t_print("%s: CMD_RX_MODE\n", __FUNCTION__);
-      {
-        HEADER *command = g_new(HEADER, 1);
-        command->data_type = header.data_type;
-        command->version = header.version;
-        command->context.client = client;
-        command->info1 = header.info1;
-        command->info2 = header.info2;
-
-        g_idle_add(remote_command, command);
-      }
-
-      break;
-
-    case CMD_RX_FILTER_SEL:
-    case CMD_RX_FILTER_CUT:
-    case CMD_RX_FILTER_VAR:
-      {
-        FILTER_COMMAND *filter_command = g_new(FILTER_COMMAND, 1);
-        filter_command->header.data_type = header.data_type;
-        filter_command->header.version = header.version;
-        filter_command->header.context.client = client;
-        bytes_read = recv_bytes(client->socket, (char *)&filter_command->id, sizeof(FILTER_COMMAND) - sizeof(header));
-
-        if (bytes_read <= 0) {
-          t_print("%s: short read for FILTER_COMMAND\n", __FUNCTION__);
-          t_perror("server_thread");
-          // dialog box?
-          return NULL;
-        }
-
-        g_idle_add(remote_command, filter_command);
-      }
-
-      break;
-
     case CMD_SPLIT:
       t_print("%s: CMD_RX_SPLIT\n", __FUNCTION__);
       {
@@ -1017,21 +968,6 @@ static void *server_thread(void *arg) {
 
       break;
 
-    case CMD_RX_SELECT:
-      t_print("%s: CMD_RX_SELECT\n", __FUNCTION__);
-      {
-        // short command, header only
-        HEADER *command = g_new(HEADER, 1);
-        command->data_type = header.data_type;
-        command->version = header.version;
-        command->context.client = client;
-        command->info1 = header.info1;
-
-        g_idle_add(remote_command, command);
-      }
-
-      break;
-
     case CMD_RIT_TOGGLE:
       t_print("%s: CMD_RIT_TOGGLE\n", __FUNCTION__);
       {
@@ -1070,27 +1006,6 @@ static void *server_thread(void *arg) {
         }
 
         g_idle_add(remote_command, rit_clear_command);
-      }
-
-      break;
-
-    case CMD_RIT:
-      t_print("%s: CMD_RIT\n", __FUNCTION__);
-      {
-        RIT_COMMAND *rit_command = g_new(RIT_COMMAND, 1);
-        rit_command->header.data_type = header.data_type;
-        rit_command->header.version = header.version;
-        rit_command->header.context.client = client;
-        bytes_read = recv_bytes(client->socket, (char *)&rit_command->id, sizeof(RIT_COMMAND) - sizeof(header));
-
-        if (bytes_read <= 0) {
-          t_print("%s: short read for RIT\n", __FUNCTION__);
-          t_perror("server_thread");
-          // dialog box?
-          return NULL;
-        }
-
-        g_idle_add(remote_command, rit_command);
       }
 
       break;
@@ -1183,28 +1098,6 @@ static void *server_thread(void *arg) {
 
       break;
 
-    case CMD_RIT_INCREMENT:
-      t_print("%s: CMD_RIT_INCREMENT\n", __FUNCTION__);
-      {
-        RIT_INCREMENT_COMMAND *rit_increment_command = g_new(RIT_INCREMENT_COMMAND, 1);
-        rit_increment_command->header.data_type = header.data_type;
-        rit_increment_command->header.version = header.version;
-        rit_increment_command->header.context.client = client;
-        bytes_read = recv_bytes(client->socket, (char *)&rit_increment_command->increment,
-                                sizeof(RIT_INCREMENT_COMMAND) - sizeof(header));
-
-        if (bytes_read <= 0) {
-          t_print("%s: short read for RIT_INCREMENT\n", __FUNCTION__);
-          t_perror("server_thread");
-          // dialog box?
-          return NULL;
-        }
-
-        g_idle_add(remote_command, rit_increment_command);
-      }
-
-      break;
-
     case CMD_FILTER_BOARD:
       t_print("%s: CMD_FILTER_BOARD\n", __FUNCTION__);
       {
@@ -1288,6 +1181,28 @@ static void *server_thread(void *arg) {
         g_idle_add(remote_command, mute_rx_command);
       }
 
+      break;
+
+    //
+    // All "short commands" do the same
+    //
+    case CMD_RX_BAND:
+    case CMD_RX_MODE:
+    case CMD_RX_SELECT:
+    case CMD_RIT_INCR:
+    case CMD_RIT_STEP:
+    case CMD_RX_FILTER_SEL:
+    case CMD_RX_FILTER_CUT:
+    case CMD_RX_FILTER_VAR:
+
+      t_print("%s: ShortCommand=%d\n", __FUNCTION__, data_type);
+      {
+        HEADER *command = g_new(HEADER, 1);
+        memcpy(command, &header, sizeof(HEADER));
+        command->context.client = client;
+        g_idle_add(remote_command, command);
+      }
+ 
       break;
 
     default:
@@ -1527,8 +1442,8 @@ void send_band(int s, int rx, int band) {
   header.sync = REMOTE_SYNC;
   header.data_type = htons(CMD_RX_BAND);
   header.version = htons(CLIENT_SERVER_VERSION);
-  header.info1 = rx;
-  header.info2 = band;
+  header.b1 = rx;
+  header.b2 = band;
   send_bytes(s, (char *)&header, sizeof(header));
 }
 
@@ -1538,8 +1453,8 @@ void send_mode(int s, int rx, int mode) {
   header.sync = REMOTE_SYNC;
   header.data_type = htons(CMD_RX_MODE);
   header.version = htons(CLIENT_SERVER_VERSION);
-  header.info1 = rx;
-  header.info2 = mode;
+  header.b1 = rx;
+  header.b2 = mode;
   send_bytes(s, (char *)&header, sizeof(header));
 }
 
@@ -1550,15 +1465,15 @@ void send_filter_var(int s, int m, int f) {
   // anything else.
   //
   if (f == filterVar1 || f == filterVar2) {
-    FILTER_COMMAND command;
-    command.header.sync = REMOTE_SYNC;
-    command.header.data_type = htons(CMD_RX_FILTER_VAR);
-    command.header.version = htons(CLIENT_SERVER_VERSION);
-    command.id = m;
-    command.filter = f;
-    command.filter_low  =  filters[m][f].low;
-    command.filter_high =  filters[m][f].high;
-    send_bytes(s, (char *)&command, sizeof(command));
+    HEADER header;
+    header.sync = REMOTE_SYNC;
+    header.data_type = htons(CMD_RX_FILTER_VAR);
+    header.version = htons(CLIENT_SERVER_VERSION);
+    header.b1 = m;
+    header.b2 = f;
+    header.s1 = htons(filters[m][f].low);
+    header.s2 = htons(filters[m][f].high);
+    send_bytes(s, (char *)&header, sizeof(HEADER));
   }
 }
 
@@ -1566,27 +1481,27 @@ void send_filter_cut(int s, int rx) {
   //
   // This changes the filter cuts in the "receiver"
   //
-  FILTER_COMMAND command;
-  command.header.sync = REMOTE_SYNC;
-  command.header.data_type = htons(CMD_RX_FILTER_CUT);
-  command.header.version = htons(CLIENT_SERVER_VERSION);
-  command.id = rx;
-  command.filter_low  =  htons(receiver[rx]->filter_low);
-  command.filter_high =  htons(receiver[rx]->filter_high);
-  send_bytes(s, (char *)&command, sizeof(command));
+  HEADER header;
+  header.sync = REMOTE_SYNC;
+  header.data_type = htons(CMD_RX_FILTER_CUT);
+  header.version = htons(CLIENT_SERVER_VERSION);
+  header.b1 = rx;
+  header.s1  =  htons(receiver[rx]->filter_low);
+  header.s2  =  htons(receiver[rx]->filter_high);
+  send_bytes(s, (char *)&header, sizeof(HEADER));
 }
 
 void send_filter_sel(int s, int v, int f) {
   //
   // Change filter of VFO v to filter f
   //
-  FILTER_COMMAND command;
-  command.header.sync = REMOTE_SYNC;
-  command.header.data_type = htons(CMD_RX_FILTER_SEL);
-  command.header.version = htons(CLIENT_SERVER_VERSION);
-  command.id = v;
-  command.filter = f;
-  send_bytes(s, (char *)&command, sizeof(command));
+  HEADER header;
+  header.sync = REMOTE_SYNC;
+  header.data_type = htons(CMD_RX_FILTER_SEL);
+  header.version = htons(CLIENT_SERVER_VERSION);
+  header.b1 = v;
+  header.b2 = f;
+  send_bytes(s, (char *)&header, sizeof(HEADER));
 }
 
 void send_split(int s, int split) {
@@ -1653,17 +1568,17 @@ void send_ctun(int s, int vfo, int ctun) {
 
 void send_rx_select(int s, int rx) {
   HEADER header;
-  t_print("send_rx_select rx=%d\n", rx);
+  t_print("%s: rx=%d\n", __FUNCTION__, rx);
   header.sync = REMOTE_SYNC;
   header.data_type = htons(CMD_RX_SELECT);
   header.version = htons(CLIENT_SERVER_VERSION);
-  header.info1 = rx;
+  header.b1 = rx;
   send_bytes(s, (char *)&header, sizeof(header));
 }
 
 void send_rit_toggle(int s, int rx) {
   RIT_TOGGLE_COMMAND command;
-  t_print("send_rit_enable rx=%d\n", rx);
+  t_print("%s: rx=%d\n", __FUNCTION__, rx);
   command.header.sync = REMOTE_SYNC;
   command.header.data_type = htons(CMD_RIT_TOGGLE);
   command.header.version = htons(CLIENT_SERVER_VERSION);
@@ -1673,7 +1588,7 @@ void send_rit_toggle(int s, int rx) {
 
 void send_rit_clear(int s, int rx) {
   RIT_CLEAR_COMMAND command;
-  t_print("send_rit_clear rx=%d\n", rx);
+  t_print("%s: rx=%d\n", __FUNCTION__, rx);
   command.header.sync = REMOTE_SYNC;
   command.header.data_type = htons(CMD_RIT_CLEAR);
   command.header.version = htons(CLIENT_SERVER_VERSION);
@@ -1681,18 +1596,17 @@ void send_rit_clear(int s, int rx) {
   send_bytes(s, (char *)&command, sizeof(command));
 }
 
-void send_rit(int s, int rx, int rit) {
-  RIT_COMMAND command;
-  t_print("send_rit rx=%d rit=%d\n", rx, rit);
-  command.header.sync = REMOTE_SYNC;
-  command.header.data_type = htons(CMD_RIT);
-  command.header.version = htons(CLIENT_SERVER_VERSION);
-  command.id = rx;
-  command.rit = htons(rit);
-  send_bytes(s, (char *)&command, sizeof(command));
+void send_rit_incr(int s, int rx, int incr) {
+  HEADER header;
+  t_print("%s: rx=%d incr=%d\n", __FUNCTION__, rx, incr);
+  header.sync = REMOTE_SYNC;
+  header.data_type = htons(CMD_RIT_INCR);
+  header.version = htons(CLIENT_SERVER_VERSION);
+  header.b1 = rx;
+  header.s1 = htons(incr);
+  send_bytes(s, (char *)&header, sizeof(HEADER));
 }
 
-// NOTYETUSED
 void send_xit_toggle(int s) {
   XIT_TOGGLE_COMMAND command;
   t_print("send_xit_toggle\n");
@@ -1702,7 +1616,6 @@ void send_xit_toggle(int s) {
   send_bytes(s, (char *)&command, sizeof(command));
 }
 
-//NOTYETUSED
 void send_xit_clear(int s) {
   XIT_CLEAR_COMMAND command;
   t_print("send_xit_clear\n");
@@ -1712,7 +1625,6 @@ void send_xit_clear(int s) {
   send_bytes(s, (char *)&command, sizeof(command));
 }
 
-//NOTYETUSED
 void send_xit(int s, int xit) {
   XIT_COMMAND command;
   t_print("send_xit xit=%d\n", xit);
@@ -1746,13 +1658,12 @@ void send_receivers(int s, int receivers) {
 }
 
 void send_rit_step(int s, int step) {
-  RIT_INCREMENT_COMMAND command;
-  t_print("send_rit_step step=%d\n", step);
-  command.header.sync = REMOTE_SYNC;
-  command.header.data_type = htons(CMD_RIT_INCREMENT);
-  command.header.version = htons(CLIENT_SERVER_VERSION);
-  command.increment = htons(step);
-  send_bytes(s, (char *)&command, sizeof(command));
+  HEADER header;
+  header.sync = REMOTE_SYNC;
+  header.data_type = htons(CMD_RIT_STEP);
+  header.version = htons(CLIENT_SERVER_VERSION);
+  header.s1 = htons(step);
+  send_bytes(s, (char *)&header, sizeof(HEADER));
 }
 
 void send_filter_board(int s, int filter_board) {
@@ -2116,11 +2027,11 @@ static void *client_thread(void* arg) {
       t_print("INFO_VFO: %d\n", bytes_read);
       // cppcheck-suppress uninitStructMember
       int v = vfo_data.vfo;
-      vfo[v].band = ntohs(vfo_data.band);
-      vfo[v].bandstack = ntohs(vfo_data.bandstack);
+      vfo[v].band = vfo_data.band;
+      vfo[v].bandstack = vfo_data.bandstack;
       vfo[v].frequency = ntohll(vfo_data.frequency);
-      vfo[v].mode = ntohs(vfo_data.mode);
-      vfo[v].filter = ntohs(vfo_data.filter);
+      vfo[v].mode = vfo_data.mode;
+      vfo[v].filter = vfo_data.filter;
       // cppcheck-suppress uninitvar
       vfo[v].ctun = vfo_data.ctun;
       vfo[v].ctun_frequency = ntohll(vfo_data.ctun_frequency);
@@ -2129,6 +2040,7 @@ static void *client_thread(void* arg) {
       vfo[v].lo = ntohll(vfo_data.lo);
       vfo[v].offset = ntohll(vfo_data.offset);
       vfo[v].step   = ntohll(vfo_data.step);
+      vfo[v].rit_step  = ntohs(vfo_data.rit_step);
 
       // when VFO-B is initialized we can create the visual. start the MIDI interface and start the data flowing
       if (v == VFO_B && !remote_started) {
@@ -2147,7 +2059,7 @@ static void *client_thread(void* arg) {
       // The length of the payload is included in the header, only
       // read the number of bytes specified there.
       //
-      size_t payload = ntohs(header.info3);
+      size_t payload = ntohll(header.context.payload);
       bytes_read = recv_bytes(client_socket, (char *)&spectrum_data.rx, payload);
 
       if (bytes_read <= 0) {
@@ -2399,8 +2311,8 @@ static void *client_thread(void* arg) {
     break;
 
     case CMD_RX_MODE: {
-      int rx = header.info1;
-      int m = header.info2;
+      int rx = header.b1;
+      int m = header.b2;
       vfo[rx].mode = m; 
       g_idle_add(ext_vfo_update, NULL);
     }    
@@ -2412,20 +2324,10 @@ static void *client_thread(void* arg) {
     break;
 
     case CMD_RX_FILTER_VAR: {
-      FILTER_COMMAND filter_command;
-      bytes_read = recv_bytes(client_socket, (char *)&filter_command.id, sizeof(filter_command) - sizeof(header));
-      
-      if (bytes_read <= 0) { 
-        t_print("client_thread: short read for MODE_CMD\n");
-        t_perror("client_thread");
-        // dialog box? 
-        return NULL;
-      }    
-
-      int m = filter_command.id;
-      int f = filter_command.filter;
-      short low = ntohs(filter_command.filter_low);
-      short high = ntohs(filter_command.filter_high);
+      int m = header.b1;
+      int f = header.b2;
+      short low = ntohs(header.s1);
+      short high = ntohs(header.s2);
 
       filters[m][f].low = low;
       filters[m][f].high = high;
@@ -2433,24 +2335,13 @@ static void *client_thread(void* arg) {
     break;
 
     case CMD_RX_FILTER_CUT: {
-      FILTER_COMMAND cmd; 
-      bytes_read = recv_bytes(client_socket, (char *)&cmd.id, sizeof(cmd) - sizeof(header));
-
-      if (bytes_read <= 0) { 
-        t_print("client_thread: short read for FILTER_CUT_CMD\n");
-        t_perror("client_thread");
-        // dialog box? 
-        return NULL;
-      }    
-
       //   
       // This commands is only used to set the RX filter edges
       // on the client side.
       //   
-      // cppcheck-suppress uninitStructMember
-      int rx = cmd.id;
-      short low = ntohs(cmd.filter_low);
-      short high = ntohs(cmd.filter_high);
+      int rx = header.b1;
+      short low = ntohs(header.s1);
+      short high = ntohs(header.s2);
       //   
       // Store the filter edges in RX if it exists
       //   
@@ -2661,7 +2552,7 @@ static void *client_thread(void* arg) {
     break;
 
     case CMD_RX_SELECT: {
-      int rx = header.info1;
+      int rx = header.b1;
       rx_set_active(receiver[rx]);
     }
 
@@ -2693,8 +2584,8 @@ static void *client_thread(void* arg) {
     }
     break;
 
-    case CMD_RIT: {
-      t_print("%s: CMD_RIT should not occur\n");
+    case CMD_RIT_INCR: {
+      t_print("%s: CMD_RIT_INCR should not occur\n");
     }
     break;
 
@@ -2713,19 +2604,8 @@ static void *client_thread(void* arg) {
     }
     break;
 
-    case CMD_RIT_INCREMENT: {
-      RIT_INCREMENT_COMMAND rit_increment_cmd;
-      bytes_read = recv_bytes(client_socket, (char *)&rit_increment_cmd.increment,
-                              sizeof(rit_increment_cmd) - sizeof(header));
-
-      if (bytes_read <= 0) {
-        t_print("client_thread: short read for RIT_INCREMENT_CMD\n");
-        t_perror("client_thread");
-        // dialog box?
-        return NULL;
-      }
-
-      int step = ntohs(rit_increment_cmd.increment);
+    case CMD_RIT_STEP: {
+      int step = ntohs(header.s1);
       vfo_set_rit_step(step);
     }
     break;
@@ -3046,9 +2926,9 @@ static int remote_command(void *data) {
   break;
 
   case CMD_RX_BAND: {
-    int r = header->info1;
+    int r = header->b1;
     CHECK_RX(r);
-    int b = header->info2;
+    int b = header->b2;
     vfo_id_band_changed(r, b);
     send_vfo_data(client->socket, VFO_A);
     send_vfo_data(client->socket, VFO_B);
@@ -3056,8 +2936,8 @@ static int remote_command(void *data) {
   break;
 
   case CMD_RX_MODE: {
-    int v = header->info1;
-    int m = header->info2;
+    int v = header->b1;
+    int m = header->b2;
     vfo_mode_changed(m);
     //
     // A change of the mode implies that all sorts of other settings
@@ -3097,9 +2977,8 @@ static int remote_command(void *data) {
     // (this should not happen). For var1/var2 set filter
     // edges.
     //
-    FILTER_COMMAND *filter_command = (FILTER_COMMAND *)data;
-    int v = filter_command->id;
-    int f = filter_command->filter;
+    int v = header->b1;
+    int f = header->b2;
     vfo_id_filter_changed(v, f);
     //
     // filter edges in receiver(s) may have changed
@@ -3175,7 +3054,7 @@ static int remote_command(void *data) {
   break;
 
   case CMD_RX_SELECT: {
-    int rx = header->info1;
+    int rx = header->b1;
     CHECK_RX(rx);
     rx_set_active(receiver[rx]);
     send_rx_select(client->socket, rx);
@@ -3217,11 +3096,10 @@ static int remote_command(void *data) {
   }
   break;
 
-  case CMD_RIT: {
-    RIT_COMMAND *rit_command = (RIT_COMMAND *)data;
-    int id = rit_command->id;
-    short rit = ntohs(rit_command->rit);
-    vfo_id_rit_incr(id, (int)rit * vfo[id].rit_step);
+  case CMD_RIT_INCR: {
+    int id = header->b1;
+    short incr = ntohs(header->s1);
+    vfo_id_rit_incr(id, incr);
     send_vfo_data(client->socket, id);
   }
   break;
@@ -3267,9 +3145,8 @@ static int remote_command(void *data) {
   }
   break;
 
-  case CMD_RIT_INCREMENT: {
-    const RIT_INCREMENT_COMMAND *rit_increment_command = (RIT_INCREMENT_COMMAND *)data;
-    int step = ntohs(rit_increment_command->increment);
+  case CMD_RIT_STEP: {
+    int step = ntohs(header->s1);
     vfo_set_rit_step(step);
     send_rit_step(client->socket, step);
   }
