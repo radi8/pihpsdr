@@ -104,9 +104,11 @@ static void vfo_save_bandstack() {
     entry->ctcss_enabled = transmitter->ctcss_enabled;
     entry->ctcss = transmitter->ctcss;
   }
+  CLIENT_MISSING;  // send modified data to server
 }
 
 static void modesettingsSaveState() {
+  CLIENT_MISSING;
   for (int i = 0; i < MODES; i++) {
     SetPropI1("modeset.%d.filter", i,                mode_settings[i].filter);
     SetPropI1("modeset.%d.cwPeak", i,                mode_settings[i].cwPeak);
@@ -167,6 +169,7 @@ static void modesettingsSaveState() {
 }
 
 static void modesettingsRestoreState() {
+  CLIENT_MISSING;
   for (int i = 0; i < MODES; i++) {
     //
     // set defaults that depend on  the mode: filter, agc, step
@@ -353,6 +356,7 @@ static void modesettingsRestoreState() {
 }
 
 void copy_mode_settings(int mode) {
+  CLIENT_ALLOWED;
   //
   // If mode is USB or LSB or DSB, copy settings of that mode to USB and LSB and DSB
   // If mode is CWU or CWL       , copy settings of that mode to CWL and CWU
@@ -382,6 +386,7 @@ void copy_mode_settings(int mode) {
 }
 
 void vfo_save_state() {
+  CLIENT_MISSING;
   vfo_save_bandstack();
 
   for (int i = 0; i < MAX_VFOS; i++) {
@@ -407,6 +412,7 @@ void vfo_save_state() {
 }
 
 void vfo_restore_state() {
+  CLIENT_MISSING;
   for (int i = 0; i < MAX_VFOS; i++) {
     //
     // Set defaults, using a simple heuristics to get a
@@ -466,6 +472,7 @@ void vfo_restore_state() {
 }
 
 static inline void vfo_id_adjust_band(int v, long long f) {
+  CLIENT_MISSING;
   //
   // The purpose of this function is be very quick
   // if the frequency has moved a little inside the
@@ -558,6 +565,7 @@ void vfo_xvtr_changed() {
 }
 
 void vfo_apply_mode_settings(RECEIVER *rx) {
+  CLIENT_ALLOWED;
   int id, m;
   id = rx->id;
   m = vfo[id].mode;
@@ -778,6 +786,7 @@ void vfo_bandstack_changed(int b) {
 }
 
 void vfo_mode_changed(int m) {
+  CLIENT_ALLOWED;
   int id = active_receiver->id;
   vfo_id_mode_changed(id, m);
 }
@@ -812,11 +821,13 @@ void vfo_id_mode_changed(int id, int m) {
 }
 
 void vfo_deviation_changed(int dev) {
+  CLIENT_ALLOWED;
   int id = active_receiver->id;
   vfo_id_deviation_changed(id, dev);
 }
 
 void vfo_id_deviation_changed(int id, int dev) {
+  CLIENT_MISSING;
   vfo[id].deviation = dev;
 
   if (id < receivers) {
@@ -827,6 +838,7 @@ void vfo_id_deviation_changed(int id, int dev) {
 }
 
 void vfo_filter_changed(int f) {
+  CLIENT_ALLOWED;
   int id = active_receiver->id;
   vfo_id_filter_changed(id, f);
 }
@@ -867,6 +879,7 @@ void vfo_id_filter_changed(int id, int f) {
 }
 
 void vfo_vfos_changed() {
+  CLIENT_MISSING;
   //
   // Use this when there are large changes in the VFOs.
   // Apply the new data
@@ -934,6 +947,7 @@ void vfo_a_swap_b() {
 //
 
 int vfo_get_step_from_index(int index) {
+  CLIENT_ALLOWED;
   //
   // This function is used for some
   // extended CAT commands
@@ -946,6 +960,7 @@ int vfo_get_step_from_index(int index) {
 }
 
 int vfo_id_get_stepindex(int id) {
+  CLIENT_ALLOWED;
   //
   // return index of current step size in steps[] array
   //
@@ -987,6 +1002,7 @@ void vfo_id_set_step_from_index(int id, int index) {
 }
 
 void vfo_step(int steps) {
+  CLIENT_ALLOWED;
   int id = active_receiver->id;
   vfo_id_step(id, steps);
 }
@@ -1084,11 +1100,18 @@ void vfo_id_step(int id, int steps) {
 }
 
 void vfo_set_rit_step(int step) {
+  CLIENT_ALLOWED;
   int id = active_receiver->id;
   vfo_id_set_rit_step(id,step);
 }
 
 void vfo_id_set_rit_step(int id, int step) {
+  if (radio_is_remote) {
+#ifdef CLIENT_SERVER
+    send_rit_step(client_socket, id, step);
+    return;
+#endif
+  }
   vfo[id].rit_step = step;
 
   if (id == 0) {
@@ -1119,7 +1142,6 @@ void vfo_id_move(int id, long long hz, int round) {
 
   if (radio_is_remote) {
 #ifdef CLIENT_SERVER
-    //send_vfo_move(client_socket,id,hz,round);
     update_vfo_move(id, hz, round);
 #endif
     return;
@@ -1219,10 +1241,12 @@ void vfo_id_move(int id, long long hz, int round) {
 }
 
 void vfo_move(long long hz, int round) {
+  CLIENT_ALLOWED;
   vfo_id_move(active_receiver->id, hz, round);
 }
 
 void vfo_move_to(long long hz) {
+  CLIENT_ALLOWED;
   int id = active_receiver->id;
   vfo_id_move_to(id, hz);
 }
@@ -1331,12 +1355,14 @@ void vfo_id_move_to(int id, long long hz) {
 
 // cppcheck-suppress constParameterCallback
 static gboolean vfo_scroll_event_cb (GtkWidget *widget, GdkEventScroll *event, gpointer data) {
+  CLIENT_ALLOWED;
   return rx_scroll_event(widget, event, data);
 }
 
 static gboolean vfo_configure_event_cb (GtkWidget         *widget,
                                         GdkEventConfigure *event,
                                         gpointer           data) {
+  CLIENT_ALLOWED;
   if (vfo_surface) {
     cairo_surface_destroy (vfo_surface);
   }
@@ -1358,6 +1384,7 @@ static gboolean vfo_configure_event_cb (GtkWidget         *widget,
 static gboolean vfo_draw_cb (GtkWidget *widget,
                              cairo_t   *cr,
                              gpointer   data) {
+  CLIENT_ALLOWED;
   cairo_set_source_surface (cr, vfo_surface, 0.0, 0.0);
   cairo_paint (cr);
   return FALSE;
@@ -1370,6 +1397,7 @@ static gboolean vfo_draw_cb (GtkWidget *widget,
 // Elements whose x-coordinate is zero are not drawn
 //
 void vfo_update() {
+  CLIENT_ALLOWED;
   char wid[6];
 
   if (!vfo_surface) { return; }
@@ -2182,6 +2210,7 @@ GtkWidget* vfo_init(int width, int height) {
 //
 
 int vfo_get_tx_vfo() {
+  CLIENT_ALLOWED;
   int txvfo = active_receiver->id;
 
   if (split) { txvfo = 1 - txvfo; }
@@ -2190,6 +2219,7 @@ int vfo_get_tx_vfo() {
 }
 
 int vfo_get_tx_mode() {
+  CLIENT_ALLOWED;
   int txvfo = active_receiver->id;
 
   if (split) { txvfo = 1 - txvfo; }
@@ -2198,6 +2228,7 @@ int vfo_get_tx_mode() {
 }
 
 long long vfo_get_tx_freq() {
+  CLIENT_ALLOWED;
   int txvfo = active_receiver->id;
 
   if (split) { txvfo = 1 - txvfo; }
@@ -2227,7 +2258,12 @@ void vfo_xit_toggle() {
 }
 
 void vfo_id_rit_toggle(int id) {
-  CLIENT_MISSING;
+  if (radio_is_remote) {
+#ifdef CLIENT_SERVER
+    send_rit_toggle(client_socket, id);
+#endif
+    return;
+  }
   TOGGLE(vfo[id].rit_enabled);
 
   if (id < receivers) {
@@ -2238,7 +2274,12 @@ void vfo_id_rit_toggle(int id) {
 }
 
 void vfo_id_rit_value(int id, long long value) {
-  CLIENT_MISSING;
+  if (radio_is_remote) {
+#ifdef CLIENT_SERVER
+    send_rit_value(client_socket, id, value);
+#endif
+    return;
+  }
   vfo[id].rit = value;
   vfo[id].rit_enabled = value ? 1 : 0;
 

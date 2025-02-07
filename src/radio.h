@@ -375,6 +375,7 @@ extern void my_combo_attach(GtkGrid *grid, GtkWidget *combo, int row, int col, i
 #define CLIENT_WDSP
 #define CLIENT_WDSP_RET(x)
 #endif
+#define CLIENT_ALLOWED
 
 //
 // Macro for a memory barrier, preventing changing the execution order

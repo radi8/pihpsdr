@@ -968,48 +968,6 @@ static void *server_thread(void *arg) {
 
       break;
 
-    case CMD_RIT_TOGGLE:
-      t_print("%s: CMD_RIT_TOGGLE\n", __FUNCTION__);
-      {
-        RIT_TOGGLE_COMMAND *rit_toggle_command = g_new(RIT_TOGGLE_COMMAND, 1);
-        rit_toggle_command->header.data_type = header.data_type;
-        rit_toggle_command->header.version = header.version;
-        rit_toggle_command->header.context.client = client;
-        bytes_read = recv_bytes(client->socket, (char *)&rit_toggle_command->id, sizeof(RIT_TOGGLE_COMMAND) - sizeof(header));
-
-        if (bytes_read <= 0) {
-          t_print("%s: short read for RIT_TOGGLE\n", __FUNCTION__);
-          t_perror("server_thread");
-          // dialog box?
-          return NULL;
-        }
-
-        g_idle_add(remote_command, rit_toggle_command);
-      }
-
-      break;
-
-    case CMD_RIT_CLEAR:
-      t_print("%s: CMD_RIT_CLEAR\n", __FUNCTION__);
-      {
-        RIT_CLEAR_COMMAND *rit_clear_command = g_new(RIT_CLEAR_COMMAND, 1);
-        rit_clear_command->header.data_type = header.data_type;
-        rit_clear_command->header.version = header.version;
-        rit_clear_command->header.context.client = client;
-        bytes_read = recv_bytes(client->socket, (char *)&rit_clear_command->id, sizeof(RIT_CLEAR_COMMAND) - sizeof(header));
-
-        if (bytes_read <= 0) {
-          t_print("%s: short read for RIT_CLEAR\n", __FUNCTION__);
-          t_perror("server_thread");
-          // dialog box?
-          return NULL;
-        }
-
-        g_idle_add(remote_command, rit_clear_command);
-      }
-
-      break;
-
     case CMD_XIT_TOGGLE:
       t_print("%s: CMD_XIT_TOGGLE\n", __FUNCTION__);
       {
@@ -1194,6 +1152,8 @@ static void *server_thread(void *arg) {
     case CMD_RX_FILTER_SEL:
     case CMD_RX_FILTER_CUT:
     case CMD_RX_FILTER_VAR:
+    case CMD_RIT_TOGGLE:
+    case CMD_RIT_VALUE:
 
       t_print("%s: ShortCommand=%d\n", __FUNCTION__, data_type);
       {
@@ -1577,23 +1537,22 @@ void send_rx_select(int s, int rx) {
 }
 
 void send_rit_toggle(int s, int rx) {
-  RIT_TOGGLE_COMMAND command;
-  t_print("%s: rx=%d\n", __FUNCTION__, rx);
-  command.header.sync = REMOTE_SYNC;
-  command.header.data_type = htons(CMD_RIT_TOGGLE);
-  command.header.version = htons(CLIENT_SERVER_VERSION);
-  command.id = rx;
-  send_bytes(s, (char *)&command, sizeof(command));
+  HEADER header;
+  header.sync = REMOTE_SYNC;
+  header.data_type = htons(CMD_RIT_TOGGLE);
+  header.version = htons(CLIENT_SERVER_VERSION);
+  header.b1 = rx;
+  send_bytes(s, (char *)&header, sizeof(HEADER));
 }
 
-void send_rit_clear(int s, int rx) {
-  RIT_CLEAR_COMMAND command;
-  t_print("%s: rx=%d\n", __FUNCTION__, rx);
-  command.header.sync = REMOTE_SYNC;
-  command.header.data_type = htons(CMD_RIT_CLEAR);
-  command.header.version = htons(CLIENT_SERVER_VERSION);
-  command.id = rx;
-  send_bytes(s, (char *)&command, sizeof(command));
+void send_rit_value(int s, int rx, int rit) {
+  HEADER header;
+  header.sync = REMOTE_SYNC;
+  header.data_type = htons(CMD_RIT_VALUE);
+  header.version = htons(CLIENT_SERVER_VERSION);
+  header.b1 = rx;
+  header.s1 = htons(rit);
+  send_bytes(s, (char *)&header, sizeof(HEADER));
 }
 
 void send_rit_incr(int s, int rx, int incr) {
@@ -1657,11 +1616,12 @@ void send_receivers(int s, int receivers) {
   send_bytes(s, (char *)&command, sizeof(command));
 }
 
-void send_rit_step(int s, int step) {
+void send_rit_step(int s, int v, int step) {
   HEADER header;
   header.sync = REMOTE_SYNC;
   header.data_type = htons(CMD_RIT_STEP);
   header.version = htons(CLIENT_SERVER_VERSION);
+  header.b1 = v;
   header.s1 = htons(step);
   send_bytes(s, (char *)&header, sizeof(HEADER));
 }
@@ -2579,8 +2539,8 @@ static void *client_thread(void* arg) {
     }
     break;
 
-    case CMD_RIT_CLEAR: {
-      t_print("%s: CMD_RIT_CLEAR should not occur\n");
+    case CMD_RIT_VALUE: {
+      t_print("%s: CMD_RIT_VALUE should not occur\n");
     }
     break;
 
@@ -2605,8 +2565,9 @@ static void *client_thread(void* arg) {
     break;
 
     case CMD_RIT_STEP: {
+      int v = header.b1;
       int step = ntohs(header.s1);
-      vfo_set_rit_step(step);
+      vfo_id_set_rit_step(v, step);
     }
     break;
 
@@ -3081,17 +3042,16 @@ static int remote_command(void *data) {
   break;
 
   case CMD_RIT_TOGGLE: {
-    const RIT_TOGGLE_COMMAND *rit_toggle_command = (RIT_TOGGLE_COMMAND *)data;
-    int rx = rit_toggle_command->id;
+    int rx = header->b1;
     vfo_id_rit_toggle(rx);
     send_vfo_data(client->socket, rx);
   }
   break;
 
-  case CMD_RIT_CLEAR: {
-    const RIT_CLEAR_COMMAND *rit_clear_command = (RIT_CLEAR_COMMAND *)data;
-    int rx = rit_clear_command->id;
-    vfo_id_rit_value(rx, 0);
+  case CMD_RIT_VALUE: {
+    int rx = header->b1;
+    short rit = ntohs(header->s1);
+    vfo_id_rit_value(rx, rit);
     send_vfo_data(client->socket, rx);
   }
   break;
@@ -3146,9 +3106,10 @@ static int remote_command(void *data) {
   break;
 
   case CMD_RIT_STEP: {
+    int v = header->b1;
     int step = ntohs(header->s1);
-    vfo_set_rit_step(step);
-    send_rit_step(client->socket, step);
+    vfo_id_set_rit_step(v, step);
+    send_rit_step(client->socket, v, step);
   }
   break;
 

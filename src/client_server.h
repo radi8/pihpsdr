@@ -86,8 +86,8 @@ enum _header_type_enum {
   CMD_VFO_A_TO_B,            // short command: no parameters
   CMD_VFO_B_TO_A,            // short command: no parameters
   CMD_VFO_SWAP,              // short command: no parameters
-  CMD_RIT_TOGGLE,
-  CMD_RIT_CLEAR,
+  CMD_RIT_TOGGLE,            // short command: vfo=b1
+  CMD_RIT_VALUE,             // short command: vfo=b1, rit=s1
   CMD_RIT_INCR,              // short command: vfo=b1, incr=s1
   CMD_XIT_TOGGLE,
   CMD_XIT_CLEAR,
@@ -447,16 +447,6 @@ typedef struct __attribute__((__packed__)) _lock_command {
   uint8_t lock;
 } LOCK_COMMAND;
 
-typedef struct __attribute__((__packed__)) _rit_toggle_command {
-  HEADER header;
-  uint8_t id;
-} RIT_TOGGLE_COMMAND;
-
-typedef struct __attribute__((__packed__)) _rit_clear_command {
-  HEADER header;
-  uint8_t id;
-} RIT_CLEAR_COMMAND;
-
 typedef struct __attribute__((__packed__)) _xit_toggle_command {
   HEADER header;
 } XIT_TOGGLE_COMMAND;
@@ -540,14 +530,14 @@ extern void send_fps(int s, int rx, int fps);
 extern void send_rx_select(int s, int rx);
 extern void send_lock(int s, int lock);
 extern void send_rit_toggle(int s, int rx);
-extern void send_rit_clear(int s, int rx);
+extern void send_rit_value(int s, int rx, int ritval);
 extern void send_rit_incr(int s, int rx, int incr);
 extern void send_xit_toggle(int s);
 extern void send_xit_clear(int s);
 extern void send_xit(int s, int xit);
 extern void send_sample_rate(int s, int rx, int sample_rate);
 extern void send_receivers(int s, int receivers);
-extern void send_rit_step(int s, int step);
+extern void send_rit_step(int s, int v, int step);
 extern void send_filter_board(int s, int filter_board);
 extern void send_swap_iq(int s, int swap_iq);
 extern void send_region(int s, int region);
