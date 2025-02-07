@@ -339,26 +339,24 @@ void send_radio_data(int sock) {
   radio_data.header.sync = REMOTE_SYNC;
   radio_data.header.data_type = htons(INFO_RADIO);
   radio_data.header.version = htons(CLIENT_SERVER_VERSION);
+
   STRLCPY(radio_data.name, radio->name, sizeof(radio_data.name));
-  radio_data.protocol = htons(protocol);
-  radio_data.device = htons(device);
-  uint64_t temp = (uint64_t)radio->frequency_min;
-  radio_data.frequency_min = htonll(temp);
-  temp = (uint64_t)radio->frequency_max;
-  radio_data.frequency_max = htonll(temp);
-  long long rate = (long long)radio_sample_rate;
-  radio_data.sample_rate = htonll(rate);
   radio_data.locked = locked;
-  radio_data.supported_receivers = htons(radio->supported_receivers);
-  radio_data.receivers = htons(receivers);
   radio_data.can_transmit = can_transmit;
   radio_data.split = split;
   radio_data.sat_mode = sat_mode;
   radio_data.duplex = duplex;
   radio_data.have_rx_gain = have_rx_gain;
+  radio_data.protocol = protocol;
+  radio_data.supported_receivers = radio->supported_receivers;
+  radio_data.receivers = receivers;
+  radio_data.filter_board = filter_board;
   radio_data.rx_gain_calibration = htons(rx_gain_calibration);
-  radio_data.filter_board = htons(filter_board);
-  send_bytes(sock, (char *)&radio_data, sizeof(radio_data));
+  radio_data.device = htons(device);
+  long long rate = (long long)radio_sample_rate; radio_data.sample_rate = htonll(rate);
+  uint64_t temp = (uint64_t)radio->frequency_min; radio_data.frequency_min = htonll(temp);
+  temp = (uint64_t)radio->frequency_max; radio_data.frequency_max = htonll(temp);
+  send_bytes(sock, (char *)&radio_data, sizeof(RADIO_DATA));
 }
 
 void send_adc_data(int sock, int i) {

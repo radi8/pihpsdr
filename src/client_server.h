@@ -156,21 +156,21 @@ typedef struct __attribute__((__packed__)) _header {
 typedef struct __attribute__((__packed__)) _radio_data {
   HEADER header;
   char name[32];
-  uint16_t protocol;
-  uint16_t device;
-  uint64_t sample_rate;
-  uint64_t frequency_min;
-  uint64_t frequency_max;
   uint8_t locked;
-  uint16_t supported_receivers;
-  uint16_t receivers;
   uint8_t can_transmit;
   uint8_t split;
   uint8_t sat_mode;
   uint8_t duplex;
   uint8_t have_rx_gain;
+  uint8_t protocol;
+  uint8_t supported_receivers;
+  uint8_t receivers;
+  uint8_t filter_board;
   uint16_t rx_gain_calibration;
-  uint16_t filter_board;
+  uint16_t device;
+  uint64_t sample_rate;
+  uint64_t frequency_min;
+  uint64_t frequency_max;
 } RADIO_DATA;
 
 typedef struct __attribute__((__packed__)) _adc_data {
@@ -309,32 +309,32 @@ typedef struct __attribute__((__packed__)) _modesetting_data {
   uint16_t dexp_exp;
   uint16_t dexp_filter_low;
   uint16_t dexp_filter_high;
-  uint32_t nb_tau;
-  uint32_t nb_hang;
-  uint32_t nb_advtime;
-  uint32_t nr2_trained_threshold;
-  uint32_t nr2_trained_t2;
+  mydouble nb_tau;
+  mydouble nb_hang;
+  mydouble nb_advtime;
+  mydouble nr2_trained_threshold;
+  mydouble nr2_trained_t2;
 #ifdef EXTNR
-  uint32_t nr4_reduction_amount;      // NR4 parameters, only used if compiled with EXTNR
-  uint32_t nr4_smoothing_factor;
-  uint32_t nr4_whitening_factor;
-  uint32_t nr4_noise_rescale;
-  uint32_t nr4_post_filter_threshold;
+  mydouble nr4_reduction_amount;      // NR4 parameters, only used if compiled with EXTNR
+  mydouble nr4_smoothing_factor;
+  mydouble nr4_whitening_factor;
+  mydouble nr4_noise_rescale;
+  mydouble nr4_post_filter_threshold;
 #endif
-  uint32_t rx_eq_freq[11];
-  uint32_t rx_eq_gain[11];
-  uint32_t tx_eq_freq[11];
-  uint32_t tx_eq_gain[11];
-  uint32_t compressor_level;
-  uint32_t mic_gain;
-  uint32_t dexp_tau;
-  uint32_t dexp_attack;
-  uint32_t dexp_release;
-  uint32_t dexp_hold;
-  uint32_t dexp_hyst;
-  uint32_t cfc_freq[11];
-  uint32_t cfc_lvl[11];
-  uint32_t cfc_post[11];
+  mydouble rx_eq_freq[11];
+  mydouble rx_eq_gain[11];
+  mydouble tx_eq_freq[11];
+  mydouble tx_eq_gain[11];
+  mydouble compressor_level;
+  mydouble mic_gain;
+  mydouble dexp_tau;
+  mydouble dexp_attack;
+  mydouble dexp_release;
+  mydouble dexp_hold;
+  mydouble dexp_hyst;
+  mydouble cfc_freq[11];
+  mydouble cfc_lvl[11];
+  mydouble cfc_post[11];
   uint64_t step;
 }  MODESETTINGS_DATA;
 
