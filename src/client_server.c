@@ -449,6 +449,79 @@ void send_vfo_data(int sock, int v) {
   send_bytes(sock, (char *)&vfo_data, sizeof(vfo_data));
 }
 
+void send_modesettings(int sock, int id) {
+  //
+  // Send all RX#id, VFO#id, TX parameters that may have changed because
+  // of applying a RX/TX profile (mode-dependent settings)
+  //
+  MODESETTINGS_DATA msdata;
+  msdata.header.sync               = REMOTE_SYNC;
+  msdata.header.data_type          = htons(INFO_MODESETTINGS);
+  msdata.header.version            = htons(CLIENT_SERVER_VERSION);
+  msdata.filter                    = vfo[id].filter;
+  msdata.cwPeak                    = vfo[id].cwAudioPeakFilter;
+  msdata.nb                        = receiver[id]->nb;
+  msdata.nb2_mode                  = receiver[id]->nb2_mode;
+  msdata.nr                        = receiver[id]->nr;
+  msdata.nr_agc                    = receiver[id]->nr_agc;
+  msdata.nr2_gain_method           = receiver[id]->nr2_gain_method;
+  msdata.nr2_npe_method            = receiver[id]->nr2_npe_method;
+  msdata.nr2_ae                    = receiver[id]->nr2_ae;
+  msdata.anf                       = receiver[id]->anf;
+  msdata.snb                       = receiver[id]->snb;
+  msdata.agc                       = receiver[id]->agc;
+  msdata.en_rxeq                   = receiver[id]->eq_enable;
+  msdata.rit_step                  = htons(vfo[id].rit_step);
+  msdata.nb_tau                    = htond(receiver[id]->nb_tau);
+  msdata.nb_hang                   = htond(receiver[id]->nb_hang);
+  msdata.nb_advtime                = htond(receiver[id]->nb_advtime);
+  msdata.nr2_trained_threshold     = htond(receiver[id]->nr2_trained_threshold);
+  msdata.nr2_trained_t2            = htond(receiver[id]->nr2_trained_t2);
+#ifdef EXTNR
+  msdata.nr4_reduction_amount      = htond(receiver[id]->nr4_reduction_amount);
+  msdata.nr4_smoothing_factor      = htond(receiver[id]->nr4_smoothing_factor);
+  msdata.nr4_whitening_factor      = htond(receiver[id]->nr4_whitening_factor);
+  msdata.nr4_noise_rescale         = htond(receiver[id]->nr4_noise_rescale);
+  msdata.nr4_post_filter_threshold = htond(receiver[id]->nr4_noise_rescale);
+#endif
+
+  for (int i = 0; i < 11; i++) {
+    msdata.rx_eq_freq[i]           = htond(receiver[id]->eq_freq[i]);
+    msdata.rx_eq_gain[i]           = htond(receiver[id]->eq_gain[i]);
+  }
+
+  msdata.step                      = htonll(vfo[id].step);
+
+  if (can_transmit) {
+    msdata.en_txeq                 = transmitter->eq_enable;
+    msdata.compressor              = transmitter->compressor;
+    msdata.dexp                    = transmitter->dexp;
+    msdata.dexp_filter             = transmitter->dexp_filter;
+    msdata.cfc                     = transmitter->cfc;
+    msdata.cfc_eq                  = transmitter->cfc_eq;
+    msdata.dexp_trigger            = htons(transmitter->dexp_trigger);
+    msdata.dexp_exp                = htons(transmitter->dexp_exp);
+    msdata.dexp_filter_low         = htons(transmitter->dexp_filter_low);
+    msdata.dexp_filter_high        = htons(transmitter->dexp_filter_high);
+    msdata.compressor_level        = htons(transmitter->compressor_level);
+    msdata.mic_gain                = htons(transmitter->mic_gain);
+    msdata.dexp_tau                = htons(transmitter->dexp_tau);
+    msdata.dexp_attack             = htons(transmitter->dexp_attack);
+    msdata.dexp_release            = htons(transmitter->dexp_release);
+    msdata.dexp_hold               = htons(transmitter->dexp_hold);
+    msdata.dexp_hyst               = htons(transmitter->dexp_hyst);
+
+    for (int i = 0; i < 11; i++) {
+      msdata.tx_eq_freq[i]         = htond(transmitter->eq_freq[i]);
+      msdata.tx_eq_gain[i]         = htond(transmitter->eq_gain[i]);
+      msdata.cfc_freq[i]           = htond(transmitter->cfc_freq[i]);
+      msdata.cfc_lvl[i]            = htond(transmitter->cfc_lvl[i]);
+      msdata.cfc_post[i]           = htond(transmitter->cfc_post[i]);
+    }
+  }
+  send_bytes(sock, (char *)&msdata, sizeof(MODESETTINGS_DATA));
+}
+
 //
 // server_thread is running on the "local" computer
 // (with direct cable connection to the radio hardware)
@@ -3109,7 +3182,7 @@ static int remote_command(void *data) {
     int v = header->b1;
     int step = ntohs(header->s1);
     vfo_id_set_rit_step(v, step);
-    send_rit_step(client->socket, v, step);
+    send_vfo_data(client->socket, v);
   }
   break;
 

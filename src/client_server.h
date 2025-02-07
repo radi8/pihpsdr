@@ -53,6 +53,7 @@ enum _header_type_enum {
   INFO_VFO,
   INFO_SPECTRUM,
   INFO_AUDIO,
+  INFO_MODESETTINGS,
   CMD_SPECTRUM,
   CMD_AUDIO,
   CMD_SAMPLE_RATE,
@@ -100,16 +101,9 @@ enum _header_type_enum {
   CLIENT_SERVER_COMMANDS,
 };
 
-enum _vfo_action_enum {
-  VFO_A_TO_B,
-  VFO_B_TO_A,
-  VFO_A_SWAP_B,
-};
-
 #define CLIENT_SERVER_VERSION 0xFFFF     // This indicates a test version
-
 #define SPECTRUM_DATA_SIZE 4096          // Maximum width of a panadapter
-#define AUDIO_DATA_SIZE 1024
+#define AUDIO_DATA_SIZE 1024             // 1024 stereo samples
 
 #define REMOTE_SYNC (uint16_t)0xFAFA
 
@@ -288,6 +282,61 @@ typedef struct __attribute__((__packed__)) _audio_data {
   uint16_t samples;
   uint16_t sample[AUDIO_DATA_SIZE * 2];
 } AUDIO_DATA;
+
+typedef struct __attribute__((__packed__)) _modesetting_data {
+  HEADER header;
+  uint8_t filter;
+  uint8_t cwPeak;
+  uint8_t nb;
+  uint8_t nb2_mode;
+  uint8_t nr;
+  uint8_t nr_agc;
+  uint8_t nr2_gain_method;
+  uint8_t nr2_npe_method;
+  uint8_t nr2_ae;
+  uint8_t anf;
+  uint8_t snb;
+  uint8_t agc;
+  uint8_t en_rxeq;
+  uint8_t en_txeq;
+  uint8_t compressor;
+  uint8_t dexp;
+  uint8_t dexp_filter;
+  uint8_t cfc;
+  uint8_t cfc_eq;
+  uint16_t rit_step;
+  uint16_t dexp_trigger;
+  uint16_t dexp_exp;
+  uint16_t dexp_filter_low;
+  uint16_t dexp_filter_high;
+  uint32_t nb_tau;
+  uint32_t nb_hang;
+  uint32_t nb_advtime;
+  uint32_t nr2_trained_threshold;
+  uint32_t nr2_trained_t2;
+#ifdef EXTNR
+  uint32_t nr4_reduction_amount;      // NR4 parameters, only used if compiled with EXTNR
+  uint32_t nr4_smoothing_factor;
+  uint32_t nr4_whitening_factor;
+  uint32_t nr4_noise_rescale;
+  uint32_t nr4_post_filter_threshold;
+#endif
+  uint32_t rx_eq_freq[11];
+  uint32_t rx_eq_gain[11];
+  uint32_t tx_eq_freq[11];
+  uint32_t tx_eq_gain[11];
+  uint32_t compressor_level;
+  uint32_t mic_gain;
+  uint32_t dexp_tau;
+  uint32_t dexp_attack;
+  uint32_t dexp_release;
+  uint32_t dexp_hold;
+  uint32_t dexp_hyst;
+  uint32_t cfc_freq[11];
+  uint32_t cfc_lvl[11];
+  uint32_t cfc_post[11];
+  uint64_t step;
+}  MODESETTINGS_DATA;
 
 typedef struct __attribute__((__packed__)) _spectrum_command {
   HEADER header;
