@@ -32,13 +32,13 @@
 #endif
 
 //
-// Conversion of host(double) to/from network(uint32) with 1E-6 resolution
-// Assume that double data is between -2000 and 2000,
-// convert to uint32 via 1000000.0*(double+2000.0) (result in the range 0 to 4E9)
+// Conversion of host(double) to/from network(uint64) with 1E-10 resolution
+// which allows values in the range -9E8 .. 9E8
+// we need quite large values e.g. for storing equalizer corner frequencies
 //
-#define htond(X) htonl((uint32_t) ((X+2000.0)*1000000.0) )
-#define ntohd(X) 0.000001*ntohl(X)-2000.0
-#define mydouble uint32_t
+#define htond(X) htonll((uint64_t) ((X+9.0E8)*1.0E10) )
+#define ntohd(X) ((1.0E-10*ntohll(X))-9.0E8)
+#define mydouble uint64_t
 
 typedef enum {
   RECEIVER_DETACHED,
@@ -54,6 +54,7 @@ enum _header_type_enum {
   INFO_SPECTRUM,
   INFO_AUDIO,
   INFO_MODESETTINGS,
+  CMD_START_RADIO,
   CMD_SPECTRUM,
   CMD_AUDIO,
   CMD_SAMPLE_RATE,
@@ -285,6 +286,7 @@ typedef struct __attribute__((__packed__)) _audio_data {
 
 typedef struct __attribute__((__packed__)) _modesetting_data {
   HEADER header;
+  uint8_t id;
   uint8_t filter;
   uint8_t cwPeak;
   uint8_t nb;

@@ -334,6 +334,14 @@ static int send_spectrum(void *arg) {
   return result;
 }
 
+void send_start_radio(int sock) {
+  HEADER header;
+  header.sync = REMOTE_SYNC;
+  header.data_type = htons(CMD_START_RADIO);
+  header.version = htons(CLIENT_SERVER_VERSION);
+  send_bytes(sock, (char *)&header, sizeof(HEADER));
+}
+
 void send_radio_data(int sock) {
   RADIO_DATA radio_data;
   radio_data.header.sync = REMOTE_SYNC;
@@ -456,6 +464,7 @@ void send_modesettings(int sock, int id) {
   msdata.header.sync               = REMOTE_SYNC;
   msdata.header.data_type          = htons(INFO_MODESETTINGS);
   msdata.header.version            = htons(CLIENT_SERVER_VERSION);
+  msdata.id                        = id;
   msdata.filter                    = vfo[id].filter;
   msdata.cwPeak                    = vfo[id].cwAudioPeakFilter;
   msdata.nb                        = receiver[id]->nb;
@@ -501,13 +510,13 @@ void send_modesettings(int sock, int id) {
     msdata.dexp_exp                = htons(transmitter->dexp_exp);
     msdata.dexp_filter_low         = htons(transmitter->dexp_filter_low);
     msdata.dexp_filter_high        = htons(transmitter->dexp_filter_high);
-    msdata.compressor_level        = htons(transmitter->compressor_level);
-    msdata.mic_gain                = htons(transmitter->mic_gain);
-    msdata.dexp_tau                = htons(transmitter->dexp_tau);
-    msdata.dexp_attack             = htons(transmitter->dexp_attack);
-    msdata.dexp_release            = htons(transmitter->dexp_release);
-    msdata.dexp_hold               = htons(transmitter->dexp_hold);
-    msdata.dexp_hyst               = htons(transmitter->dexp_hyst);
+    msdata.compressor_level        = htond(transmitter->compressor_level);
+    msdata.mic_gain                = htond(transmitter->mic_gain);
+    msdata.dexp_tau                = htond(transmitter->dexp_tau);
+    msdata.dexp_attack             = htond(transmitter->dexp_attack);
+    msdata.dexp_release            = htond(transmitter->dexp_release);
+    msdata.dexp_hold               = htond(transmitter->dexp_hold);
+    msdata.dexp_hyst               = htond(transmitter->dexp_hyst);
 
     for (int i = 0; i < 11; i++) {
       msdata.tx_eq_freq[i]         = htond(transmitter->eq_freq[i]);
@@ -550,6 +559,8 @@ static void *server_thread(void *arg) {
 
   send_vfo_data(client->socket, VFO_A);    // send INFO_VFO packet
   send_vfo_data(client->socket, VFO_B);    // send INFO_VFO packet
+
+  send_start_radio(client->socket);
 
   //
   // get and parse client commands
@@ -1927,6 +1938,18 @@ static void *client_thread(void* arg) {
       filter_board = ntohs(radio_data.filter_board);
       t_print("have_rx_gain=%d rx_gain_calibration=%d filter_board=%d\n", have_rx_gain, rx_gain_calibration, filter_board);
       snprintf(title, 128, "piHPSDR: %s remote at %s", radio->name, server);
+      //
+      // Allocate 2 RX (and  possible one dummy for PS) and one transmitter
+      //
+      receiver[0] = g_new(RECEIVER, 1);
+      receiver[1] = g_new(RECEIVER, 1);
+      receiver[2] = g_new(RECEIVER, 1);
+      transmitter = g_new(TRANSMITTER, 1);
+
+      memset(receiver[0], 0, sizeof(RECEIVER));
+      memset(receiver[1], 0, sizeof(RECEIVER));
+      memset(transmitter, 0, sizeof(TRANSMITTER));
+
       g_idle_add(ext_set_title, (void *)title);
     }
     break;
@@ -1974,7 +1997,6 @@ static void *client_thread(void* arg) {
       t_print("INFO_RECEIVER: %d\n", bytes_read);
       // cppcheck-suppress uninitStructMember
       int rx = rx_data.rx;
-      receiver[rx] = g_new(RECEIVER, 1);
       receiver[rx]->id = rx;
       receiver[rx]->adc = ntohs(rx_data.adc);;
       long long rate = ntohll(rx_data.sample_rate);
@@ -2072,15 +2094,6 @@ static void *client_thread(void* arg) {
       vfo[v].offset = ntohll(vfo_data.offset);
       vfo[v].step   = ntohll(vfo_data.step);
       vfo[v].rit_step  = ntohs(vfo_data.rit_step);
-
-      // when VFO-B is initialized we can create the visual. start the MIDI interface and start the data flowing
-      if (v == VFO_B && !remote_started) {
-        t_print("g_idle_add: remote_start\n");
-        g_idle_add(radio_remote_start, (gpointer)server);
-      } else if (remote_started) {
-        t_print("g_idle_add: ext_vfo_update\n");
-        g_idle_add(ext_vfo_update, NULL);
-      }
     }
     break;
 
@@ -2175,6 +2188,91 @@ static void *client_thread(void* arg) {
           audio_write(rx, (float)left_sample / 32767.0, (float)right_sample / 32767.0);
         }
       }
+    }
+    break;
+
+    case INFO_MODESETTINGS: {
+      MODESETTINGS_DATA msdata;
+      bytes_read = recv_bytes(client_socket, (char *)&msdata + sizeof(HEADER), sizeof(MODESETTINGS_DATA) - sizeof(HEADER));
+
+      if (bytes_read <= 0) {
+        t_print("client_thread: short read for MODESETTINGS_DATA\n");
+        t_perror("client_thread");
+        // dialog box?
+        return NULL;
+      }
+
+      int id                                  = msdata.id;
+      vfo[id].filter                          = msdata.filter;
+      vfo[id].cwAudioPeakFilter               = msdata.cwPeak;
+      receiver[id]->nb                        = msdata.nb;
+      receiver[id]->nb2_mode                  = msdata.nb2_mode;
+      receiver[id]->nr                        = msdata.nr;
+      receiver[id]->nr_agc                    = msdata.nr_agc;
+      receiver[id]->nr2_gain_method           = msdata.nr2_gain_method;
+      receiver[id]->nr2_npe_method            = msdata.nr2_npe_method;
+      receiver[id]->nr2_ae                    = msdata.nr2_ae;
+      receiver[id]->anf                       = msdata.anf;
+      receiver[id]->snb                       = msdata.snb;
+      receiver[id]->agc                       = msdata.agc;
+      receiver[id]->eq_enable                 = msdata.en_rxeq;
+      vfo[id].rit_step                        = (short) ntohs(msdata.rit_step);
+      receiver[id]->nb_tau                    = ntohd(msdata.nb_tau);
+      receiver[id]->nb_hang                   = ntohd(msdata.nb_hang);
+      receiver[id]->nb_advtime                = ntohd(msdata.nb_advtime);
+      receiver[id]->nr2_trained_threshold     = ntohd(msdata.nr2_trained_threshold);
+      receiver[id]->nr2_trained_t2            = ntohd(msdata.nr2_trained_t2);
+#ifdef EXTNR
+      receiver[id]->nr4_reduction_amount      = ntohd(msdata.nr4_reduction_amount);
+      receiver[id]->nr4_smoothing_factor      = ntohd(msdata.nr4_smoothing_factor);
+      receiver[id]->nr4_whitening_factor      = ntohd(msdata.nr4_whitening_factor);
+      receiver[id]->nr4_noise_rescale         = ntohd(msdata.nr4_noise_rescale);
+      receiver[id]->nr4_post_filter_threshold = ntohd(msdata.nr4_noise_rescale);
+#endif
+
+      for (int i = 0; i < 11; i++) {
+        receiver[id]->eq_freq[i]               = ntohd(msdata.rx_eq_freq[i]);
+        receiver[id]->eq_gain[i]               = ntohd(msdata.rx_eq_gain[i]);
+      }
+
+     vfo[id].step                             = ntohll(msdata.step);
+
+     if (can_transmit) {
+       transmitter->eq_enable                 = msdata.en_txeq;
+       transmitter->compressor                = msdata.compressor;
+       transmitter->dexp                      = msdata.dexp;
+       transmitter->dexp_filter               = msdata.dexp_filter;
+       transmitter->cfc                       = msdata.cfc;
+       transmitter->cfc_eq                    = msdata.cfc_eq;
+       transmitter->dexp_trigger              = (short) ntohs(msdata.dexp_trigger);
+       transmitter->dexp_exp                  = (short) ntohs(msdata.dexp_exp);
+       transmitter->dexp_filter_low           = (short) ntohs(msdata.dexp_filter_low);
+       transmitter->dexp_filter_high          = (short) ntohs(msdata.dexp_filter_high);
+       transmitter->compressor_level          = ntohd(msdata.compressor_level);
+       transmitter->mic_gain                  = ntohd(msdata.mic_gain);
+       transmitter->dexp_tau                  = ntohd(msdata.dexp_tau);
+       transmitter->dexp_attack               = ntohd(msdata.dexp_attack);
+       transmitter->dexp_release              = ntohd(msdata.dexp_release);
+       transmitter->dexp_hold                 = ntohd(msdata.dexp_hold);
+       transmitter->dexp_hyst                 = ntohd(msdata.dexp_hyst);
+      
+        for (int i = 0; i < 11; i++) {
+          transmitter->eq_freq[i]             = ntohd(msdata.tx_eq_freq[i]);
+          transmitter->eq_gain[i]             = ntohd(msdata.tx_eq_gain[i]);
+          transmitter->cfc_freq[i]            = ntohd(msdata.cfc_freq[i]);
+          transmitter->cfc_lvl[i]             = ntohd(msdata.cfc_lvl[i]);
+          transmitter->cfc_post[i]            = ntohd(msdata.cfc_post[i]);
+        }
+      }
+      g_idle_add(ext_vfo_update, NULL);
+    }
+    break;
+
+    case CMD_START_RADIO: {
+      if (!remote_started) {
+        g_idle_add(radio_remote_start, (gpointer)server);
+      }
+      g_idle_add(ext_vfo_update, NULL);
     }
     break;
 

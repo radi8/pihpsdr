@@ -565,7 +565,7 @@ void vfo_xvtr_changed() {
 }
 
 void vfo_apply_mode_settings(RECEIVER *rx) {
-  CLIENT_ALLOWED;
+  CLIENT_MISSING;
   int id, m;
   id = rx->id;
   m = vfo[id].mode;
@@ -650,9 +650,7 @@ void vfo_apply_mode_settings(RECEIVER *rx) {
   //
   // defer update_eq() until here since it also applies TX EQ settings
   //
-  if (!radio_is_remote) {
-    rx_set_agc(rx);
-  }
+  rx_set_agc(rx);
   update_noise();
   update_eq();
   g_idle_add(ext_vfo_update, NULL);
