@@ -26,10 +26,10 @@
 #include "mode.h"
 #include "receiver.h"
 
-#ifndef __APPLE__
-  #define htonll htobe64
-  #define ntohll be64toh
-#endif
+//#ifndef __APPLE__
+//  #define htonll htobe64
+//  #define ntohll be64toh
+//#endif
 
 //
 // Conversion of host(double) to/from network(uint64) with 1E-10 resolution
@@ -46,14 +46,16 @@ typedef enum {
 } CLIENT_STATE;
 
 enum _header_type_enum {
-  INFO_RADIO,
+  INFO_RADIO_STATIC,
+  INFO_RADIO_DYNAMIC,
   INFO_ADC,
   INFO_RECEIVER,
   INFO_TRANSMITTER,
   INFO_VFO,
+  INFO_BAND,
+  INFO_BANDSTACK,
   INFO_SPECTRUM,
   INFO_AUDIO,
-  INFO_MODESETTINGS,
   CMD_START_RADIO,
   CMD_SPECTRUM,
   CMD_AUDIO,
@@ -99,6 +101,7 @@ enum _header_type_enum {
   CMD_SWAP_IQ,
   CMD_REGION,
   CMD_MUTE_RX,
+  CMD_ANAN10E,
   CLIENT_SERVER_COMMANDS,
 };
 
@@ -154,25 +157,110 @@ typedef struct __attribute__((__packed__)) _header {
   } context;
 } HEADER;
 
-typedef struct __attribute__((__packed__)) _radio_data {
+typedef struct __attribute__((__packed__)) _band_data {
+  HEADER header;
+  char title[16];
+  uint8_t  band;
+  uint8_t  OCrx;
+  uint8_t  OCtx;
+  uint8_t  alexRxAntenna;
+  uint8_t  alexTxAntenna;
+  uint8_t  alexAttenuation;
+  uint8_t  disablePA;
+  uint8_t  current;
+  uint16_t gain;
+  mydouble pa_calibration;
+  uint64_t frequencyMin;
+  uint64_t frequencyMax;
+  uint64_t frequencyLO;
+  uint64_t errorLO;
+} BAND_DATA;
+
+typedef struct __attribute__((__packed__)) _bandstack_data {
+  HEADER header;
+  uint8_t band;
+  uint8_t stack;
+  uint8_t mode;
+  uint8_t filter;
+  uint8_t ctun;
+  uint8_t ctcss_enabled;
+  uint8_t ctcss;
+  uint16_t deviation;
+  uint64_t frequency;
+  uint64_t ctun_frequency;
+} BANDSTACK_DATA;
+
+typedef struct __attribute__((__packed__)) _radio_static_data {
+  //
+  // This contains all data that is not supposed to change
+  // rarely
+  //
   HEADER header;
   char name[32];
-  uint8_t locked;
-  uint8_t can_transmit;
-  uint8_t split;
-  uint8_t sat_mode;
-  uint8_t duplex;
-  uint8_t have_rx_gain;
-  uint8_t protocol;
-  uint8_t supported_receivers;
-  uint8_t receivers;
-  uint8_t filter_board;
+  uint8_t  locked;
+  uint8_t  can_transmit;
+  uint8_t  have_rx_gain;
+  uint8_t  protocol;
+  uint8_t  supported_receivers;
+  uint8_t  receivers;
+  uint8_t  filter_board;
+  uint8_t  enable_auto_tune;
+  uint8_t  new_pa_board;
+  uint8_t  region;
+  uint8_t  atlas_penelope;
+  uint8_t  atlas_clock_source_10mhz;
+  uint8_t  atlas_clock_source_128mhz;
+  uint8_t  atlas_mic_source;
+  uint8_t  atlas_janus;
+  uint8_t  hl2_audio_codec;
+  uint8_t  anan10E;
+  uint8_t  tx_out_of_band_allowed;
+  uint8_t  pa_enabled;
+  uint8_t  mic_boost;
+  uint8_t  mic_linein;
+  uint8_t  mic_ptt_enabled;
+  uint8_t  mic_bias_enabled;
+  uint8_t  mic_ptt_tip_bias_ring;
+  uint8_t  mic_input_xlr;
+  uint8_t  cw_keyer_sidetone_volume;
+  uint8_t  OCtune;
+  uint8_t  vox_enabled;
+  uint8_t  mute_rx_while_transmitting;
+  uint8_t  mute_spkr_amp;
+  uint8_t  adc0_filter_bypass;
+  uint8_t  adc1_filter_bypass;
+  uint8_t  split;
+  uint8_t  sat_mode;
+  uint8_t  duplex;
+
+  uint16_t pa_power;
+  uint16_t OCfull_tune_time;
+  uint16_t OCmemory_tune_time;
+  uint16_t cw_keyer_sidetone_frequency;
   uint16_t rx_gain_calibration;
   uint16_t device;
-  uint64_t sample_rate;
-  uint64_t frequency_min;
-  uint64_t frequency_max;
-} RADIO_DATA;
+  uint16_t tx_filter_low;
+  uint16_t tx_filter_high;
+  mydouble vox_threshold;
+  mydouble vox_hang;
+  mydouble drive_digi_max;
+  mydouble pa_trim[11];
+  uint64_t frequency_calibration;
+  uint64_t soapy_radio_sample_rate;
+  uint64_t radio_frequency_min;
+  uint64_t radio_frequency_max;
+} RADIO_STATIC_DATA;
+
+typedef struct __attribute__((__packed__)) _radio_dynamic_data {
+  //
+  // This contains radio data that changes with high frequency
+  //
+  HEADER header;
+  uint8_t  mox;
+  uint8_t  vox;
+  uint8_t  ptt;
+  uint8_t  tune;
+} RADIO_DYNAMIC_DATA;
 
 typedef struct __attribute__((__packed__)) _adc_data {
   HEADER header;
@@ -284,62 +372,6 @@ typedef struct __attribute__((__packed__)) _audio_data {
   uint16_t sample[AUDIO_DATA_SIZE * 2];
 } AUDIO_DATA;
 
-typedef struct __attribute__((__packed__)) _modesetting_data {
-  HEADER header;
-  uint8_t id;
-  uint8_t filter;
-  uint8_t cwPeak;
-  uint8_t nb;
-  uint8_t nb2_mode;
-  uint8_t nr;
-  uint8_t nr_agc;
-  uint8_t nr2_gain_method;
-  uint8_t nr2_npe_method;
-  uint8_t nr2_ae;
-  uint8_t anf;
-  uint8_t snb;
-  uint8_t agc;
-  uint8_t en_rxeq;
-  uint8_t en_txeq;
-  uint8_t compressor;
-  uint8_t dexp;
-  uint8_t dexp_filter;
-  uint8_t cfc;
-  uint8_t cfc_eq;
-  uint16_t rit_step;
-  uint16_t dexp_trigger;
-  uint16_t dexp_exp;
-  uint16_t dexp_filter_low;
-  uint16_t dexp_filter_high;
-  mydouble nb_tau;
-  mydouble nb_hang;
-  mydouble nb_advtime;
-  mydouble nr2_trained_threshold;
-  mydouble nr2_trained_t2;
-#ifdef EXTNR
-  mydouble nr4_reduction_amount;      // NR4 parameters, only used if compiled with EXTNR
-  mydouble nr4_smoothing_factor;
-  mydouble nr4_whitening_factor;
-  mydouble nr4_noise_rescale;
-  mydouble nr4_post_filter_threshold;
-#endif
-  mydouble rx_eq_freq[11];
-  mydouble rx_eq_gain[11];
-  mydouble tx_eq_freq[11];
-  mydouble tx_eq_gain[11];
-  mydouble compressor_level;
-  mydouble mic_gain;
-  mydouble dexp_tau;
-  mydouble dexp_attack;
-  mydouble dexp_release;
-  mydouble dexp_hold;
-  mydouble dexp_hyst;
-  mydouble cfc_freq[11];
-  mydouble cfc_lvl[11];
-  mydouble cfc_post[11];
-  uint64_t step;
-}  MODESETTINGS_DATA;
-
 typedef struct __attribute__((__packed__)) _spectrum_command {
   HEADER header;
   uint8_t id;
@@ -381,12 +413,6 @@ typedef struct __attribute__((__packed__)) _move_to_command {
   uint8_t id;
   uint64_t hz;
 } MOVE_TO_COMMAND;
-
-typedef struct __attribute__((__packed__)) _zoom_command {
-  HEADER header;
-  uint8_t id;
-  uint16_t zoom;
-} ZOOM_COMMAND;
 
 typedef struct __attribute__((__packed__)) _pan_command {
   HEADER header;
@@ -547,7 +573,8 @@ extern int destroy_hpsdr_server(void);
 
 extern int radio_connect_remote(char *host, int port);
 
-extern void send_radio_data(int sock);
+extern void send_radio_data_static(int sock);
+extern void send_radio_data_dynamic(int sock);
 extern void send_adc_data(int sock, int i);
 extern void send_receiver_data(int sock, int rx);
 extern void send_vfo_data(int sock, int v);
@@ -594,6 +621,7 @@ extern void send_swap_iq(int s, int swap_iq);
 extern void send_region(int s, int region);
 extern void send_mute_rx(int s, int mute);
 extern void send_varfilter_data(int s);
+extern void send_anan10E(int s, int new);
 
 extern void remote_audio(const RECEIVER *rx, short left_sample, short right_sample);
 

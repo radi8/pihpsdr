@@ -24,7 +24,7 @@
  *
  * The server starts after all data has been initialized and the props file has
  * been read, and then sends out all this data to the client with the
- * INFO_RADIO, INFO_RECEIVER, INFO_ADC, and INFO_VFO packets.
+ * INFO_RADIO_STATIC, INFO_RECEIVER, INFO_ADC, and INFO_VFO packets.
  *
  * It then periodically sends audio (INFO_AUDIO) and pixel (INFO_SPECTRUM) data,
  * the latter is used both for the panadapter and the waterfall.
@@ -87,6 +87,7 @@
 #ifdef CLIENT_SERVER
   #include "client_server.h"
 #endif
+#include "band.h"
 #include "dac.h"
 #include "discovered.h"
 #include "ext.h"
@@ -94,6 +95,7 @@
 #include "main.h"
 #include "message.h"
 #include "mystring.h"
+#include "new_protocol.h"
 #include "noise_menu.h"
 #include "radio.h"
 #include "radio_menu.h"
@@ -342,29 +344,135 @@ void send_start_radio(int sock) {
   send_bytes(sock, (char *)&header, sizeof(HEADER));
 }
 
-void send_radio_data(int sock) {
-  RADIO_DATA radio_data;
+void send_band_data(int sock, int b) {
+  BAND_DATA data;
+  data.header.sync = REMOTE_SYNC;
+  data.header.data_type = htons(INFO_BAND);
+  data.header.version = htons(CLIENT_SERVER_VERSION);
+
+  BAND *band = band_get_band(b);
+  snprintf(data.title, 16, "%s", band->title);
+  data.band = b;
+  data.OCrx = band->OCrx;
+  data.OCtx = band->OCtx;
+  data.alexRxAntenna = band->alexRxAntenna;
+  data.alexTxAntenna = band->alexTxAntenna;
+  data.alexAttenuation = band->alexAttenuation;
+  data.disablePA = band->disablePA;
+  data.current = band->bandstack->current_entry;
+  data.gain = htons(band->gain);
+  data.pa_calibration = htond(band->pa_calibration);
+  data.frequencyMin = htonll(band->frequencyMin);
+  data.frequencyMax = htonll(band->frequencyMax);
+  data.frequencyLO = htonll(band->frequencyLO);
+  data.errorLO = htonll(band->errorLO);
+
+  send_bytes(sock, (char *)&data, sizeof(BAND_DATA));
+}
+
+void send_bandstack_data(int sock, int b, int stack) {
+  BANDSTACK_DATA data;
+  data.header.sync = REMOTE_SYNC;
+  data.header.data_type = htons(INFO_BANDSTACK);
+  data.header.version = htons(CLIENT_SERVER_VERSION);
+
+  BAND *band = band_get_band(b);
+  BANDSTACK_ENTRY *entry = band->bandstack->entry;
+  entry += stack;
+
+  data.band = b;
+  data.stack = stack;
+  data.mode = entry->mode;
+  data.filter = entry->filter;
+  data.ctun = entry->ctun;
+  data.ctcss_enabled = entry->ctcss_enabled;
+  data.ctcss = entry->ctcss;
+  data.deviation = htons(entry->deviation);
+  data.frequency = htonll(entry->frequency);
+  data.ctun_frequency = htonll(entry->ctun_frequency);
+
+  send_bytes(sock, (char *)&data, sizeof(BANDSTACK_DATA));
+}
+
+void send_radio_data_dynamic(int sock) {
+  RADIO_DYNAMIC_DATA data;
+  data.header.sync = REMOTE_SYNC;
+  data.header.data_type = htons(INFO_RADIO_DYNAMIC);
+  data.header.version = htons(CLIENT_SERVER_VERSION);
+
+  data.mox = mox;
+  data.vox = vox;
+  data.ptt = ptt;
+  data.tune = tune;
+
+  send_bytes(sock, (char *)&data, sizeof(RADIO_DYNAMIC_DATA));
+}
+
+void send_radio_data_static(int sock) {
+  RADIO_STATIC_DATA radio_data;
   radio_data.header.sync = REMOTE_SYNC;
-  radio_data.header.data_type = htons(INFO_RADIO);
+  radio_data.header.data_type = htons(INFO_RADIO_STATIC);
   radio_data.header.version = htons(CLIENT_SERVER_VERSION);
 
   STRLCPY(radio_data.name, radio->name, sizeof(radio_data.name));
   radio_data.locked = locked;
   radio_data.can_transmit = can_transmit;
-  radio_data.split = split;
-  radio_data.sat_mode = sat_mode;
-  radio_data.duplex = duplex;
   radio_data.have_rx_gain = have_rx_gain;
   radio_data.protocol = protocol;
   radio_data.supported_receivers = radio->supported_receivers;
   radio_data.receivers = receivers;
   radio_data.filter_board = filter_board;
+  radio_data.enable_auto_tune = enable_auto_tune;
+  radio_data.new_pa_board = new_pa_board;
+  radio_data.region = region;
+  radio_data.atlas_penelope = atlas_penelope;
+  radio_data.atlas_clock_source_10mhz = atlas_clock_source_10mhz;	
+  radio_data.atlas_clock_source_128mhz = atlas_clock_source_128mhz;
+  radio_data.atlas_mic_source = atlas_mic_source;
+  radio_data.atlas_janus = atlas_janus;
+  radio_data.hl2_audio_codec = hl2_audio_codec;
+  radio_data.anan10E = anan10E;
+  radio_data.tx_out_of_band_allowed = tx_out_of_band_allowed;
+  radio_data.pa_enabled = pa_enabled;
+  radio_data.mic_boost = mic_boost;
+  radio_data.mic_linein = mic_linein;
+  radio_data.mic_ptt_enabled = mic_ptt_enabled;
+  radio_data.mic_bias_enabled = mic_bias_enabled;
+  radio_data.mic_ptt_tip_bias_ring = mic_ptt_tip_bias_ring;
+  radio_data.mic_input_xlr = mic_input_xlr;
+  radio_data.cw_keyer_sidetone_volume = cw_keyer_sidetone_volume;
+  radio_data.OCtune = OCtune;
+  radio_data.vox_enabled = vox_enabled;
+  radio_data.mute_rx_while_transmitting = mute_rx_while_transmitting;
+  radio_data.mute_spkr_amp = mute_spkr_amp;
+  radio_data.adc0_filter_bypass = adc0_filter_bypass;
+  radio_data.adc1_filter_bypass = adc1_filter_bypass;
+  radio_data.split = split;
+  radio_data.sat_mode = sat_mode;
+  radio_data.duplex = duplex;
+
+  radio_data.pa_power = htons(pa_power);
+  radio_data.OCfull_tune_time = htons(OCfull_tune_time);
+  radio_data.OCmemory_tune_time = htons(OCmemory_tune_time);
+  radio_data.cw_keyer_sidetone_frequency = htons(cw_keyer_sidetone_frequency);
   radio_data.rx_gain_calibration = htons(rx_gain_calibration);
   radio_data.device = htons(device);
-  long long rate = (long long)radio_sample_rate; radio_data.sample_rate = htonll(rate);
-  uint64_t temp = (uint64_t)radio->frequency_min; radio_data.frequency_min = htonll(temp);
-  temp = (uint64_t)radio->frequency_max; radio_data.frequency_max = htonll(temp);
-  send_bytes(sock, (char *)&radio_data, sizeof(RADIO_DATA));
+  radio_data.tx_filter_low = htons(tx_filter_low);
+  radio_data.tx_filter_high = htons(tx_filter_high);
+  radio_data.vox_threshold = htond(vox_threshold);
+  radio_data.vox_hang = htond(vox_hang);
+  radio_data.drive_digi_max = htond(drive_digi_max);
+
+  for (int i = 0; i > 11; i++) {
+    radio_data.pa_trim[i] = htond(pa_trim[i]);
+  }
+
+  radio_data.frequency_calibration = htonll(frequency_calibration);
+  radio_data.soapy_radio_sample_rate = htonll(soapy_radio_sample_rate);
+  radio_data.radio_frequency_min = htonll(radio->frequency_min);
+  radio_data.radio_frequency_max = htonll(radio->frequency_max);
+
+  send_bytes(sock, (char *)&radio_data, sizeof(RADIO_STATIC_DATA));
 }
 
 void send_adc_data(int sock, int i) {
@@ -455,80 +563,6 @@ void send_vfo_data(int sock, int v) {
   send_bytes(sock, (char *)&vfo_data, sizeof(vfo_data));
 }
 
-void send_modesettings(int sock, int id) {
-  //
-  // Send all RX#id, VFO#id, TX parameters that may have changed because
-  // of applying a RX/TX profile (mode-dependent settings)
-  //
-  MODESETTINGS_DATA msdata;
-  msdata.header.sync               = REMOTE_SYNC;
-  msdata.header.data_type          = htons(INFO_MODESETTINGS);
-  msdata.header.version            = htons(CLIENT_SERVER_VERSION);
-  msdata.id                        = id;
-  msdata.filter                    = vfo[id].filter;
-  msdata.cwPeak                    = vfo[id].cwAudioPeakFilter;
-  msdata.nb                        = receiver[id]->nb;
-  msdata.nb2_mode                  = receiver[id]->nb2_mode;
-  msdata.nr                        = receiver[id]->nr;
-  msdata.nr_agc                    = receiver[id]->nr_agc;
-  msdata.nr2_gain_method           = receiver[id]->nr2_gain_method;
-  msdata.nr2_npe_method            = receiver[id]->nr2_npe_method;
-  msdata.nr2_ae                    = receiver[id]->nr2_ae;
-  msdata.anf                       = receiver[id]->anf;
-  msdata.snb                       = receiver[id]->snb;
-  msdata.agc                       = receiver[id]->agc;
-  msdata.en_rxeq                   = receiver[id]->eq_enable;
-  msdata.rit_step                  = htons(vfo[id].rit_step);
-  msdata.nb_tau                    = htond(receiver[id]->nb_tau);
-  msdata.nb_hang                   = htond(receiver[id]->nb_hang);
-  msdata.nb_advtime                = htond(receiver[id]->nb_advtime);
-  msdata.nr2_trained_threshold     = htond(receiver[id]->nr2_trained_threshold);
-  msdata.nr2_trained_t2            = htond(receiver[id]->nr2_trained_t2);
-#ifdef EXTNR
-  msdata.nr4_reduction_amount      = htond(receiver[id]->nr4_reduction_amount);
-  msdata.nr4_smoothing_factor      = htond(receiver[id]->nr4_smoothing_factor);
-  msdata.nr4_whitening_factor      = htond(receiver[id]->nr4_whitening_factor);
-  msdata.nr4_noise_rescale         = htond(receiver[id]->nr4_noise_rescale);
-  msdata.nr4_post_filter_threshold = htond(receiver[id]->nr4_noise_rescale);
-#endif
-
-  for (int i = 0; i < 11; i++) {
-    msdata.rx_eq_freq[i]           = htond(receiver[id]->eq_freq[i]);
-    msdata.rx_eq_gain[i]           = htond(receiver[id]->eq_gain[i]);
-  }
-
-  msdata.step                      = htonll(vfo[id].step);
-
-  if (can_transmit) {
-    msdata.en_txeq                 = transmitter->eq_enable;
-    msdata.compressor              = transmitter->compressor;
-    msdata.dexp                    = transmitter->dexp;
-    msdata.dexp_filter             = transmitter->dexp_filter;
-    msdata.cfc                     = transmitter->cfc;
-    msdata.cfc_eq                  = transmitter->cfc_eq;
-    msdata.dexp_trigger            = htons(transmitter->dexp_trigger);
-    msdata.dexp_exp                = htons(transmitter->dexp_exp);
-    msdata.dexp_filter_low         = htons(transmitter->dexp_filter_low);
-    msdata.dexp_filter_high        = htons(transmitter->dexp_filter_high);
-    msdata.compressor_level        = htond(transmitter->compressor_level);
-    msdata.mic_gain                = htond(transmitter->mic_gain);
-    msdata.dexp_tau                = htond(transmitter->dexp_tau);
-    msdata.dexp_attack             = htond(transmitter->dexp_attack);
-    msdata.dexp_release            = htond(transmitter->dexp_release);
-    msdata.dexp_hold               = htond(transmitter->dexp_hold);
-    msdata.dexp_hyst               = htond(transmitter->dexp_hyst);
-
-    for (int i = 0; i < 11; i++) {
-      msdata.tx_eq_freq[i]         = htond(transmitter->eq_freq[i]);
-      msdata.tx_eq_gain[i]         = htond(transmitter->eq_gain[i]);
-      msdata.cfc_freq[i]           = htond(transmitter->cfc_freq[i]);
-      msdata.cfc_lvl[i]            = htond(transmitter->cfc_lvl[i]);
-      msdata.cfc_post[i]           = htond(transmitter->cfc_post[i]);
-    }
-  }
-  send_bytes(sock, (char *)&msdata, sizeof(MODESETTINGS_DATA));
-}
-
 //
 // server_thread is running on the "local" computer
 // (with direct cable connection to the radio hardware)
@@ -541,9 +575,10 @@ static void *server_thread(void *arg) {
   // The server starts with sending much of the radio data in order
   // to initialize data structures on the client side.
   //
-  send_radio_data(client->socket);         // send INFO_RADIO     packet
-  send_adc_data(client->socket, 0);        // send INFO_ADC       packet
-  send_adc_data(client->socket, 1);        // send INFO_ADC       packet
+  send_radio_data_static(client->socket);   // send INFO_RADIO_STATIC  packet
+  send_radio_data_dynamic(client->socket);  // send INFO_RADIO_DYNAMIC packet
+  send_adc_data(client->socket, 0);         // send INFO_ADC           packet
+  send_adc_data(client->socket, 1);         // send INFO_ADC           packet
 
   //
   // Send filter edges of the Var1 and Var2 filters
@@ -559,6 +594,14 @@ static void *server_thread(void *arg) {
 
   send_vfo_data(client->socket, VFO_A);    // send INFO_VFO packet
   send_vfo_data(client->socket, VFO_B);    // send INFO_VFO packet
+
+  for (int b = 0; b < BANDS + XVTRS; b++) {
+    send_band_data(client->socket, b);
+    BAND *band = band_get_band(b);
+    for (int s = 0; s < band->bandstack->entries; s++) {
+      send_bandstack_data(client->socket, b, s);
+    }
+  }
 
   send_start_radio(client->socket);
 
@@ -612,6 +655,21 @@ static void *server_thread(void *arg) {
     t_print("%s: received header: type=%d\n", __FUNCTION__, data_type);
 
     switch (data_type) {
+    case INFO_RADIO_STATIC: {
+      RADIO_STATIC_DATA*  data = g_new(RADIO_STATIC_DATA, 1);
+      bytes_read = recv_bytes(client->socket, (char *)data + sizeof(HEADER), sizeof(RADIO_STATIC_DATA) - sizeof(HEADER));
+
+      if (bytes_read <= 0) {
+        t_print("%s: short read for SPECTRUM_COMMAND\n", __FUNCTION__);
+        t_perror("server_thread");
+        // dialog box?
+        return NULL;
+      }
+
+      g_idle_add(remote_command, data);
+    }
+    break;
+
     case CMD_SPECTRUM: {
       SPECTRUM_COMMAND spectrum_command;
       bytes_read = recv_bytes(client->socket, (char *)&spectrum_command.id, sizeof(SPECTRUM_COMMAND) - sizeof(header));
@@ -730,48 +788,6 @@ static void *server_thread(void *arg) {
         }
 
         g_idle_add(remote_command, move_to_command);
-      }
-
-      break;
-
-    case CMD_RX_ZOOM:
-      t_print("%s: CMD_RX_ZOOM\n", __FUNCTION__);
-      {
-        ZOOM_COMMAND *zoom_command = g_new(ZOOM_COMMAND, 1);
-        zoom_command->header.data_type = header.data_type;
-        zoom_command->header.version = header.version;
-        zoom_command->header.context.client = client;
-        bytes_read = recv_bytes(client->socket, (char *)&zoom_command->id, sizeof(ZOOM_COMMAND) - sizeof(header));
-
-        if (bytes_read <= 0) {
-          t_print("%s: short read for ZOOM_COMMAND\n", __FUNCTION__);
-          t_perror("server_thread");
-          // dialog box?
-          return NULL;
-        }
-
-        g_idle_add(remote_command, zoom_command);
-      }
-
-      break;
-
-    case CMD_RX_PAN:
-      t_print("%s: CMD_RX_PAN\n", __FUNCTION__);
-      {
-        PAN_COMMAND *pan_command = g_new(PAN_COMMAND, 1);
-        pan_command->header.data_type = header.data_type;
-        pan_command->header.version = header.version;
-        pan_command->header.context.client = client;
-        bytes_read = recv_bytes(client->socket, (char *)&pan_command->id, sizeof(PAN_COMMAND) - sizeof(header));
-
-        if (bytes_read <= 0) {
-          t_print("%s: short read for PAN_COMMAND\n", __FUNCTION__);
-          t_perror("server_thread");
-          // dialog box?
-          return NULL;
-        }
-
-        g_idle_add(remote_command, pan_command);
       }
 
       break;
@@ -1116,28 +1132,6 @@ static void *server_thread(void *arg) {
 
       break;
 
-    case CMD_RECEIVERS:
-      t_print("%s: CMD_RECEIVERS\n", __FUNCTION__);
-      {
-        RECEIVERS_COMMAND *receivers_command = g_new(RECEIVERS_COMMAND, 1);
-        receivers_command->header.data_type = header.data_type;
-        receivers_command->header.version = header.version;
-        receivers_command->header.context.client = client;
-        bytes_read = recv_bytes(client->socket, (char *)&receivers_command->receivers,
-                                sizeof(RECEIVERS_COMMAND) - sizeof(header));
-
-        if (bytes_read <= 0) {
-          t_print("%s: short read for RECEIVERS\n", __FUNCTION__);
-          t_perror("server_thread");
-          // dialog box?
-          return NULL;
-        }
-
-        g_idle_add(remote_command, receivers_command);
-      }
-
-      break;
-
     case CMD_FILTER_BOARD:
       t_print("%s: CMD_FILTER_BOARD\n", __FUNCTION__);
       {
@@ -1156,48 +1150,6 @@ static void *server_thread(void *arg) {
         }
 
         g_idle_add(remote_command, filter_board_command);
-      }
-
-      break;
-
-    case CMD_SWAP_IQ:
-      t_print("%s: CMD_SWAP_IQ\n", __FUNCTION__);
-      {
-        SWAP_IQ_COMMAND *swap_iq_command = g_new(SWAP_IQ_COMMAND, 1);
-        swap_iq_command->header.data_type = header.data_type;
-        swap_iq_command->header.version = header.version;
-        swap_iq_command->header.context.client = client;
-        bytes_read = recv_bytes(client->socket, (char *)&swap_iq_command->iqswap, sizeof(SWAP_IQ_COMMAND) - sizeof(header));
-
-        if (bytes_read <= 0) {
-          t_print("%s: short read for SWAP_IQ\n", __FUNCTION__);
-          t_perror("server_thread");
-          // dialog box?
-          return NULL;
-        }
-
-        g_idle_add(remote_command, swap_iq_command);
-      }
-
-      break;
-
-    case CMD_REGION:
-      t_print("%s: CMD_REGION\n", __FUNCTION__);
-      {
-        REGION_COMMAND *region_command = g_new(REGION_COMMAND, 1);
-        region_command->header.data_type = header.data_type;
-        region_command->header.version = header.version;
-        region_command->header.context.client = client;
-        bytes_read = recv_bytes(client->socket, (char *)&region_command->region, sizeof(REGION_COMMAND) - sizeof(header));
-
-        if (bytes_read <= 0) {
-          t_print("%s: short read for REGION\n", __FUNCTION__);
-          t_perror("server_thread");
-          // dialog box?
-          return NULL;
-        }
-
-        g_idle_add(remote_command, region_command);
       }
 
       break;
@@ -1236,6 +1188,11 @@ static void *server_thread(void *arg) {
     case CMD_RX_FILTER_VAR:
     case CMD_RIT_TOGGLE:
     case CMD_RIT_VALUE:
+    case CMD_SWAP_IQ:
+    case CMD_RECEIVERS:
+    case CMD_RX_ZOOM:
+    case CMD_RX_PAN:
+    case CMD_REGION:
 
       t_print("%s: ShortCommand=%d\n", __FUNCTION__, data_type);
       {
@@ -1343,27 +1300,23 @@ void update_vfo_step(int rx, int steps) {
 }
 
 void send_zoom(int s, int rx, int zoom) {
-  ZOOM_COMMAND command;
-  short z = (short)zoom;
-  t_print("send_zoom rx=%d zoom=%d\n", rx, zoom);
-  command.header.sync = REMOTE_SYNC;
-  command.header.data_type = htons(CMD_RX_ZOOM);
-  command.header.version = htons(CLIENT_SERVER_VERSION);
-  command.id = rx;
-  command.zoom = htons(z);
-  send_bytes(s, (char *)&command, sizeof(command));
+  HEADER header;
+  header.sync = REMOTE_SYNC;
+  header.data_type = htons(CMD_RX_ZOOM);
+  header.version = htons(CLIENT_SERVER_VERSION);
+  header.b1 = rx;
+  header.b2 = zoom;
+  send_bytes(s, (char *)&header, sizeof(HEADER));
 }
 
 void send_pan(int s, int rx, int pan) {
-  PAN_COMMAND command;
-  short p = (short)pan;
-  t_print("send_pan rx=%d pan=%d\n", rx, pan);
-  command.header.sync = REMOTE_SYNC;
-  command.header.data_type = htons(CMD_RX_PAN);
-  command.header.version = htons(CLIENT_SERVER_VERSION);
-  command.id = rx;
-  command.pan = htons(p);
-  send_bytes(s, (char *)&command, sizeof(command));
+  HEADER header;
+  header.sync = REMOTE_SYNC;
+  header.data_type = htons(CMD_RX_PAN);
+  header.version = htons(CLIENT_SERVER_VERSION);
+  header.b1 = rx;
+  header.s1 = htons(pan);
+  send_bytes(s, (char *)&header, sizeof(HEADER));
 }
 
 void send_volume(int s, int rx, double volume) {
@@ -1689,13 +1642,12 @@ void send_sample_rate(int s, int rx, int sample_rate) {
 }
 
 void send_receivers(int s, int receivers) {
-  RECEIVERS_COMMAND command;
-  t_print("send_receivers receivers=%d\n", receivers);
-  command.header.sync = REMOTE_SYNC;
-  command.header.data_type = htons(CMD_RECEIVERS);
-  command.header.version = htons(CLIENT_SERVER_VERSION);
-  command.receivers = receivers;
-  send_bytes(s, (char *)&command, sizeof(command));
+  HEADER header;
+  header.sync = REMOTE_SYNC;
+  header.data_type = htons(CMD_RECEIVERS);
+  header.version = htons(CLIENT_SERVER_VERSION);
+  header.b1 = receivers;
+  send_bytes(s, (char *)&header, sizeof(HEADER));
 }
 
 void send_rit_step(int s, int v, int step) {
@@ -1719,23 +1671,36 @@ void send_filter_board(int s, int filter_board) {
 }
 
 void send_swap_iq(int s, int iqswap) {
-  SWAP_IQ_COMMAND command;
+  HEADER header;
   t_print("send_swap_iq iqswap=%d\n", iqswap);
-  command.header.sync = REMOTE_SYNC;
-  command.header.data_type = htons(CMD_SWAP_IQ);
-  command.header.version = htons(CLIENT_SERVER_VERSION);
-  command.iqswap = iqswap;
-  send_bytes(s, (char *)&command, sizeof(command));
+  header.sync = REMOTE_SYNC;
+  header.data_type = htons(CMD_SWAP_IQ);
+  header.version = htons(CLIENT_SERVER_VERSION);
+  header.b1 = soapy_iqswap;
+  send_bytes(s, (char *)&header, sizeof(HEADER));
+}
+
+void send_anan10E(int s, int new) {
+  HEADER header;
+  header.sync = REMOTE_SYNC;
+  header.data_type = htons(CMD_ANAN10E);
+  header.version = htons(CLIENT_SERVER_VERSION);
+  header.b1 = new;
+  send_bytes(s, (char *)&header, sizeof(HEADER));
 }
 
 void send_region(int s, int region) {
-  REGION_COMMAND command;
+  HEADER header;
   t_print("send_region region=%d\n", region);
-  command.header.sync = REMOTE_SYNC;
-  command.header.data_type = htons(CMD_REGION);
-  command.header.version = htons(CLIENT_SERVER_VERSION);
-  command.region = region;
-  send_bytes(s, (char *)&command, sizeof(command));
+  //
+  // prepeare for bandstack reorganisation
+  //
+  radio_change_region(region);
+  header.sync = REMOTE_SYNC;
+  header.data_type = htons(CMD_REGION);
+  header.version = htons(CLIENT_SERVER_VERSION);
+  header.b1 = region;
+  send_bytes(s, (char *)&header, sizeof(HEADER));
 }
 
 void send_mute_rx(int s, int mute) {
@@ -1881,6 +1846,22 @@ static void *client_thread(void* arg) {
   char *server = (char *)arg;
   running = TRUE;
 
+  radio = g_new(DISCOVERED, 1);
+  //
+  // Allocate HERE so INFO packets can be sent multiple times
+  //
+  radio       = g_new(DISCOVERED, 1);
+  receiver[0] = g_new(RECEIVER, 1);
+  receiver[1] = g_new(RECEIVER, 1);
+  receiver[2] = g_new(RECEIVER, 1);
+  transmitter = g_new(TRANSMITTER, 1);
+
+  memset(radio,       0, sizeof(DISCOVERED));
+  memset(receiver[0], 0, sizeof(RECEIVER));
+  memset(receiver[1], 0, sizeof(RECEIVER));
+  memset(receiver[2], 0, sizeof(RECEIVER));
+  memset(transmitter, 0, sizeof(TRANSMITTER));
+
   while (running) {
     bytes_read = recv_bytes(client_socket, (char *)&header, sizeof(header));
 
@@ -1892,65 +1873,182 @@ static void *client_thread(void* arg) {
     }
 
     switch (ntohs(header.data_type)) {
-    case INFO_RADIO: {
-      RADIO_DATA radio_data;
-      bytes_read = recv_bytes(client_socket, (char *)&radio_data.name, sizeof(radio_data) - sizeof(header));
+    case INFO_BAND: {
+      BAND_DATA data;
+      bytes_read = recv_bytes(client_socket, (char *)&data + sizeof(HEADER), sizeof(data) - sizeof(HEADER));
 
       if (bytes_read <= 0) {
-        t_print("client_thread: short read for RADIO_DATA\n");
+        t_print("client_thread: short read for INFO_BAND\n");
         t_perror("client_thread");
         // dialog box?
         return NULL;
       }
 
-      t_print("INFO_RADIO: %d\n", bytes_read);
-      // build a radio (discovered) structure
-      radio = g_new(DISCOVERED, 1);
+      t_print("INFO_BAND: %d\n", bytes_read);
+
+      if (data.band > BANDS + XVTRS) {
+        t_print("WARNING: band data received for b=%d, too large.\n", data.band);
+        break;
+      }
+
+      BAND *band = band_get_band(data.band);
+
+      if (data.current > band->bandstack->entries) {
+        t_print("WARNING: band stack too large for b=%d, s=%d.\n", data.band, data.current);
+        break;
+      }
+
+      snprintf(band->title, 16, "%s", data.title);
+      band->OCrx = data.OCrx;
+      band->OCtx = data.OCtx;
+      band->alexRxAntenna = data.alexRxAntenna;
+      band->alexTxAntenna = data.alexTxAntenna;
+      band->alexAttenuation = data.alexAttenuation;
+      band->disablePA = data.disablePA;
+      band->bandstack->current_entry = data.current;
+      band->gain = (short) ntohs(data.gain);
+      band->pa_calibration = ntohd(data.pa_calibration);
+      band->frequencyMin = ntohll(data.frequencyMin);
+      band->frequencyMax = ntohll(data.frequencyMax);
+      band->frequencyLO  = ntohll(data.frequencyLO);
+      band->errorLO  = ntohll(data.errorLO);
+    }
+    break;
+
+    case INFO_BANDSTACK: {
+      BANDSTACK_DATA data;
+      bytes_read = recv_bytes(client_socket, (char *)&data + sizeof(HEADER), sizeof(data) - sizeof(HEADER));
+      
+      if (bytes_read <= 0) {
+        t_print("client_thread: short read for INFO_BANDSTACK\n");
+        t_perror("client_thread");
+        // dialog box?
+        return NULL;
+      }
+      
+      t_print("INFO_BAND: %d\n", bytes_read);
+    
+      if (data.band > BANDS + XVTRS) {
+        t_print("WARNING: band data received for b=%d, too large.\n", data.band);
+        break;
+      }
+    
+      BAND *band = band_get_band(data.band);
+    
+      if (data.stack > band->bandstack->entries) {
+        t_print("WARNING: band stack too large for b=%d, s=%d.\n", data.band, data.stack);
+        break;
+      }
+
+      BANDSTACK_ENTRY *entry = band->bandstack->entry;
+      entry += data.stack;
+
+      entry->mode = data.mode;
+      entry->filter = data.filter;
+      entry->ctun = data.ctun;
+      entry->ctcss_enabled = data.ctcss_enabled;
+      entry->ctcss = data.ctcss_enabled;
+      entry->deviation = (short) ntohs(data.deviation);
+      entry->frequency =  ntohll(data.frequency);
+      entry->ctun_frequency = ntohll(data.ctun_frequency);
+    }
+    break;
+
+    case INFO_RADIO_STATIC: {
+      RADIO_STATIC_DATA radio_data;
+      bytes_read = recv_bytes(client_socket, (char *)&radio_data+sizeof(HEADER), sizeof(radio_data) - sizeof(HEADER));
+
+      if (bytes_read <= 0) {
+        t_print("client_thread: short read for INFO_RADIO_STATIC\n");
+        t_perror("client_thread");
+        // dialog box?
+        return NULL;
+      }
+
+      t_print("INFO_RADIO_STATIC: %d\n", bytes_read);
       STRLCPY(radio->name, radio_data.name, sizeof(radio->name));
-      // Note we use "protocol" and "device" througout the program
-      protocol = radio->protocol = ntohs(radio_data.protocol);
-      device = radio->device = ntohs(radio_data.device);
-      uint64_t temp = ntohll(radio_data.frequency_min);
-      radio->frequency_min = (double)temp;
-      temp = ntohll(radio_data.frequency_max);
-      radio->frequency_max = (double)temp;
+      locked= radio_data.locked;
+      can_transmit = 0;  // TEMPORARY
+      have_rx_gain=radio_data.have_rx_gain;
+      protocol = radio->protocol = radio_data.protocol;
       radio->supported_receivers = ntohs(radio_data.supported_receivers);
-      temp = ntohll(radio_data.sample_rate);
-      radio_sample_rate = (int)temp;
+      receivers=radio_data.receivers;
+      filter_board=radio_data.filter_board;
+      enable_auto_tune=radio_data.enable_auto_tune;
+      new_pa_board=radio_data.new_pa_board;
+      region=radio_data.region; radio_change_region(region);
+      atlas_penelope=radio_data.atlas_penelope;
+      atlas_clock_source_10mhz=radio_data.atlas_clock_source_10mhz;
+      atlas_clock_source_128mhz=radio_data.atlas_clock_source_128mhz;
+      atlas_mic_source=radio_data.atlas_mic_source;
+      atlas_janus=radio_data.atlas_janus;
+      hl2_audio_codec=radio_data.hl2_audio_codec;
+      anan10E=radio_data.anan10E;
+      tx_out_of_band_allowed=radio_data.tx_out_of_band_allowed;
+      pa_enabled=radio_data.pa_enabled;
+      mic_boost=radio_data.mic_boost;
+      mic_linein=radio_data.mic_linein;
+      mic_ptt_enabled=radio_data.mic_ptt_enabled;
+      mic_bias_enabled=radio_data.mic_bias_enabled;
+      mic_ptt_tip_bias_ring=radio_data.mic_ptt_tip_bias_ring;
+      cw_keyer_sidetone_volume=mic_input_xlr=radio_data.mic_input_xlr;
+      OCtune=radio_data.OCtune;
+      vox_enabled=radio_data.vox_enabled;
+      mute_rx_while_transmitting=radio_data.mute_rx_while_transmitting;
+      mute_spkr_amp=radio_data.mute_spkr_amp;
+      adc0_filter_bypass=radio_data.adc0_filter_bypass;
+      adc1_filter_bypass=radio_data.adc1_filter_bypass;
+      split=radio_data.split;
+      sat_mode=radio_data.sat_mode;
+      duplex=radio_data.duplex;
+
+      pa_power = (short) ntohs(radio_data.pa_power);
+      OCfull_tune_time = (short) ntohs(radio_data.OCfull_tune_time);
+      OCmemory_tune_time = (short) ntohs(radio_data.OCmemory_tune_time);
+      cw_keyer_sidetone_frequency = (short) ntohs(radio_data.cw_keyer_sidetone_frequency);
+      rx_gain_calibration = (short) ntohs(radio_data.rx_gain_calibration);
+      device = radio->device = ntohs(radio_data.device);
+      tx_filter_low = (short) ntohs(radio_data.tx_filter_low);
+      tx_filter_high = (short) ntohs(radio_data.tx_filter_high);
+      vox_threshold = ntohd(radio_data.vox_threshold);
+      vox_hang = ntohd(radio_data.vox_hang);
+      drive_digi_max = ntohd(radio_data.drive_digi_max);
+
+      for (int i = 0; i < 11; i++) {
+        pa_trim[i]= ntohd(radio_data.pa_trim[i]);
+      }
+
+      frequency_calibration = ntohll(radio_data.frequency_calibration);
+      soapy_radio_sample_rate = ntohll(radio_data.soapy_radio_sample_rate);
+      radio->frequency_min = ntohll(radio_data.radio_frequency_min);
+      radio->frequency_max = ntohll(radio_data.radio_frequency_max);
+
+      
 #ifdef SOAPYSDR
 
       if (protocol == SOAPYSDR_PROTOCOL) {
-        radio->info.soapy.sample_rate = (int)temp;
+        radio->info.soapy.sample_rate = soapy_radio_sample_rate;
       }
 
 #endif
-      // cppcheck-suppress uninitvar
-      locked = radio_data.locked;
-      receivers = ntohs(radio_data.receivers);
-      //can_transmit=radio_data.can_transmit;
-      can_transmit = 0; // forced temporarily until Client/Server supports transmitters
-      split = radio_data.split;
-      sat_mode = radio_data.sat_mode;
-      duplex = radio_data.duplex;
-      have_rx_gain = radio_data.have_rx_gain;
-      short s = ntohs(radio_data.rx_gain_calibration);
-      rx_gain_calibration = (int)s;
-      filter_board = ntohs(radio_data.filter_board);
-      t_print("have_rx_gain=%d rx_gain_calibration=%d filter_board=%d\n", have_rx_gain, rx_gain_calibration, filter_board);
+
       snprintf(title, 128, "piHPSDR: %s remote at %s", radio->name, server);
-      //
-      // Allocate 2 RX (and  possible one dummy for PS) and one transmitter
-      //
-      receiver[0] = g_new(RECEIVER, 1);
-      receiver[1] = g_new(RECEIVER, 1);
-      receiver[2] = g_new(RECEIVER, 1);
-      transmitter = g_new(TRANSMITTER, 1);
-
-      memset(receiver[0], 0, sizeof(RECEIVER));
-      memset(receiver[1], 0, sizeof(RECEIVER));
-      memset(transmitter, 0, sizeof(TRANSMITTER));
-
       g_idle_add(ext_set_title, (void *)title);
+    }
+    break;
+
+    case INFO_RADIO_DYNAMIC: {
+      RADIO_DYNAMIC_DATA radio_data;
+      bytes_read = recv_bytes(client_socket, (char *)&radio_data + sizeof(header), sizeof(radio_data) - sizeof(header));
+
+      if (bytes_read <= 0) {
+        t_print("client_thread: short read for INFO_RADIO_DYNAMIC\n");
+        t_perror("client_thread");
+        // dialog box?
+        return NULL;
+      }
+
+      t_print("INFO_RADIO_DYNAMIC: %d\n", bytes_read);
     }
     break;
 
@@ -2191,98 +2289,11 @@ static void *client_thread(void* arg) {
     }
     break;
 
-    case INFO_MODESETTINGS: {
-      MODESETTINGS_DATA msdata;
-      bytes_read = recv_bytes(client_socket, (char *)&msdata + sizeof(HEADER), sizeof(MODESETTINGS_DATA) - sizeof(HEADER));
-
-      if (bytes_read <= 0) {
-        t_print("client_thread: short read for MODESETTINGS_DATA\n");
-        t_perror("client_thread");
-        // dialog box?
-        return NULL;
-      }
-
-      int id                                  = msdata.id;
-      vfo[id].filter                          = msdata.filter;
-      vfo[id].cwAudioPeakFilter               = msdata.cwPeak;
-      receiver[id]->nb                        = msdata.nb;
-      receiver[id]->nb2_mode                  = msdata.nb2_mode;
-      receiver[id]->nr                        = msdata.nr;
-      receiver[id]->nr_agc                    = msdata.nr_agc;
-      receiver[id]->nr2_gain_method           = msdata.nr2_gain_method;
-      receiver[id]->nr2_npe_method            = msdata.nr2_npe_method;
-      receiver[id]->nr2_ae                    = msdata.nr2_ae;
-      receiver[id]->anf                       = msdata.anf;
-      receiver[id]->snb                       = msdata.snb;
-      receiver[id]->agc                       = msdata.agc;
-      receiver[id]->eq_enable                 = msdata.en_rxeq;
-      vfo[id].rit_step                        = (short) ntohs(msdata.rit_step);
-      receiver[id]->nb_tau                    = ntohd(msdata.nb_tau);
-      receiver[id]->nb_hang                   = ntohd(msdata.nb_hang);
-      receiver[id]->nb_advtime                = ntohd(msdata.nb_advtime);
-      receiver[id]->nr2_trained_threshold     = ntohd(msdata.nr2_trained_threshold);
-      receiver[id]->nr2_trained_t2            = ntohd(msdata.nr2_trained_t2);
-#ifdef EXTNR
-      receiver[id]->nr4_reduction_amount      = ntohd(msdata.nr4_reduction_amount);
-      receiver[id]->nr4_smoothing_factor      = ntohd(msdata.nr4_smoothing_factor);
-      receiver[id]->nr4_whitening_factor      = ntohd(msdata.nr4_whitening_factor);
-      receiver[id]->nr4_noise_rescale         = ntohd(msdata.nr4_noise_rescale);
-      receiver[id]->nr4_post_filter_threshold = ntohd(msdata.nr4_noise_rescale);
-#endif
-
-      for (int i = 0; i < 11; i++) {
-        receiver[id]->eq_freq[i]               = ntohd(msdata.rx_eq_freq[i]);
-        receiver[id]->eq_gain[i]               = ntohd(msdata.rx_eq_gain[i]);
-      }
-
-     vfo[id].step                             = ntohll(msdata.step);
-
-     if (can_transmit) {
-       transmitter->eq_enable                 = msdata.en_txeq;
-       transmitter->compressor                = msdata.compressor;
-       transmitter->dexp                      = msdata.dexp;
-       transmitter->dexp_filter               = msdata.dexp_filter;
-       transmitter->cfc                       = msdata.cfc;
-       transmitter->cfc_eq                    = msdata.cfc_eq;
-       transmitter->dexp_trigger              = (short) ntohs(msdata.dexp_trigger);
-       transmitter->dexp_exp                  = (short) ntohs(msdata.dexp_exp);
-       transmitter->dexp_filter_low           = (short) ntohs(msdata.dexp_filter_low);
-       transmitter->dexp_filter_high          = (short) ntohs(msdata.dexp_filter_high);
-       transmitter->compressor_level          = ntohd(msdata.compressor_level);
-       transmitter->mic_gain                  = ntohd(msdata.mic_gain);
-       transmitter->dexp_tau                  = ntohd(msdata.dexp_tau);
-       transmitter->dexp_attack               = ntohd(msdata.dexp_attack);
-       transmitter->dexp_release              = ntohd(msdata.dexp_release);
-       transmitter->dexp_hold                 = ntohd(msdata.dexp_hold);
-       transmitter->dexp_hyst                 = ntohd(msdata.dexp_hyst);
-      
-        for (int i = 0; i < 11; i++) {
-          transmitter->eq_freq[i]             = ntohd(msdata.tx_eq_freq[i]);
-          transmitter->eq_gain[i]             = ntohd(msdata.tx_eq_gain[i]);
-          transmitter->cfc_freq[i]            = ntohd(msdata.cfc_freq[i]);
-          transmitter->cfc_lvl[i]             = ntohd(msdata.cfc_lvl[i]);
-          transmitter->cfc_post[i]            = ntohd(msdata.cfc_post[i]);
-        }
-      }
-      g_idle_add(ext_vfo_update, NULL);
-    }
-    break;
-
     case CMD_START_RADIO: {
       if (!remote_started) {
         g_idle_add(radio_remote_start, (gpointer)server);
       }
       g_idle_add(ext_vfo_update, NULL);
-    }
-    break;
-
-    case CMD_SPECTRUM: {
-      t_print("%s: CMD_SPECTRUM should not occur\n");
-    }
-    break;
-
-    case CMD_AUDIO: {
-      t_print("%s: CMD_AUDIO should not occur\n");
     }
     break;
 
@@ -2305,7 +2316,7 @@ static void *client_thread(void* arg) {
         receiver[rx]->sample_rate = (int)rate;
         receiver[rx]->hz_per_pixel = (double)receiver[rx]->sample_rate / (double)receiver[rx]->pixels;
       } else {
-        radio_sample_rate = (int)rate;
+        soapy_radio_sample_rate = (int)rate;
 
         for (rx = 0; rx < receivers; rx++) {
           receiver[rx]->sample_rate = (int)rate;
@@ -2331,11 +2342,6 @@ static void *client_thread(void* arg) {
     }
     
     g_idle_add(ext_vfo_update, NULL);
-    break;
-
-    case CMD_CTUN: {
-      t_print("%s: CMD_CTUN should not occur\n");
-    }
     break;
 
     case CMD_SPLIT: {
@@ -2392,51 +2398,11 @@ static void *client_thread(void* arg) {
     g_idle_add(ext_vfo_update, NULL);
     break;
 
-    case CMD_STEP: {
-      t_print("%s: CMD_STEP should not occur\n");
-    }
-    break;
-
     case CMD_RECEIVERS: {
-      RECEIVERS_COMMAND receivers_cmd;
-      bytes_read = recv_bytes(client_socket, (char *)&receivers_cmd.receivers, sizeof(receivers_cmd) - sizeof(header));
-
-      if (bytes_read <= 0) { 
-        t_print("client_thread: short read for RECEIVERS_CMD\n");
-        t_perror("client_thread");
-        // dialog box? 
-        return NULL;
-      }    
-
-      int r = (int)receivers_cmd.receivers;
+      int r = header.b1;
       t_print("CMD_RECEIVERS: receivers=%d\n", r);
-      g_idle_add(ext_radio_change_receivers, GINT_TO_POINTER(r));
+      g_idle_add(ext_radio_remote_change_receivers, GINT_TO_POINTER(r));
     }    
-    break;
-
-    case CMD_RX_FREQ: {
-      t_print("%s: CMD_RX_FREQ should not occur\n");
-    }
-    break;
-
-    case CMD_RX_STEP: {
-      t_print("%s: CMD_RX_STEP should not occur\n");
-    }
-    break;
-
-    case CMD_RX_MOVE: {
-      t_print("%s: CMD_RX_MOVE should not occur\n");
-    }
-    break;
-
-    case CMD_RX_MOVETO: {
-      t_print("%s: CMD_RX_MOVETO should not occur\n");
-    }
-    break;
-
-    case CMD_RX_BAND: {
-      t_print("%s: CMD_RX_BAND should not occur\n");
-    }
     break;
 
     case CMD_RX_MODE: {
@@ -2445,11 +2411,6 @@ static void *client_thread(void* arg) {
       vfo[rx].mode = m; 
       g_idle_add(ext_vfo_update, NULL);
     }    
-    break;
-
-    case CMD_RX_FILTER_SEL: {
-      t_print("%s: CMD_RX_FILTER_SEL should not occur\n");
-    }
     break;
 
     case CMD_RX_FILTER_VAR: {
@@ -2534,19 +2495,8 @@ static void *client_thread(void* arg) {
     break;
 
     case CMD_RX_ZOOM: {
-      ZOOM_COMMAND zoom_cmd;
-      bytes_read = recv_bytes(client_socket, (char *)&zoom_cmd.id, sizeof(zoom_cmd) - sizeof(header));
-
-      if (bytes_read <= 0) {
-        t_print("client_thread: short read for ZOOM_CMD\n");
-        t_perror("client_thread");
-        // dialog box?
-        return NULL;
-      }
-
-      // cppcheck-suppress uninitStructMember
-      int rx = zoom_cmd.id;
-      short zoom = ntohs(zoom_cmd.zoom);
+      int rx = header.b1;
+      int zoom = header.b2;
       t_print("CMD_RX_ZOOM: zoom=%d rx[%d]->zoom=%d\n", zoom, rx, receiver[rx]->zoom);
 
       if (receiver[rx]->zoom != zoom) {
@@ -2559,19 +2509,8 @@ static void *client_thread(void* arg) {
     break;
 
     case CMD_RX_PAN: {
-      PAN_COMMAND pan_cmd;
-      bytes_read = recv_bytes(client_socket, (char *)&pan_cmd.id, sizeof(pan_cmd) - sizeof(header));
-
-      if (bytes_read <= 0) {
-        t_print("client_thread: short read for PAN_CMD\n");
-        t_perror("client_thread");
-        // dialog box?
-        return NULL;
-      }
-
-      // cppcheck-suppress uninitStructMember
-      int rx = pan_cmd.id;
-      short pan = ntohs(pan_cmd.pan);
+      int rx = header.b1;
+      int pan = (short) ntohs(header.s1);
       t_print("CMD_RX_PAN: pan=%d rx[%d]->pan=%d\n", pan, rx, receiver[rx]->pan);
       g_idle_add(ext_remote_set_pan, GINT_TO_POINTER(pan));
     }
@@ -2655,11 +2594,6 @@ static void *client_thread(void* arg) {
     }
     break;
 
-    case CMD_RX_SQUELCH: {
-      t_print("%s: CMD_RX_SQUELCHL should not occur\n");
-    }
-    break;
-
     case CMD_RX_FPS: {
       FPS_COMMAND fps_cmd;
       bytes_read = recv_bytes(client_socket, (char *)&fps_cmd.id, sizeof(fps_cmd) - sizeof(header));
@@ -2688,51 +2622,6 @@ static void *client_thread(void* arg) {
     g_idle_add(ext_vfo_update, NULL);
     break;
 
-    case CMD_VFO_A_TO_B: {
-      t_print("%s: CMD_VFO_A_TO_B should not occur\n");
-    }
-    break;
-
-    case CMD_VFO_B_TO_A: {
-      t_print("%s: CMD_VFO_B_TO_A should not occur\n");
-    }
-    break;
-
-    case CMD_VFO_SWAP: {
-      t_print("%s: CMD_VFO_SWAP should not occur\n");
-    }
-    break;
-
-    case CMD_RIT_TOGGLE: {
-      t_print("%s: CMD_RIT_TOGGLE should not occur\n");
-    }
-    break;
-
-    case CMD_RIT_VALUE: {
-      t_print("%s: CMD_RIT_VALUE should not occur\n");
-    }
-    break;
-
-    case CMD_RIT_INCR: {
-      t_print("%s: CMD_RIT_INCR should not occur\n");
-    }
-    break;
-
-    case CMD_XIT_TOGGLE: {
-      t_print("%s: CMD_XIT_TOGGLE should not occur\n");
-    }
-    break;
-
-    case CMD_XIT_CLEAR: {
-      t_print("%s: CMD_XIT_CLEAR should not occur\n");
-    }
-    break;
-
-    case CMD_XIT: {
-      t_print("%s: CMD_XIT should not occur\n");
-    }
-    break;
-
     case CMD_RIT_STEP: {
       int v = header.b1;
       int step = ntohs(header.s1);
@@ -2754,43 +2643,6 @@ static void *client_thread(void* arg) {
 
       filter_board = (int)filter_board_cmd.filter_board;
       t_print("CMD_FILTER_BOARD: board=%d\n", filter_board);
-    }
-    break;
-
-    case CMD_SWAP_IQ: {
-      SWAP_IQ_COMMAND swap_iq_cmd;
-      bytes_read = recv_bytes(client_socket, (char *)&swap_iq_cmd.iqswap, sizeof(swap_iq_cmd) - sizeof(header));
-
-      if (bytes_read <= 0) {
-        t_print("client_thread: short read for SWAP_IQ_COMMAND\n");
-        t_perror("client_thread");
-        // dialog box?
-        return NULL;
-      }
-
-      iqswap = (int)swap_iq_cmd.iqswap;
-      t_print("CMD_IQ_SWAP: iqswap=%d\n", iqswap);
-    }
-    break;
-
-    case CMD_REGION: {
-      REGION_COMMAND region_cmd;
-      bytes_read = recv_bytes(client_socket, (char *)&region_cmd.region, sizeof(region_cmd) - sizeof(header));
-
-      if (bytes_read <= 0) {
-        t_print("client_thread: short read for REGION_COMMAND\n");
-        t_perror("client_thread");
-        // dialog box?
-        return NULL;
-      }
-
-      region = (int)region_cmd.region;
-      t_print("CMD_REGION: region=%d\n", region);
-    }
-    break;
-
-    case CMD_MUTE_RX: {
-      t_print("%s: CMD_MUTE_RX should not occur\n");
     }
     break;
 
@@ -2864,6 +2716,50 @@ static int remote_command(void *data) {
   int temp;
 
   switch (ntohs(header->data_type)) {
+  case INFO_RADIO_STATIC: {
+      RADIO_STATIC_DATA *radio_data = (RADIO_STATIC_DATA *)data;
+      
+      locked= radio_data->locked;
+      have_rx_gain=radio_data->have_rx_gain;
+      filter_board=radio_data->filter_board; load_filters();
+      enable_auto_tune=radio_data->enable_auto_tune;
+      new_pa_board=radio_data->new_pa_board;
+      region=radio_data->region; radio_change_region(region);
+      atlas_penelope=radio_data->atlas_penelope;
+      atlas_clock_source_10mhz=radio_data->atlas_clock_source_10mhz;
+      atlas_clock_source_128mhz=radio_data->atlas_clock_source_128mhz;
+      atlas_mic_source=radio_data->atlas_mic_source;
+      atlas_janus=radio_data->atlas_janus;
+      hl2_audio_codec=radio_data->hl2_audio_codec;
+      tx_out_of_band_allowed=radio_data->tx_out_of_band_allowed;
+      pa_enabled=radio_data->pa_enabled;
+      mic_boost=radio_data->mic_boost;
+      mic_linein=radio_data->mic_linein;
+      mic_ptt_enabled=radio_data->mic_ptt_enabled;
+      mic_bias_enabled=radio_data->mic_bias_enabled;
+      mic_ptt_tip_bias_ring=radio_data->mic_ptt_tip_bias_ring;
+      cw_keyer_sidetone_volume=mic_input_xlr=radio_data->mic_input_xlr;
+      OCtune=radio_data->OCtune;
+      vox_enabled=radio_data->vox_enabled;
+      mute_rx_while_transmitting=radio_data->mute_rx_while_transmitting;
+      mute_spkr_amp=radio_data->mute_spkr_amp;
+      adc0_filter_bypass=radio_data->adc0_filter_bypass;
+      adc1_filter_bypass=radio_data->adc1_filter_bypass;
+      sat_mode=radio_data->sat_mode;
+
+      for (int i = 0; i < 11; i++) {
+        pa_trim[i]= ntohd(radio_data->pa_trim[i]);
+      }
+
+      frequency_calibration = ntohll(radio_data->frequency_calibration);
+
+      schedule_general();
+      schedule_transmit_specific();
+      schedule_high_priority();
+
+      break;
+    }
+
   case CMD_RX_FREQ: {
     FREQ_COMMAND *freq_command = (FREQ_COMMAND *)data;
     temp = active_receiver->pan;
@@ -2923,19 +2819,19 @@ static int remote_command(void *data) {
   break;
 
   case CMD_RX_ZOOM: {
-    ZOOM_COMMAND *zoom_command = (ZOOM_COMMAND *)data;
-    temp = ntohs(zoom_command->zoom);
-    set_zoom(zoom_command->id, (double)temp);
+    int id = header->b1;
+    temp = header->b2;
+    set_zoom(id, (double)temp);
     send_zoom(client->socket, active_receiver->id, active_receiver->zoom);
     send_pan(client->socket, active_receiver->id, active_receiver->pan);
   }
   break;
 
   case CMD_RX_PAN: {
-    PAN_COMMAND *pan_command = (PAN_COMMAND *)data;
-    temp = ntohs(pan_command->pan);
-    set_pan(pan_command->id, (double)temp);
-    send_pan(client->socket, active_receiver->id, active_receiver->pan);
+    int id = header->b1;
+    temp = ntohs(header->s1);
+    set_pan(id, (double)temp);
+    send_pan(client->socket, id, receiver[id]->pan);
   }
   break;
 
@@ -3059,7 +2955,18 @@ static int remote_command(void *data) {
     int r = header->b1;
     CHECK_RX(r);
     int b = header->b2;
+    int oldband = vfo[r].band;
     vfo_id_band_changed(r, b);
+    
+    //
+    // Update bandstack data of "old" band
+    //
+    BAND *band = band_get_band(oldband);
+
+    for (int s = 0; s < band->bandstack->entries; s++) {
+      send_bandstack_data(client->socket, oldband, s);
+    }
+
     send_vfo_data(client->socket, VFO_A);
     send_vfo_data(client->socket, VFO_B);
   }
@@ -3267,10 +3174,13 @@ static int remote_command(void *data) {
   break;
 
   case CMD_RECEIVERS: {
-    const RECEIVERS_COMMAND *receivers_command = (RECEIVERS_COMMAND *)data;
-    int r = receivers_command->receivers;
+    int r = header->b1;
     radio_change_receivers(r);
     send_receivers(client->socket, receivers);
+    // In P1, activating RX2 aligns its sample rate with RX1
+    if (receivers == 2) {
+      send_rx_data(client->socket, 1);
+    }
   }
   break;
 
@@ -3291,18 +3201,28 @@ static int remote_command(void *data) {
   break;
 
   case CMD_SWAP_IQ: {
-    const SWAP_IQ_COMMAND *swap_iq_command = (SWAP_IQ_COMMAND *)data;
-    iqswap = (int)swap_iq_command->iqswap;
-    send_swap_iq(client->socket, iqswap);
+    soapy_iqswap = header->b1;
+    send_swap_iq(client->socket, soapy_iqswap);
   }
   break;
 
   case CMD_REGION: {
-    const REGION_COMMAND *region_command = (REGION_COMMAND *)data;
-    iqswap = (int)region_command->region;
-    send_region(client->socket, region);
+    region = header->b1;
+    radio_change_region(region);
+    BAND *band = band_get_band(band60);
+
+    for (int s = 0; s < band->bandstack->entries; s++) {
+      send_bandstack_data(client->socket, band60, s);
+    }
   }
   break;
+
+  case CMD_ANAN10E: {
+    radio_set_anan10E(header->b1);
+    send_radio_data_static(client->socket);
+  }
+  break;
+
   }
 
   g_free(data);
