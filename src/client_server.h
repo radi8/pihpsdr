@@ -197,6 +197,7 @@ typedef struct __attribute__((__packed__)) _radio_static_data {
   //
   HEADER header;
   char name[32];
+//
   uint8_t  locked;
   uint8_t  can_transmit;
   uint8_t  have_rx_gain;
@@ -232,7 +233,7 @@ typedef struct __attribute__((__packed__)) _radio_static_data {
   uint8_t  split;
   uint8_t  sat_mode;
   uint8_t  duplex;
-
+//
   uint16_t pa_power;
   uint16_t OCfull_tune_time;
   uint16_t OCmemory_tune_time;
@@ -241,10 +242,12 @@ typedef struct __attribute__((__packed__)) _radio_static_data {
   uint16_t device;
   uint16_t tx_filter_low;
   uint16_t tx_filter_high;
+//
   mydouble vox_threshold;
   mydouble vox_hang;
   mydouble drive_digi_max;
   mydouble pa_trim[11];
+//
   uint64_t frequency_calibration;
   uint64_t soapy_radio_sample_rate;
   uint64_t radio_frequency_min;
@@ -265,35 +268,82 @@ typedef struct __attribute__((__packed__)) _radio_dynamic_data {
 typedef struct __attribute__((__packed__)) _adc_data {
   HEADER header;
   uint8_t adc;
+  uint8_t dither;
+  uint8_t random;
+  uint8_t preamp;
+//
   uint16_t filters;
   uint16_t hpf;
   uint16_t lpf;
   uint16_t antenna;
-  uint8_t dither;
-  uint8_t random;
-  uint8_t preamp;
   uint16_t attenuation;
+//
   mydouble gain;
   mydouble min_gain;
   mydouble max_gain;
 } ADC_DATA;
 
+typedef struct __attribute__((__packed__)) _transmitter_data {
+  HEADER header;
+  uint8_t  id;
+  uint8_t  dac;
+  uint8_t  display_detector_mode;
+  uint8_t  display_average_mode;
+  uint8_t  use_rx_filter;
+  uint8_t  alex_antenna;
+  uint8_t  twotone;
+  uint8_t  puresignal;
+  uint8_t  feedback;
+  uint8_t  auto_on;
+  uint8_t  ps_oneshot;
+  uint8_t  ctcss_enabled;
+  uint8_t  ctcss;
+  uint8_t  pre_emphasize;
+  uint8_t  drive;
+  uint8_t  tune_use_drive;
+  uint8_t  tune_drive;
+  uint8_t  compressor;
+  uint8_t  cfc;
+  uint8_t  cfc_eq;
+  uint8_t  dexp;
+  uint8_t  dexp_filter;
+  uint8_t  eq_enable;
+//  
+  uint16_t dexp_filter_low;
+  uint16_t dexp_filter_high;
+  uint16_t dexp_trigger;
+  uint16_t dexp_exp;
+  uint16_t filter_low;
+  uint16_t filter_high;
+  uint16_t deviation;
+  uint16_t width;
+  uint16_t height;
+  uint16_t attenuation;
+//
+  mydouble eq_freq[11];
+  mydouble eq_gain[11];
+  mydouble dexp_tau;
+  mydouble dexp_attack;
+  mydouble dexp_release;
+  mydouble dexp_hold;
+  mydouble dexp_hyst;
+  mydouble cfc_freq[11];
+  mydouble cfc_lvl[11];
+  mydouble cfc_post[11];
+  mydouble mic_gain;
+  mydouble compressor_level;
+  mydouble display_average_time;
+  mydouble am_carrier_level;
+  mydouble ps_ampdelay;
+  mydouble ps_moxdelay;
+  mydouble ps_loopdelay;
+} TRANSMITTER_DATA;
+
 typedef struct __attribute__((__packed__)) _receiver_data {
   HEADER header;
   uint8_t rx;
   uint8_t adc;
-  mydouble volume;
-  uint32_t fft_size;
-  uint8_t  agc;
-  mydouble agc_gain;
-  uint64_t sample_rate;
-  uint8_t displaying;
-  uint8_t display_panadapter;
-  uint8_t display_waterfall;
-  uint16_t fps;
-  mydouble agc_hang;
-  mydouble agc_thresh;
-  mydouble agc_hang_thresh;
+  uint8_t agc;
   uint8_t nb;
   uint8_t nb2_mode;
   uint8_t nr;
@@ -301,6 +351,24 @@ typedef struct __attribute__((__packed__)) _receiver_data {
   uint8_t nr2_ae;
   uint8_t anf;
   uint8_t snb;
+  uint8_t display_detector_mode;
+  uint8_t display_average_mode;
+  uint8_t zoom;
+//
+  uint16_t fps;
+  uint16_t filter_low;
+  uint16_t filter_high;
+  uint16_t pixels;
+  uint16_t pan;
+  uint16_t width;
+  uint16_t height;
+//
+  mydouble display_average_time;
+  mydouble volume;
+  mydouble agc_gain;
+  mydouble agc_hang;
+  mydouble agc_thresh;
+  mydouble agc_hang_thresh;
   mydouble nr2_trained_threshold;
   mydouble nb_tau;
   mydouble nb_hang;
@@ -311,26 +379,9 @@ typedef struct __attribute__((__packed__)) _receiver_data {
   mydouble nr4_whitening_factor;
   mydouble nr4_noise_rescale;
   mydouble nr4_post_filter_threshold;
-  uint8_t display_gradient;
-  uint8_t display_filled;
-  uint8_t display_detector_mode;
-  uint8_t display_average_mode;
-  uint16_t display_average_time;
-  uint16_t filter_low;
-  uint16_t filter_high;
-  uint16_t panadapter_low;
-  uint16_t panadapter_high;
-  uint16_t panadapter_step;
-  uint16_t waterfall_low;
-  uint16_t waterfall_high;
-  uint8_t waterfall_automatic;
-  uint16_t pixels;
-  uint16_t zoom;
-  uint16_t pan;
-  uint16_t width;
-  uint16_t height;
-  uint16_t x;
-  uint16_t y;
+//
+  uint64_t fft_size;
+  uint64_t sample_rate;
 } RECEIVER_DATA;
 
 typedef struct __attribute__((__packed__)) _vfo_data {
@@ -354,14 +405,19 @@ typedef struct __attribute__((__packed__)) _vfo_data {
 typedef struct __attribute__((__packed__)) _spectrum_data {
   HEADER header;
   uint8_t rx;
+  uint16_t width;
+//
   uint64_t vfo_a_freq;
   uint64_t vfo_b_freq;
   uint64_t vfo_a_ctun_freq;
   uint64_t vfo_b_ctun_freq;
   uint64_t vfo_a_offset;
   uint64_t vfo_b_offset;
+//
   mydouble meter;
-  uint16_t width;
+  mydouble agc;
+  mydouble fwd;
+  mydouble swr;
   uint16_t sample[SPECTRUM_DATA_SIZE];
 } SPECTRUM_DATA;
 

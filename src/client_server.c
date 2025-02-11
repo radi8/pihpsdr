@@ -495,6 +495,71 @@ void send_adc_data(int sock, int i) {
   send_bytes(sock, (char *)&adc_data, sizeof(adc_data));
 }
 
+void send_tx_data(int sock) {
+  TRANSMITTER_DATA data;
+  TRANSMITTER *tx = transmitter;
+  data.header.sync = REMOTE_SYNC;
+  data.header.data_type = htons(INFO_TRANSMITTER);
+  data.header.version = htons(CLIENT_SERVER_VERSION);
+//
+  data.id = tx->id;
+  data.dac = tx->dac;
+  data.display_detector_mode = tx->display_detector_mode;
+  data.display_average_mode = tx->display_average_mode;
+  data.use_rx_filter = tx->use_rx_filter;
+  data.alex_antenna = tx->alex_antenna;
+  data.twotone = tx->twotone;
+  data.puresignal= tx->puresignal;
+  data.feedback = tx->feedback;
+  data.auto_on = tx->auto_on;
+  data.ps_oneshot = tx->ps_oneshot;
+  data.ctcss_enabled = tx->ctcss_enabled;
+  data.ctcss = tx->ctcss;
+  data.pre_emphasize = tx->pre_emphasize;
+  data.drive = tx->drive;
+  data.tune_use_drive = tx->tune_use_drive;
+  data.tune_drive = tx->tune_drive;
+  data.compressor = tx->compressor;
+  data.cfc = tx->cfc;
+  data.cfc_eq = tx->cfc_eq;
+  data.dexp = tx->dexp;
+  data.dexp_filter = tx->dexp_filter;
+  data.eq_enable = tx->eq_enable;
+//
+  data.dexp_filter_low = htons(tx->dexp_filter_low);
+  data.dexp_filter_high = htons(tx->dexp_filter_high);
+  data.dexp_trigger = htons(tx->dexp_trigger);
+  data.dexp_exp = htons(tx->dexp_exp);
+  data.filter_low = htons(tx->filter_low);
+  data.filter_high = htons(tx->filter_high);
+  data.deviation = htons(tx->deviation);
+  data.width = htons(tx->width);
+  data.height = htons(tx->height);
+  data.attenuation = htons(tx->attenuation);
+//
+  for (int i = 0; i < 11; i++) {
+    data.eq_freq[i] =  htond(tx->eq_freq[i]);
+    data.eq_gain[i] =  htond(tx->eq_gain[i]);
+    data.cfc_freq[i] =  htond(tx->cfc_freq[i]);
+    data.cfc_lvl[i] =  htond(tx->cfc_lvl[i]);
+    data.cfc_post[i] =  htond(tx->cfc_post[i]);
+  }
+
+  data.dexp_tau =  htond(tx->dexp_tau);
+  data.dexp_attack =  htond(tx->dexp_attack);
+  data.dexp_release =  htond(tx->dexp_release);
+  data.dexp_hold =  htond(tx->dexp_hold);
+  data.dexp_hyst =  htond(tx->dexp_hyst);
+  data.mic_gain =  htond(tx->mic_gain);
+  data.compressor_level =  htond(tx->compressor_level);
+  data.display_average_time =  htond(tx->display_average_time);
+  data.ps_ampdelay =  htond(tx->ps_ampdelay);
+  data.ps_moxdelay =  htond(tx->ps_moxdelay);
+  data.ps_loopdelay =  htond(tx->ps_loopdelay);
+
+  send_bytes(sock, (char *)&data, sizeof(TRANSMITTER_DATA));
+}
+
 void send_rx_data(int sock, int rx) {
   RECEIVER_DATA rx_data;
   rx_data.header.sync = REMOTE_SYNC;
@@ -504,9 +569,6 @@ void send_rx_data(int sock, int rx) {
   rx_data.adc = htons(receiver[rx]->adc);
   long long rate = (long long)receiver[rx]->sample_rate;
   rx_data.sample_rate = htonll(rate);
-  rx_data.displaying = receiver[rx]->displaying;
-  rx_data.display_panadapter = receiver[rx]->display_panadapter;
-  rx_data.display_waterfall = receiver[rx]->display_waterfall;
   rx_data.fps = htons(receiver[rx]->fps);
   rx_data.agc = receiver[rx]->agc;
   rx_data.agc_hang = htond(receiver[rx]->agc_hang);
@@ -518,26 +580,16 @@ void send_rx_data(int sock, int rx) {
   rx_data.snb = receiver[rx]->snb;
   rx_data.filter_low = htons(receiver[rx]->filter_low);
   rx_data.filter_high = htons(receiver[rx]->filter_high);
-  rx_data.panadapter_low = htons(receiver[rx]->panadapter_low);
-  rx_data.panadapter_high = htons(receiver[rx]->panadapter_high);
-  rx_data.panadapter_step = htons(receiver[rx]->panadapter_step);
-  rx_data.waterfall_low = htons(receiver[rx]->waterfall_low);
-  rx_data.waterfall_high = htons(receiver[rx]->waterfall_high);
-  rx_data.waterfall_automatic = receiver[rx]->waterfall_automatic;
   rx_data.pixels = htons(receiver[rx]->pixels);
-  rx_data.zoom = htons(receiver[rx]->zoom);
+  rx_data.zoom = receiver[rx]->zoom;
   rx_data.pan = htons(receiver[rx]->pan);
   rx_data.width = htons(receiver[rx]->width);
   rx_data.height = htons(receiver[rx]->height);
-  rx_data.x = htons(receiver[rx]->x);
-  rx_data.y = htons(receiver[rx]->y);
   rx_data.volume = htond(receiver[rx]->volume);
   rx_data.agc_gain = htond(receiver[rx]->agc_gain);
-  rx_data.display_gradient = receiver[rx]->display_gradient;
-  rx_data.display_filled = receiver[rx]->display_filled;
   rx_data.display_detector_mode = receiver[rx]->display_detector_mode;
   rx_data.display_average_mode = receiver[rx]->display_average_mode;
-  rx_data.display_average_time = htons((int)receiver[rx]->display_average_time);
+  rx_data.display_average_time = htond(receiver[rx]->display_average_time);
   send_bytes(sock, (char *)&rx_data, sizeof(rx_data));
 }
 
@@ -2100,9 +2152,6 @@ static void *client_thread(void* arg) {
       long long rate = ntohll(rx_data.sample_rate);
       receiver[rx]->sample_rate = (int)rate;
       // cppcheck-suppress uninitvar
-      receiver[rx]->displaying = rx_data.displaying;
-      receiver[rx]->display_panadapter = rx_data.display_panadapter;
-      receiver[rx]->display_waterfall = rx_data.display_waterfall;
       receiver[rx]->fps = ntohs(rx_data.fps);
       receiver[rx]->agc = rx_data.agc;
       receiver[rx]->agc_hang = ntohd(rx_data.agc_hang);
@@ -2112,28 +2161,13 @@ static void *client_thread(void* arg) {
       receiver[rx]->nr = rx_data.nr;
       receiver[rx]->anf = rx_data.anf;
       receiver[rx]->snb = rx_data.snb;
-      short s = ntohs(rx_data.filter_low);
-      receiver[rx]->filter_low = (int)s;
-      s = ntohs(rx_data.filter_high);
-      receiver[rx]->filter_high = (int)s;
-      s = ntohs(rx_data.panadapter_low);
-      receiver[rx]->panadapter_low = (int)s;
-      s = ntohs(rx_data.panadapter_high);
-      receiver[rx]->panadapter_high = (int)s;
-      s = ntohs(rx_data.panadapter_step);
-      receiver[rx]->panadapter_step = s;
-      s = ntohs(rx_data.waterfall_low);
-      receiver[rx]->waterfall_low = (int)s;
-      s = ntohs(rx_data.waterfall_high);
-      receiver[rx]->waterfall_high = s;
-      receiver[rx]->waterfall_automatic = rx_data.waterfall_automatic;
+      receiver[rx]->filter_low = (short) ntohs(rx_data.filter_low);
+      receiver[rx]->filter_high = (short) ntohs(rx_data.filter_high);
       receiver[rx]->pixels = ntohs(rx_data.pixels);
-      receiver[rx]->zoom = ntohs(rx_data.zoom);
+      receiver[rx]->zoom = rx_data.zoom;
       receiver[rx]->pan = ntohs(rx_data.pan);
       receiver[rx]->width = ntohs(rx_data.width);
       receiver[rx]->height = ntohs(rx_data.height);
-      receiver[rx]->x = ntohs(rx_data.x);
-      receiver[rx]->y = ntohs(rx_data.y);
       receiver[rx]->volume = ntohd(rx_data.volume);
       receiver[rx]->agc_gain = ntohd(rx_data.agc_gain);
       //
@@ -2149,11 +2183,9 @@ static void *client_thread(void* arg) {
       receiver[rx]->audio_channel = STEREO;
       receiver[rx]->audio_device = -1;
       receiver[rx]->mute_radio = 0;
-      receiver[rx]->display_gradient = rx_data.display_gradient;
-      receiver[rx]->display_filled = rx_data.display_filled;
       receiver[rx]->display_detector_mode = rx_data.display_detector_mode;
       receiver[rx]->display_average_mode = rx_data.display_average_mode;
-      receiver[rx]->display_average_time = (double) ntohs(rx_data.display_average_time);
+      receiver[rx]->display_average_time =ntohd(rx_data.display_average_time);
       t_print("rx=%d width=%d sample_rate=%d hz_per_pixel=%f pan=%d zoom=%d\n", rx, receiver[rx]->width,
               receiver[rx]->sample_rate, receiver[rx]->hz_per_pixel, receiver[rx]->pan, receiver[rx]->zoom);
     }
