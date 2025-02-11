@@ -228,8 +228,11 @@ void rx_save_state(const RECEIVER *rx) {
   //
   // For a PS_RX_FEEDBACK, we only store/restore the alex antenna and ADC
   //
-  SetPropI1("receiver.%d.alex_antenna", rx->id,                 rx->alex_antenna);
-  SetPropI1("receiver.%d.adc", rx->id,                          rx->adc);
+  if (!radio_is_remote) {
+    SetPropI1("receiver.%d.alex_antenna", rx->id,               rx->alex_antenna);
+    SetPropI1("receiver.%d.adc", rx->id,                        rx->adc);
+  }
+
   if (rx->id == PS_RX_FEEDBACK) { return; }
 
   //
@@ -259,62 +262,62 @@ void rx_save_state(const RECEIVER *rx) {
   SetPropI1("receiver.%d.waterfall_automatic", rx->id,          rx->waterfall_automatic);
 
   if (!radio_is_remote) {
-    SetPropI1("receiver.%d.smetermode", rx->id,                   rx->smetermode);
-    SetPropI1("receiver.%d.low_latency", rx->id,                  rx->low_latency);
-    SetPropI1("receiver.%d.fft_size", rx->id,                     rx->fft_size);
-    SetPropI1("receiver.%d.sample_rate", rx->id,                  rx->sample_rate);
-    SetPropI1("receiver.%d.filter_low", rx->id,                   rx->filter_low);
-    SetPropI1("receiver.%d.filter_high", rx->id,                  rx->filter_high);
-    SetPropI1("receiver.%d.fps", rx->id,                          rx->fps);
-    SetPropI1("receiver.%d.display_detector_mode", rx->id,        rx->display_detector_mode);
-    SetPropI1("receiver.%d.display_average_mode", rx->id,         rx->display_average_mode);
-    SetPropF1("receiver.%d.display_average_time", rx->id,         rx->display_average_time);
+    SetPropI1("receiver.%d.smetermode", rx->id,                 rx->smetermode);
+    SetPropI1("receiver.%d.low_latency", rx->id,                rx->low_latency);
+    SetPropI1("receiver.%d.fft_size", rx->id,                   rx->fft_size);
+    SetPropI1("receiver.%d.sample_rate", rx->id,                rx->sample_rate);
+    SetPropI1("receiver.%d.filter_low", rx->id,                 rx->filter_low);
+    SetPropI1("receiver.%d.filter_high", rx->id,                rx->filter_high);
+    SetPropI1("receiver.%d.fps", rx->id,                        rx->fps);
+    SetPropI1("receiver.%d.display_detector_mode", rx->id,      rx->display_detector_mode);
+    SetPropI1("receiver.%d.display_average_mode", rx->id,       rx->display_average_mode);
+    SetPropF1("receiver.%d.display_average_time", rx->id,       rx->display_average_time);
 
     if (have_alex_att) {
-      SetPropI1("receiver.%d.alex_attenuation", rx->id,           rx->alex_attenuation);
+      SetPropI1("receiver.%d.alex_attenuation", rx->id,         rx->alex_attenuation);
     }
 
-    SetPropF1("receiver.%d.volume", rx->id,                       rx->volume);
-    SetPropI1("receiver.%d.agc", rx->id,                          rx->agc);
-    SetPropF1("receiver.%d.agc_gain", rx->id,                     rx->agc_gain);
-    SetPropF1("receiver.%d.agc_slope", rx->id,                    rx->agc_slope);
-    SetPropF1("receiver.%d.agc_hang_threshold", rx->id,           rx->agc_hang_threshold);
-    SetPropI1("receiver.%d.dither", rx->id,                       rx->dither);
-    SetPropI1("receiver.%d.random", rx->id,                       rx->random);
-    SetPropI1("receiver.%d.preamp", rx->id,                       rx->preamp);
-    SetPropI1("receiver.%d.nb", rx->id,                           rx->nb);
-    SetPropI1("receiver.%d.nr", rx->id,                           rx->nr);
-    SetPropI1("receiver.%d.anf", rx->id,                          rx->anf);
-    SetPropI1("receiver.%d.snb", rx->id,                          rx->snb);
-    SetPropI1("receiver.%d.nr_agc", rx->id,                       rx->nr_agc);
-    SetPropI1("receiver.%d.nr2_gain_method", rx->id,              rx->nr2_gain_method);
-    SetPropI1("receiver.%d.nr2_npe_method", rx->id,               rx->nr2_npe_method);
-    SetPropI1("receiver.%d.nr2_ae", rx->id,                       rx->nr2_ae);
-    SetPropF1("receiver.%d.nr2_trained_threshold", rx->id,        rx->nr2_trained_threshold);
-    SetPropF1("receiver.%d.nr2_trained_t2", rx->id,               rx->nr2_trained_t2);
-    SetPropI1("receiver.%d.nb2_mode", rx->id,                     rx->nb2_mode);
-    SetPropF1("receiver.%d.nb_tau", rx->id,                       rx->nb_tau);
-    SetPropF1("receiver.%d.nb_advtime", rx->id,                   rx->nb_advtime);
-    SetPropF1("receiver.%d.nb_hang", rx->id,                      rx->nb_hang);
-    SetPropF1("receiver.%d.nb_thresh", rx->id,                    rx->nb_thresh);
+    SetPropF1("receiver.%d.volume", rx->id,                     rx->volume);
+    SetPropI1("receiver.%d.agc", rx->id,                        rx->agc);
+    SetPropF1("receiver.%d.agc_gain", rx->id,                   rx->agc_gain);
+    SetPropF1("receiver.%d.agc_slope", rx->id,                  rx->agc_slope);
+    SetPropF1("receiver.%d.agc_hang_threshold", rx->id,         rx->agc_hang_threshold);
+    SetPropI1("receiver.%d.dither", rx->id,                     rx->dither);
+    SetPropI1("receiver.%d.random", rx->id,                     rx->random);
+    SetPropI1("receiver.%d.preamp", rx->id,                     rx->preamp);
+    SetPropI1("receiver.%d.nb", rx->id,                         rx->nb);
+    SetPropI1("receiver.%d.nr", rx->id,                         rx->nr);
+    SetPropI1("receiver.%d.anf", rx->id,                        rx->anf);
+    SetPropI1("receiver.%d.snb", rx->id,                        rx->snb);
+    SetPropI1("receiver.%d.nr_agc", rx->id,                     rx->nr_agc);
+    SetPropI1("receiver.%d.nr2_gain_method", rx->id,            rx->nr2_gain_method);
+    SetPropI1("receiver.%d.nr2_npe_method", rx->id,             rx->nr2_npe_method);
+    SetPropI1("receiver.%d.nr2_ae", rx->id,                     rx->nr2_ae);
+    SetPropF1("receiver.%d.nr2_trained_threshold", rx->id,      rx->nr2_trained_threshold);
+    SetPropF1("receiver.%d.nr2_trained_t2", rx->id,             rx->nr2_trained_t2);
+    SetPropI1("receiver.%d.nb2_mode", rx->id,                   rx->nb2_mode);
+    SetPropF1("receiver.%d.nb_tau", rx->id,                     rx->nb_tau);
+    SetPropF1("receiver.%d.nb_advtime", rx->id,                 rx->nb_advtime);
+    SetPropF1("receiver.%d.nb_hang", rx->id,                    rx->nb_hang);
+    SetPropF1("receiver.%d.nb_thresh", rx->id,                  rx->nb_thresh);
 #ifdef EXTNR
-    SetPropF1("receiver.%d.nr4_reduction_amount", rx->id,         rx->nr4_reduction_amount);
-    SetPropF1("receiver.%d.nr4_smoothing_factor", rx->id,         rx->nr4_smoothing_factor);
-    SetPropF1("receiver.%d.nr4_whitening_factor", rx->id,         rx->nr4_whitening_factor);
-    SetPropF1("receiver.%d.nr4_noise_rescale", rx->id,            rx->nr4_noise_rescale);
-    SetPropF1("receiver.%d.nr4_post_filter_threshold", rx->id,    rx->nr4_post_filter_threshold);
+    SetPropF1("receiver.%d.nr4_reduction_amount", rx->id,       rx->nr4_reduction_amount);
+    SetPropF1("receiver.%d.nr4_smoothing_factor", rx->id,       rx->nr4_smoothing_factor);
+    SetPropF1("receiver.%d.nr4_whitening_factor", rx->id,       rx->nr4_whitening_factor);
+    SetPropF1("receiver.%d.nr4_noise_rescale", rx->id,          rx->nr4_noise_rescale);
+    SetPropF1("receiver.%d.nr4_post_filter_threshold", rx->id,  rx->nr4_post_filter_threshold);
 #endif
-    SetPropI1("receiver.%d.deviation", rx->id,                    rx->deviation);
-    SetPropI1("receiver.%d.squelch_enable", rx->id,               rx->squelch_enable);
-    SetPropF1("receiver.%d.squelch", rx->id,                      rx->squelch);
-    SetPropI1("receiver.%d.binaural", rx->id,                     rx->binaural);
-    SetPropI1("receiver.%d.zoom", rx->id,                         rx->zoom);
-    SetPropI1("receiver.%d.pan", rx->id,                          rx->pan);
-    SetPropI1("receiver.%d.eq_enable", rx->id,                    rx->eq_enable);
-  
+    SetPropI1("receiver.%d.deviation", rx->id,                  rx->deviation);
+    SetPropI1("receiver.%d.squelch_enable", rx->id,             rx->squelch_enable);
+    SetPropF1("receiver.%d.squelch", rx->id,                    rx->squelch);
+    SetPropI1("receiver.%d.binaural", rx->id,                   rx->binaural);
+    SetPropI1("receiver.%d.zoom", rx->id,                       rx->zoom);
+    SetPropI1("receiver.%d.pan", rx->id,                        rx->pan);
+    SetPropI1("receiver.%d.eq_enable", rx->id,                  rx->eq_enable);
+
     for (int i = 0; i < 11; i++) {
-      SetPropF2("receiver.%d.eq_freq[%d]", rx->id, i,             rx->eq_freq[i]);
-      SetPropF2("receiver.%d.eq_gain[%d]", rx->id, i,             rx->eq_gain[i]);
+      SetPropF2("receiver.%d.eq_freq[%d]", rx->id, i,           rx->eq_freq[i]);
+      SetPropF2("receiver.%d.eq_gain[%d]", rx->id, i,           rx->eq_gain[i]);
     }
   }
 }
@@ -325,8 +328,11 @@ void rx_restore_state(RECEIVER *rx) {
   //
   // For a PS_RX_FEEDBACK, we only store/restore the alex antenna and ADC
   //
-  GetPropI1("receiver.%d.alex_antenna", rx->id,                 rx->alex_antenna);
-  GetPropI1("receiver.%d.adc", rx->id,                          rx->adc);
+  if (!radio_is_remote) {
+    GetPropI1("receiver.%d.alex_antenna", rx->id,               rx->alex_antenna);
+    GetPropI1("receiver.%d.adc", rx->id,                        rx->adc);
+  }
+
   if (rx->id == PS_RX_FEEDBACK) { return; }
 
   //
@@ -356,10 +362,10 @@ void rx_restore_state(RECEIVER *rx) {
   GetPropI1("receiver.%d.waterfall_automatic", rx->id,          rx->waterfall_automatic);
 
   if (!radio_is_remote) {
-    GetPropI1("receiver.%d.smetermode", rx->id,                   rx->smetermode);
-    GetPropI1("receiver.%d.low_latency", rx->id,                  rx->low_latency);
-    GetPropI1("receiver.%d.fft_size", rx->id,                     rx->fft_size);
-    GetPropI1("receiver.%d.sample_rate", rx->id,                  rx->sample_rate);
+    GetPropI1("receiver.%d.smetermode", rx->id,                 rx->smetermode);
+    GetPropI1("receiver.%d.low_latency", rx->id,                rx->low_latency);
+    GetPropI1("receiver.%d.fft_size", rx->id,                   rx->fft_size);
+    GetPropI1("receiver.%d.sample_rate", rx->id,                rx->sample_rate);
 
     //
     // This may happen if the firmware was down-graded from P2 to P1
@@ -368,59 +374,59 @@ void rx_restore_state(RECEIVER *rx) {
       rx->sample_rate = 384000;
     }
 
-    GetPropI1("receiver.%d.filter_low", rx->id,                   rx->filter_low);
-    GetPropI1("receiver.%d.filter_high", rx->id,                  rx->filter_high);
-    GetPropI1("receiver.%d.fps", rx->id,                          rx->fps);
-    GetPropI1("receiver.%d.display_detector_mode", rx->id,        rx->display_detector_mode);
-    GetPropI1("receiver.%d.display_average_mode", rx->id,         rx->display_average_mode);
-    GetPropF1("receiver.%d.display_average_time", rx->id,         rx->display_average_time);
+    GetPropI1("receiver.%d.filter_low", rx->id,                 rx->filter_low);
+    GetPropI1("receiver.%d.filter_high", rx->id,                rx->filter_high);
+    GetPropI1("receiver.%d.fps", rx->id,                        rx->fps);
+    GetPropI1("receiver.%d.display_detector_mode", rx->id,      rx->display_detector_mode);
+    GetPropI1("receiver.%d.display_average_mode", rx->id,       rx->display_average_mode);
+    GetPropF1("receiver.%d.display_average_time", rx->id,       rx->display_average_time);
 
     if (have_alex_att) {
-      GetPropI1("receiver.%d.alex_attenuation", rx->id,           rx->alex_attenuation);
+      GetPropI1("receiver.%d.alex_attenuation", rx->id,         rx->alex_attenuation);
     }
 
-    GetPropF1("receiver.%d.volume", rx->id,                       rx->volume);
-    GetPropI1("receiver.%d.agc", rx->id,                          rx->agc);
-    GetPropF1("receiver.%d.agc_gain", rx->id,                     rx->agc_gain);
-    GetPropF1("receiver.%d.agc_slope", rx->id,                    rx->agc_slope);
-    GetPropF1("receiver.%d.agc_hang_threshold", rx->id,           rx->agc_hang_threshold);
-    GetPropI1("receiver.%d.dither", rx->id,                       rx->dither);
-    GetPropI1("receiver.%d.random", rx->id,                       rx->random);
-    GetPropI1("receiver.%d.preamp", rx->id,                       rx->preamp);
-    GetPropI1("receiver.%d.nb", rx->id,                           rx->nb);
-    GetPropI1("receiver.%d.nr", rx->id,                           rx->nr);
-    GetPropI1("receiver.%d.anf", rx->id,                          rx->anf);
-    GetPropI1("receiver.%d.snb", rx->id,                          rx->snb);
-    GetPropI1("receiver.%d.nr_agc", rx->id,                       rx->nr_agc);
-    GetPropI1("receiver.%d.nr2_gain_method", rx->id,              rx->nr2_gain_method);
-    GetPropI1("receiver.%d.nr2_npe_method", rx->id,               rx->nr2_npe_method);
-    GetPropI1("receiver.%d.nr2_ae", rx->id,                       rx->nr2_ae);
-    GetPropF1("receiver.%d.nr2_trained_threshold", rx->id,        rx->nr2_trained_threshold);
-    GetPropF1("receiver.%d.nr2_trained_t2", rx->id,               rx->nr2_trained_t2);
-    GetPropI1("receiver.%d.nb2_mode", rx->id,                     rx->nb2_mode);
-    GetPropF1("receiver.%d.nb_tau", rx->id,                       rx->nb_tau);
-    GetPropF1("receiver.%d.nb_advtime", rx->id,                   rx->nb_advtime);
-    GetPropF1("receiver.%d.nb_hang", rx->id,                      rx->nb_hang);
-    GetPropF1("receiver.%d.nb_thresh", rx->id,                    rx->nb_thresh);
+    GetPropF1("receiver.%d.volume", rx->id,                     rx->volume);
+    GetPropI1("receiver.%d.agc", rx->id,                        rx->agc);
+    GetPropF1("receiver.%d.agc_gain", rx->id,                   rx->agc_gain);
+    GetPropF1("receiver.%d.agc_slope", rx->id,                  rx->agc_slope);
+    GetPropF1("receiver.%d.agc_hang_threshold", rx->id,         rx->agc_hang_threshold);
+    GetPropI1("receiver.%d.dither", rx->id,                     rx->dither);
+    GetPropI1("receiver.%d.random", rx->id,                     rx->random);
+    GetPropI1("receiver.%d.preamp", rx->id,                     rx->preamp);
+    GetPropI1("receiver.%d.nb", rx->id,                         rx->nb);
+    GetPropI1("receiver.%d.nr", rx->id,                         rx->nr);
+    GetPropI1("receiver.%d.anf", rx->id,                        rx->anf);
+    GetPropI1("receiver.%d.snb", rx->id,                        rx->snb);
+    GetPropI1("receiver.%d.nr_agc", rx->id,                     rx->nr_agc);
+    GetPropI1("receiver.%d.nr2_gain_method", rx->id,            rx->nr2_gain_method);
+    GetPropI1("receiver.%d.nr2_npe_method", rx->id,             rx->nr2_npe_method);
+    GetPropI1("receiver.%d.nr2_ae", rx->id,                     rx->nr2_ae);
+    GetPropF1("receiver.%d.nr2_trained_threshold", rx->id,      rx->nr2_trained_threshold);
+    GetPropF1("receiver.%d.nr2_trained_t2", rx->id,             rx->nr2_trained_t2);
+    GetPropI1("receiver.%d.nb2_mode", rx->id,                   rx->nb2_mode);
+    GetPropF1("receiver.%d.nb_tau", rx->id,                     rx->nb_tau);
+    GetPropF1("receiver.%d.nb_advtime", rx->id,                 rx->nb_advtime);
+    GetPropF1("receiver.%d.nb_hang", rx->id,                    rx->nb_hang);
+    GetPropF1("receiver.%d.nb_thresh", rx->id,                  rx->nb_thresh);
 #ifdef EXTNR
-    GetPropF1("receiver.%d.nr4_reduction_amount", rx->id,         rx->nr4_reduction_amount);
-    GetPropF1("receiver.%d.nr4_smoothing_factor", rx->id,         rx->nr4_smoothing_factor);
-    GetPropF1("receiver.%d.nr4_whitening_factor", rx->id,         rx->nr4_whitening_factor);
-    GetPropF1("receiver.%d.nr4_noise_rescale", rx->id,            rx->nr4_noise_rescale);
-    GetPropF1("receiver.%d.nr4_post_filter_threshold", rx->id,    rx->nr4_post_filter_threshold);
+    GetPropF1("receiver.%d.nr4_reduction_amount", rx->id,       rx->nr4_reduction_amount);
+    GetPropF1("receiver.%d.nr4_smoothing_factor", rx->id,       rx->nr4_smoothing_factor);
+    GetPropF1("receiver.%d.nr4_whitening_factor", rx->id,       rx->nr4_whitening_factor);
+    GetPropF1("receiver.%d.nr4_noise_rescale", rx->id,          rx->nr4_noise_rescale);
+    GetPropF1("receiver.%d.nr4_post_filter_threshold", rx->id,  rx->nr4_post_filter_threshold);
 #endif
-    GetPropI1("receiver.%d.deviation", rx->id,                    rx->deviation);
-    GetPropI1("receiver.%d.squelch_enable", rx->id,               rx->squelch_enable);
-    GetPropF1("receiver.%d.squelch", rx->id,                      rx->squelch);
-    GetPropI1("receiver.%d.binaural", rx->id,                     rx->binaural);
-    GetPropI1("receiver.%d.zoom", rx->id,                         rx->zoom);
-    GetPropI1("receiver.%d.pan", rx->id,                          rx->pan);
-    GetPropI1("receiver.%d.eq_enable", rx->id,                    rx->eq_enable);
+    GetPropI1("receiver.%d.deviation", rx->id,                  rx->deviation);
+    GetPropI1("receiver.%d.squelch_enable", rx->id,             rx->squelch_enable);
+    GetPropF1("receiver.%d.squelch", rx->id,                    rx->squelch);
+    GetPropI1("receiver.%d.binaural", rx->id,                   rx->binaural);
+    GetPropI1("receiver.%d.zoom", rx->id,                       rx->zoom);
+    GetPropI1("receiver.%d.pan", rx->id,                        rx->pan);
+    GetPropI1("receiver.%d.eq_enable", rx->id,                  rx->eq_enable);
 
     for (int i = 0; i < 11; i++) {
-     GetPropF2("receiver.%d.eq_freq[%d]", rx->id, i,             rx->eq_freq[i]);
-     GetPropF2("receiver.%d.eq_gain[%d]", rx->id, i,             rx->eq_gain[i]);
-    } 
+     GetPropF2("receiver.%d.eq_freq[%d]", rx->id, i,            rx->eq_freq[i]);
+     GetPropF2("receiver.%d.eq_gain[%d]", rx->id, i,            rx->eq_gain[i]);
+    }
   }
 
   // Sanity Checks
@@ -657,8 +663,8 @@ RECEIVER *rx_create_pure_signal_receiver(int id, int sample_rate, int width, int
 }
 
 RECEIVER *rx_create_receiver(int id, int pixels, int width, int height) {
-  t_print("%s: RXid=%d pixels=%d width=%d height=%d\n", __FUNCTION__, id, pixels, width, height);
   ASSERT_SERVER(NULL);
+  t_print("%s: RXid=%d pixels=%d width=%d height=%d\n", __FUNCTION__, id, pixels, width, height);
   RECEIVER *rx = malloc(sizeof(RECEIVER));
   //
   // This is to guard against programming errors

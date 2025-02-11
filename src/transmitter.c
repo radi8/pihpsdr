@@ -129,7 +129,6 @@ static int clear_out_of_band_warning(gpointer data) {
 ///////////////////////////////////////////////////////////////////////////
 
 static float sine_generator(int *phase1, int *phase2, int freq) {
-  ASSERT_SERVER(0.0);
   register float val, s, d;
   register int p1 = *phase1;
   register int p2 = *phase2;
@@ -168,7 +167,6 @@ void tx_set_out_of_band(TRANSMITTER *tx) {
 }
 
 static void init_audio_ramp(double *ramp, int width) {
-  ASSERT_SERVER();
   //
   // This is for the sidetone, we use a raised cosine ramp
   //
@@ -251,7 +249,6 @@ static void init_ve3nea_ramp(double *ramp, int width) {
 #endif
 
 void tx_set_ramps(TRANSMITTER *tx) {
-  ASSERT_SERVER();
   //t_print("%s: new width=%d\n", __FUNCTION__, cw_ramp_width);
   //
   // Calculate a new CW ramp. This may be called from the CW menu
@@ -270,21 +267,23 @@ void tx_set_ramps(TRANSMITTER *tx) {
   tx->cw_ramp_audio = g_new(double, tx->cw_ramp_audio_len + 1);
   init_audio_ramp(tx->cw_ramp_audio, tx->cw_ramp_audio_len);
 
-  //
-  // For the RF pulse envelope, use a BlackmanHarris ramp with a
-  // user-specified width
-  //
-  if (tx->cw_ramp_rf) { g_free(tx->cw_ramp_rf); }
+  if (!radio_is_remote) {
+    //
+    // For the RF pulse envelope, use a BlackmanHarris ramp with a
+    // user-specified width
+    //
+    if (tx->cw_ramp_rf) { g_free(tx->cw_ramp_rf); }
 
-  tx->cw_ramp_rf_ptr = 0;
-  tx->cw_ramp_rf_len = 48 * tx->ratio * cw_ramp_width;
-  tx->cw_ramp_rf = g_new(double, tx->cw_ramp_rf_len + 1);
-  init_dl1ycf_ramp(tx->cw_ramp_rf, tx->cw_ramp_rf_len);
+    tx->cw_ramp_rf_ptr = 0;
+    tx->cw_ramp_rf_len = 48 * tx->ratio * cw_ramp_width;
+    tx->cw_ramp_rf = g_new(double, tx->cw_ramp_rf_len + 1);
+    init_dl1ycf_ramp(tx->cw_ramp_rf, tx->cw_ramp_rf_len);
+  }
+
   g_mutex_unlock(&tx->cw_ramp_mutex);
 }
 
 void tx_reconfigure(TRANSMITTER *tx, int pixels, int width, int height) {
-  ASSERT_SERVER();
   if (width != tx->width || height != tx->height) {
     g_mutex_lock(&tx->display_mutex);
     t_print("%s: width=%d height=%d\n", __FUNCTION__, width, height);
@@ -297,19 +296,21 @@ void tx_reconfigure(TRANSMITTER *tx, int pixels, int width, int height) {
     tx->pixels = pixels;
     g_free(tx->pixel_samples);
     tx->pixel_samples = g_new(float, tx->pixels);
-    tx_set_analyzer(tx);
     g_mutex_unlock(&tx->display_mutex);
 
-    if (protocol == ORIGINAL_PROTOCOL || protocol == NEW_PROTOCOL) {
-      RECEIVER *rx = receiver[PS_RX_FEEDBACK];
-      g_mutex_lock(&rx->mutex);
-      rx->pixels = pixels;
-      g_free(rx->pixel_samples);
-      rx->pixel_samples = g_new(float, rx->pixels);
-      rx_set_analyzer(rx);
-      g_mutex_unlock(&rx->mutex);
-    }
+    if (!radio_is_remote) {
+      tx_set_analyzer(tx);
 
+      if (protocol == ORIGINAL_PROTOCOL || protocol == NEW_PROTOCOL) {
+        RECEIVER *rx = receiver[PS_RX_FEEDBACK];
+        g_mutex_lock(&rx->mutex);
+        rx->pixels = pixels;
+        g_free(rx->pixel_samples);
+        rx->pixel_samples = g_new(float, rx->pixels);
+        rx_set_analyzer(rx);
+        g_mutex_unlock(&rx->mutex);
+      }
+    }
   }
 
   gtk_widget_set_size_request(tx->panadapter, width, height);
