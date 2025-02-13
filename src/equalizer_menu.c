@@ -59,10 +59,13 @@ static gboolean close_cb () {
 
 void update_eq() {
   if (radio_is_remote) {
-    //
-    // insert here any function to inform the client of equalizer setting
-    // changes, if this becomes part of the protocol
-    //
+      if (can_transmit) {
+        send_eq(client_socket, transmitter->id, transmitter->eq_enable, transmitter->eq_freq, transmitter->eq_gain);
+      }
+
+      for (int id = 0; id < receivers; id++) {
+        send_eq(client_socket, receiver[id]->id, receiver[id]->eq_enable, receiver[id]->eq_freq, receiver[id]->eq_gain);
+      }
   } else {
     if (can_transmit) {
       tx_set_equalizer(transmitter);
