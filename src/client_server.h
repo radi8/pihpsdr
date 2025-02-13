@@ -89,8 +89,10 @@ enum _header_type_enum {
   CMD_REGION,
   CMD_MUTE_RX,
   CMD_ANAN10E,
-  CMD_EQ,
-  CMD_DISPLAY,
+  CMD_RX_EQ,
+  CMD_TX_EQ,
+  CMD_RX_DISPLAY,
+  CMD_TX_DISPLAY,
   CLIENT_SERVER_COMMANDS,
 };
 
@@ -562,7 +564,7 @@ extern void send_agc_gain(int s, int rx, double gain, double hang, double thresh
 extern void send_attenuation(int s, int rx, int attenuation);
 extern void send_rfgain(int s, int rx, double gain);
 extern void send_squelch(int s, int rx, int enable, double squelch);
-extern void send_eq(int s, int id, int enable, double *freq, double *gain);
+extern void send_eq(int s, int id);
 extern void send_noise(int s, const RECEIVER *rx);
 extern void send_band(int s, int rx, int band);
 extern void send_mode(int s, int rx, int mode);

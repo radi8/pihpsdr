@@ -60,11 +60,11 @@ static gboolean close_cb () {
 void update_eq() {
   if (radio_is_remote) {
       if (can_transmit) {
-        send_eq(client_socket, transmitter->id, transmitter->eq_enable, transmitter->eq_freq, transmitter->eq_gain);
+        send_eq(client_socket, transmitter->id);
       }
 
       for (int id = 0; id < receivers; id++) {
-        send_eq(client_socket, receiver[id]->id, receiver[id]->eq_enable, receiver[id]->eq_freq, receiver[id]->eq_gain);
+        send_eq(client_socket, receiver[id]->id);
       }
   } else {
     if (can_transmit) {
