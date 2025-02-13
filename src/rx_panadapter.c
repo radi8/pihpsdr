@@ -104,7 +104,6 @@ static gboolean panadapter_scroll_event_cb(GtkWidget *widget, GdkEventScroll *ev
 }
 
 void rx_panadapter_update(RECEIVER *rx) {
-  //int i;
   float *samples;
   cairo_text_extents_t extents;
   long long f;
