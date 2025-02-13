@@ -448,7 +448,6 @@ void send_radio_data(int sock) {
   STRLCPY(radio_data.name, radio->name, sizeof(radio_data.name));
   radio_data.locked = locked;
   radio_data.can_transmit = can_transmit;
-  radio_data.have_rx_gain = have_rx_gain;
   radio_data.protocol = protocol;
   radio_data.supported_receivers = radio->supported_receivers;
   radio_data.receivers = receivers;
@@ -532,7 +531,7 @@ void send_adc_data(int sock, int i) {
 
 void send_tx_data(int sock) {
   TRANSMITTER_DATA data;
-  TRANSMITTER *tx = transmitter;
+  const TRANSMITTER *tx = transmitter;
   data.header.sync = REMOTE_SYNC;
   data.header.data_type = to_short(INFO_TRANSMITTER);
   data.header.version = to_short(CLIENT_SERVER_VERSION);
@@ -600,7 +599,7 @@ void send_rx_data(int sock, int id) {
   data.header.sync = REMOTE_SYNC;
   data.header.data_type = to_short(INFO_RECEIVER);
   data.header.version = to_short(CLIENT_SERVER_VERSION);
-  RECEIVER *rx = receiver[id];
+  const RECEIVER *rx = receiver[id];
   data.id                    = rx->id;
   data.adc                   = rx->adc;
   data.agc                   = rx->agc;
@@ -725,7 +724,7 @@ static void *server_thread(void *arg) {
 
   for (int b = 0; b < BANDS + XVTRS; b++) {
     send_band_data(client->socket, b);
-    BAND *band = band_get_band(b);
+    const BAND *band = band_get_band(b);
 
     for (int s = 0; s < band->bandstack->entries; s++) {
       send_bandstack_data(client->socket, b, s);
@@ -790,7 +789,7 @@ static void *server_thread(void *arg) {
       command->header.version = header.version;
       command->header.context.client = client;
 
-      if (recv_bytes(client->socket, (char *)&command + sizeof(HEADER), sizeof(RADIO_DATA) - sizeof(HEADER)) > 0) {
+      if (recv_bytes(client->socket, (char *)command + sizeof(HEADER), sizeof(RADIO_DATA) - sizeof(HEADER)) > 0) {
         g_idle_add(remote_command, command);
       } else {
         client->running = FALSE;
@@ -828,7 +827,7 @@ static void *server_thread(void *arg) {
       command->header.version = header.version;
       command->header.context.client = client;
 
-      if (recv_bytes(client->socket, (char *)&command + sizeof(HEADER), sizeof(FREQ_COMMAND) - sizeof(HEADER)) > 0) {
+      if (recv_bytes(client->socket, (char *)command + sizeof(HEADER), sizeof(FREQ_COMMAND) - sizeof(HEADER)) > 0) {
         g_idle_add(remote_command, command);
       } else {
         client->running = FALSE;
@@ -843,14 +842,8 @@ static void *server_thread(void *arg) {
         move_command->header.data_type = header.data_type;
         move_command->header.version = header.version;
         move_command->header.context.client = client;
-        bytes_read = recv_bytes(client->socket, (char *)&move_command->id, sizeof(MOVE_COMMAND) - sizeof(header));
 
-        if (bytes_read <= 0) {
-          t_print("%s: ReadErr for MOVE_COMMAND\n", __FUNCTION__);
-          t_perror("server_thread");
-          // dialog box?
-          return NULL;
-        }
+        if (recv_bytes(client->socket, (char *)move_command + sizeof(HEADER), sizeof(MOVE_COMMAND) - sizeof(HEADER)) < 0) { return NULL; }
 
         g_idle_add(remote_command, move_command);
       }
@@ -864,119 +857,73 @@ static void *server_thread(void *arg) {
         move_to_command->header.data_type = header.data_type;
         move_to_command->header.version = header.version;
         move_to_command->header.context.client = client;
-        bytes_read = recv_bytes(client->socket, (char *)&move_to_command->id, sizeof(MOVE_TO_COMMAND) - sizeof(header));
 
-        if (bytes_read <= 0) {
-          t_print("%s: ReadErr for MOVE_TO_COMMAND\n", __FUNCTION__);
-          t_perror("server_thread");
-          // dialog box?
-          return NULL;
-        }
+        if (recv_bytes(client->socket, (char *)move_to_command + sizeof(HEADER), sizeof(MOVE_TO_COMMAND) - sizeof(HEADER)) < 0) { return NULL; };
 
         g_idle_add(remote_command, move_to_command);
       }
 
       break;
 
-    case CMD_RX_VOLUME:
-      t_print("%s: CMD_RX_VOLUME\n", __FUNCTION__);
-      {
-        VOLUME_COMMAND *volume_command = g_new(VOLUME_COMMAND, 1);
-        volume_command->header.data_type = header.data_type;
-        volume_command->header.version = header.version;
-        volume_command->header.context.client = client;
-        bytes_read = recv_bytes(client->socket, (char *)&volume_command->id, sizeof(VOLUME_COMMAND) - sizeof(header));
+    case CMD_RX_VOLUME: {
+      VOLUME_COMMAND *volume_command = g_new(VOLUME_COMMAND, 1);
+      volume_command->header.data_type = header.data_type;
+      volume_command->header.version = header.version;
+      volume_command->header.context.client = client;
 
-        if (bytes_read <= 0) {
-          t_print("%s: ReadErr for VOLUME_COMMAND\n", __FUNCTION__);
-          t_perror("server_thread");
-          // dialog box?
-          return NULL;
-        }
+      if (recv_bytes(client->socket, (char *)volume_command + sizeof(HEADER), sizeof(VOLUME_COMMAND) - sizeof(HEADER)) < 0) { return NULL; }
 
-        g_idle_add(remote_command, volume_command);
-      }
+      g_idle_add(remote_command, volume_command);
+    }
 
-      break;
+    break;
 
-    case CMD_RX_AGC_GAIN:
-      t_print("%s: CMD_RX_AGC_GAIN\n", __FUNCTION__);
-      {
+    case CMD_RX_AGC_GAIN: {
         AGC_GAIN_COMMAND *agc_gain_command = g_new(AGC_GAIN_COMMAND, 1);
         agc_gain_command->header.data_type = header.data_type;
         agc_gain_command->header.version = header.version;
         agc_gain_command->header.context.client = client;
-        bytes_read = recv_bytes(client->socket, (char *)&agc_gain_command->id, sizeof(AGC_GAIN_COMMAND) - sizeof(header));
 
-        if (bytes_read <= 0) {
-          t_print("%s: ReadErr for AGC_GAIN_COMMAND\n", __FUNCTION__);
-          t_perror("server_thread");
-          // dialog box?
-          return NULL;
-        }
+        if (recv_bytes(client->socket, (char *)agc_gain_command + sizeof(HEADER), sizeof(AGC_GAIN_COMMAND) - sizeof(HEADER)) < 0) { return NULL; }
 
         g_idle_add(remote_command, agc_gain_command);
       }
 
       break;
 
-    case CMD_RX_GAIN:
-      t_print("%s: CMD_RX_GAIN\n", __FUNCTION__);
-      {
+    case CMD_RX_GAIN: {
         RFGAIN_COMMAND *command = g_new(RFGAIN_COMMAND, 1);
         command->header.data_type = header.data_type;
         command->header.version = header.version;
         command->header.context.client = client;
-        bytes_read = recv_bytes(client->socket, (char *)&command->id, sizeof(RFGAIN_COMMAND) - sizeof(header));
 
-        if (bytes_read <= 0) {
-          t_print("%s: ReadErr for RFGAIN_COMMAND\n", __FUNCTION__);
-          t_perror("server_thread");
-          // dialog box?
-          return NULL;
-        }
+        if (recv_bytes(client->socket, (char *)command+ sizeof(HEADER), sizeof(RFGAIN_COMMAND) - sizeof(HEADER)) < 0) { return NULL; }
 
         g_idle_add(remote_command, command);
       }
 
       break;
 
-    case CMD_RX_SQUELCH:
-      t_print("%s: CMD_RX_SQUELCH\n", __FUNCTION__);
-      {
+    case CMD_RX_SQUELCH: {
         SQUELCH_COMMAND *squelch_command = g_new(SQUELCH_COMMAND, 1);
         squelch_command->header.data_type = header.data_type;
         squelch_command->header.version = header.version;
         squelch_command->header.context.client = client;
-        bytes_read = recv_bytes(client->socket, (char *)&squelch_command->id, sizeof(SQUELCH_COMMAND) - sizeof(header));
 
-        if (bytes_read <= 0) {
-          t_print("%s: ReadErr for SQUELCH_COMMAND\n", __FUNCTION__);
-          t_perror("server_thread");
-          // dialog box?
-          return NULL;
-        }
+        if (recv_bytes(client->socket, (char *)squelch_command + sizeof(HEADER), sizeof(SQUELCH_COMMAND) - sizeof(HEADER)) < 0) { return NULL; };
 
         g_idle_add(remote_command, squelch_command);
       }
 
       break;
 
-    case CMD_RX_NOISE:
-      t_print("%s: CMD_RX_NOISE\n", __FUNCTION__);
-      {
+    case CMD_RX_NOISE: {
         NOISE_COMMAND *noise_command = g_new(NOISE_COMMAND, 1);
         noise_command->header.data_type = header.data_type;
         noise_command->header.version = header.version;
         noise_command->header.context.client = client;
-        bytes_read = recv_bytes(client->socket, (char *)&noise_command->id, sizeof(NOISE_COMMAND) - sizeof(header));
 
-        if (bytes_read <= 0) {
-          t_print("%s: ReadErr for NOISE_COMMAND\n", __FUNCTION__);
-          t_perror("server_thread");
-          // dialog box?
-          return NULL;
-        }
+        if (recv_bytes(client->socket, (char *)noise_command + sizeof(HEADER), sizeof(NOISE_COMMAND) - sizeof(HEADER)) < 0) { return NULL; }
 
         g_idle_add(remote_command, noise_command);
       }
@@ -988,14 +935,8 @@ static void *server_thread(void *arg) {
       sample_rate_command->header.data_type = header.data_type;
       sample_rate_command->header.version = header.version;
       sample_rate_command->header.context.client = client;
-      bytes_read = recv_bytes(client->socket, (char *)&sample_rate_command->id, sizeof(SAMPLE_RATE_COMMAND) - sizeof(header));
 
-      if (bytes_read <= 0) {
-        t_print("%s: ReadErr for SAMPLE_RATE\n", __FUNCTION__);
-        t_perror("server_thread");
-        // dialog box?
-        return NULL;
-      }
+      if (recv_bytes(client->socket, (char *)sample_rate_command + sizeof(HEADER), sizeof(SAMPLE_RATE_COMMAND) - sizeof(HEADER)) < 0) { return NULL; };
 
       g_idle_add(remote_command, sample_rate_command);
     }
@@ -1007,14 +948,21 @@ static void *server_thread(void *arg) {
       command->header.data_type = header.data_type;
       command->header.version = header.version;
       command->header.context.client = client;
-      bytes_read = recv_bytes(client->socket, (char *)&command + sizeof(HEADER), sizeof(EQUALIZER_COMMAND) - sizeof(HEADER));
 
-      if (bytes_read <= 0) {
-        t_print("%s: ReadErr for SAMPLE_RATE\n", __FUNCTION__);
-        t_perror("server_thread");
-        // dialog box?
-        return NULL;
-      }
+      if (recv_bytes(client->socket, (char *)command + sizeof(HEADER), sizeof(EQUALIZER_COMMAND) - sizeof(HEADER)) < 0) { return NULL; }
+
+      g_idle_add(remote_command, command);
+    }
+    break;
+
+    case CMD_RX_DISPLAY:
+    case CMD_TX_DISPLAY: {
+      DISPLAY_COMMAND *command = g_new(DISPLAY_COMMAND, 1);
+      command->header.data_type = header.data_type;
+      command->header.version = header.version;
+      command->header.context.client = client;
+
+      if (recv_bytes(client->socket, (char *)command + sizeof(HEADER), sizeof(DISPLAY_COMMAND) - sizeof(HEADER)) < 0) { return NULL; }
 
       g_idle_add(remote_command, command);
     }
@@ -1085,6 +1033,7 @@ static void *server_thread(void *arg) {
   }
 
   delete_client(client);
+  t_print("Server Thread Terminating\n");
   return NULL;
 }
 
@@ -1253,7 +1202,7 @@ void send_eq(int s, int id) {
   command.id     = id;
 
   if (id < RECEIVERS) {
-    RECEIVER *rx = receiver[id];
+    const RECEIVER *rx = receiver[id];
     command.header.data_type = to_short(CMD_RX_EQ);
     command.enable = rx->eq_enable;
 
@@ -1421,16 +1370,16 @@ void send_display(int s, int id) {
   command.header.version = to_short(CLIENT_SERVER_VERSION);
   command.id = id;
 
-  if (id == 8) {
-    command.header.data_type = to_short(CMD_TX_DISPLAY);
-    command.detector_mode = transmitter->display_detector_mode;
-    command.average_mode = transmitter->display_average_mode;
-    command.average_time = to_double(transmitter->display_average_time);
-  } else {
+  if (id < RECEIVERS) {
     command.header.data_type = to_short(CMD_RX_DISPLAY);
     command.detector_mode = receiver[id]->display_detector_mode;
     command.average_mode = receiver[id]->display_average_mode;
     command.average_time = to_double(receiver[id]->display_average_time);
+  } else if (can_transmit) {
+    command.header.data_type = to_short(CMD_TX_DISPLAY);
+    command.detector_mode = transmitter->display_detector_mode;
+    command.average_mode = transmitter->display_average_mode;
+    command.average_time = to_double(transmitter->display_average_time);
   }
 
   send_bytes(s, (char *)&command, sizeof(DISPLAY_COMMAND));
@@ -1801,16 +1750,7 @@ static void *client_thread(void* arg) {
     switch (from_short(header.data_type)) {
     case INFO_BAND: {
       BAND_DATA data;
-      bytes_read = recv_bytes(client_socket, (char *)&data + sizeof(HEADER), sizeof(data) - sizeof(HEADER));
-
-      if (bytes_read <= 0) {
-        t_print("client_thread: ReadErr for INFO_BAND\n");
-        t_perror("client_thread");
-        // dialog box?
-        return NULL;
-      }
-
-      t_print("INFO_BAND: %d\n", bytes_read);
+      if (recv_bytes(client_socket, (char *)&data + sizeof(HEADER), sizeof(data) - sizeof(HEADER)) < 0) { return NULL; }
 
       if (data.band > BANDS + XVTRS) {
         t_print("WARNING: band data received for b=%d, too large.\n", data.band);
@@ -1843,16 +1783,7 @@ static void *client_thread(void* arg) {
 
     case INFO_BANDSTACK: {
       BANDSTACK_DATA data;
-      bytes_read = recv_bytes(client_socket, (char *)&data + sizeof(HEADER), sizeof(data) - sizeof(HEADER));
-
-      if (bytes_read <= 0) {
-        t_print("client_thread: ReadErr for INFO_BANDSTACK\n");
-        t_perror("client_thread");
-        // dialog box?
-        return NULL;
-      }
-
-      t_print("INFO_BANDSTACK: %d\n", bytes_read);
+      if (recv_bytes(client_socket, (char *)&data + sizeof(HEADER), sizeof(data) - sizeof(HEADER)) < 0) { return NULL; }
 
       if (data.band > BANDS + XVTRS) {
         t_print("WARNING: band data received for b=%d, too large.\n", data.band);
@@ -1881,16 +1812,8 @@ static void *client_thread(void* arg) {
 
     case INFO_RADIO: {
       RADIO_DATA data;
-      bytes_read = recv_bytes(client_socket, (char *)&data + sizeof(HEADER), sizeof(data) - sizeof(HEADER));
+      if (recv_bytes(client_socket, (char *)&data + sizeof(HEADER), sizeof(data) - sizeof(HEADER)) < 0) { return NULL; }
 
-      if (bytes_read <= 0) {
-        t_print("client_thread: ReadErr for INFO_RADIO\n");
-        t_perror("client_thread");
-        // dialog box?
-        return NULL;
-      }
-
-      t_print("INFO_RADIO: %d\n", bytes_read);
       STRLCPY(radio->name, data.name, sizeof(radio->name));
       locked = data.locked;
       can_transmit = 0;  // TEMPORARY
@@ -1967,17 +1890,8 @@ static void *client_thread(void* arg) {
 
     case INFO_ADC: {
       ADC_DATA adc_data;
-      bytes_read = recv_bytes(client_socket, (char *)&adc_data.adc, sizeof(adc_data) - sizeof(header));
+      if (recv_bytes(client_socket, (char *)&adc_data + sizeof(HEADER), sizeof(ADC_DATA) - sizeof(HEADER)) < 0) { return NULL; }
 
-      if (bytes_read <= 0) {
-        t_print("client_thread: ReadErr for ADC_DATA\n");
-        t_perror("client_thread");
-        // dialog box?
-        return NULL;
-      }
-
-      t_print("INFO_ADC: %d\n", bytes_read);
-      // cppcheck-suppress uninitStructMember
       int i = adc_data.adc;
       adc[i].filters = from_short(adc_data.filters);
       adc[i].hpf = from_short(adc_data.hpf);
@@ -1996,16 +1910,8 @@ static void *client_thread(void* arg) {
 
     case INFO_RECEIVER: {
       RECEIVER_DATA rx_data;
-      bytes_read = recv_bytes(client_socket, (char *)&rx_data + sizeof(HEADER), sizeof(RECEIVER_DATA) - sizeof(HEADER));
+      if (recv_bytes(client_socket, (char *)&rx_data + sizeof(HEADER), sizeof(RECEIVER_DATA) - sizeof(HEADER)) < 0) { return NULL; }
 
-      if (bytes_read <= 0) {
-        t_print("client_thread: ReadErr for RECEIVER_DATA\n");
-        t_perror("client_thread");
-        // dialog box?
-        return NULL;
-      }
-
-      t_print("INFO_RECEIVER: %d\n", bytes_read);
       int id = rx_data.id;
       RECEIVER *rx = receiver[id];
       t_print("id=%d rx=%p\n", id, rx);
@@ -2083,17 +1989,8 @@ static void *client_thread(void* arg) {
 
     case INFO_VFO: {
       VFO_DATA vfo_data;
-      bytes_read = recv_bytes(client_socket, (char *)&vfo_data.vfo, sizeof(vfo_data) - sizeof(header));
+      if (recv_bytes(client_socket, (char *)&vfo_data + sizeof(HEADER), sizeof(VFO_DATA) - sizeof(HEADER)) < 0) { return NULL; }
 
-      if (bytes_read <= 0) {
-        t_print("client_thread: ReadErr for VFO_DATA\n");
-        t_perror("client_thread");
-        // dialog box?
-        return NULL;
-      }
-
-      t_print("INFO_VFO: %d\n", bytes_read);
-      // cppcheck-suppress uninitStructMember
       int v = vfo_data.vfo;
       vfo[v].band = vfo_data.band;
       vfo[v].bandstack = vfo_data.bandstack;
@@ -2120,16 +2017,8 @@ static void *client_thread(void* arg) {
       // read the number of bytes specified there.
       //
       size_t payload = from_ll(header.context.payload);
-      bytes_read = recv_bytes(client_socket, (char *)&spectrum_data.rx, payload);
+      if (recv_bytes(client_socket, (char *)&spectrum_data + sizeof(HEADER), payload) < 0) { return NULL; }
 
-      if (bytes_read <= 0) {
-        t_print("client_thread: ReadErr for SPECTRUM_DATA\n");
-        t_perror("client_thread");
-        // dialog box?
-        return NULL;
-      }
-
-      // cppcheck-suppress uninitStructMember
       int r = spectrum_data.rx;
       RECEIVER *rx = receiver[r];
       long long frequency_a = from_ll(spectrum_data.vfo_a_freq);
@@ -2177,16 +2066,8 @@ static void *client_thread(void* arg) {
 
     case INFO_AUDIO: {
       AUDIO_DATA adata;
-      bytes_read = recv_bytes(client_socket, (char *)&adata.rx, sizeof(adata) - sizeof(header));
+      if (recv_bytes(client_socket, (char *)&adata + sizeof(HEADER), sizeof(AUDIO_DATA) - sizeof(HEADER)) < 0) { return NULL; }
 
-      if (bytes_read <= 0) {
-        t_print("client_thread: ReadErr for AUDIO_DATA\n");
-        t_perror("client_thread");
-        // dialog box?
-        return NULL;
-      }
-
-      // cppcheck-suppress uninitStructMember
       RECEIVER *rx = receiver[adata.rx];
       int samples = from_short(adata.samples);
 
@@ -2221,14 +2102,7 @@ static void *client_thread(void* arg) {
 
     case CMD_SAMPLE_RATE: {
       SAMPLE_RATE_COMMAND sample_rate_cmd;
-      bytes_read = recv_bytes(client_socket, (char *)&sample_rate_cmd.id, sizeof(sample_rate_cmd) - sizeof(header));
-
-      if (bytes_read <= 0) {
-        t_print("client_thread: ReadErr for SAMPLE_RATE_CMD\n");
-        t_perror("client_thread");
-        // dialog box?
-        return NULL;
-      }
+      if (recv_bytes(client_socket, (char *)&sample_rate_cmd + sizeof(HEADER), sizeof(SAMPLE_RATE_COMMAND) - sizeof(HEADER)) < 0) { return NULL; }
 
       int rx = (int)sample_rate_cmd.id;
       long long rate = from_ll(sample_rate_cmd.sample_rate);
@@ -2320,16 +2194,8 @@ static void *client_thread(void* arg) {
 
     case CMD_RX_NOISE: {
       NOISE_COMMAND noise_command;
-      bytes_read = recv_bytes(client_socket, (char *)&noise_command.id, sizeof(noise_command) - sizeof(header));
+      if (recv_bytes(client_socket, (char *)&noise_command + sizeof(HEADER), sizeof(NOISE_COMMAND) - sizeof(HEADER)) < 0) { return NULL; }
 
-      if (bytes_read <= 0) {
-        t_print("client_thread: ReadErr for NOISE_CMD\n");
-        t_perror("client_thread");
-        // dialog box?
-        return NULL;
-      }
-
-      // cppcheck-suppress uninitStructMember
       int id = noise_command.id;
       RECEIVER *rx = receiver[id];
       // cppcheck-suppress uninitvar
@@ -2375,16 +2241,8 @@ static void *client_thread(void* arg) {
 
     case CMD_RX_VOLUME: {
       VOLUME_COMMAND volume_cmd;
-      bytes_read = recv_bytes(client_socket, (char *)&volume_cmd.id, sizeof(volume_cmd) - sizeof(header));
+      if (recv_bytes(client_socket, (char *)&volume_cmd + sizeof(HEADER), sizeof(VOLUME_COMMAND) - sizeof(HEADER)) < 0) { return NULL; }
 
-      if (bytes_read <= 0) {
-        t_print("client_thread: ReadErr for VOLUME_CMD\n");
-        t_perror("client_thread");
-        // dialog box?
-        return NULL;
-      }
-
-      // cppcheck-suppress uninitStructMember
       int rx = volume_cmd.id;
       double volume = from_double(volume_cmd.volume);
       t_print("CMD_RX_VOLUME: volume=%f rx[%d]->volume=%f\n", volume, rx, receiver[rx]->volume);
@@ -2394,16 +2252,8 @@ static void *client_thread(void* arg) {
 
     case CMD_RX_AGC_GAIN: {
       AGC_GAIN_COMMAND agc_gain_cmd;
-      bytes_read = recv_bytes(client_socket, (char *)&agc_gain_cmd.id, sizeof(agc_gain_cmd) - sizeof(header));
+      if (recv_bytes(client_socket, (char *)&agc_gain_cmd + sizeof(HEADER), sizeof(AGC_GAIN_COMMAND) - sizeof(HEADER)) < 0) { return NULL; }
 
-      if (bytes_read <= 0) {
-        t_print("client_thread: ReadErr for AGC_GAIN_CMD\n");
-        t_perror("client_thread");
-        // dialog box?
-        return NULL;
-      }
-
-      // cppcheck-suppress uninitStructMember
       int rx = agc_gain_cmd.id;
       receiver[rx]->agc_gain = from_double(agc_gain_cmd.gain);
       receiver[rx]->agc_hang = from_double(agc_gain_cmd.hang);
@@ -2420,16 +2270,8 @@ static void *client_thread(void* arg) {
 
     case CMD_RX_GAIN: {
       RFGAIN_COMMAND command;
-      bytes_read = recv_bytes(client_socket, (char *)&command.id, sizeof(command) - sizeof(header));
+      if (recv_bytes(client_socket, (char *)&command + sizeof(HEADER), sizeof(RFGAIN_COMMAND) - sizeof(HEADER)) < 0) { return NULL; }
 
-      if (bytes_read <= 0) {
-        t_print("client_thread: ReadErr for RFGAIN_CMD\n");
-        t_perror("client_thread");
-        // dialog box?
-        return NULL;
-      }
-
-      // cppcheck-suppress uninitStructMember
       int rx = command.id;
       double gain = from_double(command.gain);
       t_print("CMD_RX_GAIN: new=%f rx=%d old=%f\n", gain, rx, adc[receiver[rx]->adc].gain);
@@ -2528,11 +2370,11 @@ int radio_connect_remote(char *host, int port) {
 static int remote_command(void *data) {
   HEADER *header = (HEADER *)data;
   const REMOTE_CLIENT *client = header->context.client;
-  int temp;
+  int type = from_short(header->data_type);
 
-  switch (from_short(header->data_type)) {
+  switch (type) {
   case INFO_RADIO: {
-    RADIO_DATA *radio_data = (RADIO_DATA *)data;
+    const RADIO_DATA *radio_data = (RADIO_DATA *)data;
     locked = radio_data->locked;
     have_rx_gain = radio_data->have_rx_gain;
     filter_board = radio_data->filter_board;
@@ -2575,8 +2417,8 @@ static int remote_command(void *data) {
   break;
 
   case CMD_RX_FREQ: {
-    FREQ_COMMAND *freq_command = (FREQ_COMMAND *)data;
-    temp = active_receiver->pan;
+    const FREQ_COMMAND *freq_command = (FREQ_COMMAND *)data;
+    int pan = active_receiver->pan;
     int v = freq_command->id;
     long long f = from_ll(freq_command->hz);
     vfo_id_set_frequency(v, f);
@@ -2584,7 +2426,7 @@ static int remote_command(void *data) {
     send_vfo_data(client->socket, VFO_A);
     send_vfo_data(client->socket, VFO_B);
 
-    if (temp != active_receiver->pan) {
+    if (pan != active_receiver->pan) {
       send_pan(client->socket, active_receiver->id, active_receiver->pan);
     }
   }
@@ -2599,28 +2441,28 @@ static int remote_command(void *data) {
   break;
 
   case CMD_RX_MOVE: {
-    MOVE_COMMAND *move_command = (MOVE_COMMAND *)data;
-    temp = active_receiver->pan;
+    const MOVE_COMMAND *move_command = (MOVE_COMMAND *)data;
+    int pan = active_receiver->pan;
     long long hz = from_ll(move_command->hz);
     vfo_move(hz, move_command->round);
 
     //send_vfo_data(client->socket,VFO_A);
     //send_vfo_data(client->socket,VFO_B);
-    if (temp != active_receiver->pan) {
+    if (pan != active_receiver->pan) {
       send_pan(client->socket, active_receiver->id, active_receiver->pan);
     }
   }
   break;
 
   case CMD_RX_MOVETO: {
-    MOVE_TO_COMMAND *move_to_command = (MOVE_TO_COMMAND *)data;
-    temp = active_receiver->pan;
+   const  MOVE_TO_COMMAND *move_to_command = (MOVE_TO_COMMAND *)data;
+    int pan = active_receiver->pan;
     long long hz = from_ll(move_to_command->hz);
     vfo_move_to(hz);
     send_vfo_data(client->socket, VFO_A);
     send_vfo_data(client->socket, VFO_B);
 
-    if (temp != active_receiver->pan) {
+    if (pan != active_receiver->pan) {
       send_pan(client->socket, active_receiver->id, active_receiver->pan);
     }
   }
@@ -2628,8 +2470,7 @@ static int remote_command(void *data) {
 
   case CMD_RX_ZOOM: {
     int id = header->b1;
-    temp = header->b2;
-    set_zoom(id, (double)temp);
+    set_zoom(id, (double)header->b2);
     send_zoom(client->socket, active_receiver->id, active_receiver->zoom);
     send_pan(client->socket, active_receiver->id, active_receiver->pan);
   }
@@ -2637,14 +2478,13 @@ static int remote_command(void *data) {
 
   case CMD_RX_PAN: {
     int id = header->b1;
-    temp = from_short(header->s1);
-    set_pan(id, (double)temp);
+    set_pan(id, (double)from_short(header->s1));
     send_pan(client->socket, id, receiver[id]->pan);
   }
   break;
 
   case CMD_RX_VOLUME: {
-    VOLUME_COMMAND *volume_command = (VOLUME_COMMAND *)data;
+    const VOLUME_COMMAND *volume_command = (VOLUME_COMMAND *)data;
     double dtmp = from_double(volume_command->volume);
     set_af_gain(volume_command->id, dtmp);
   }
@@ -2662,7 +2502,7 @@ static int remote_command(void *data) {
   break;
 
   case CMD_RX_AGC_GAIN: {
-    AGC_GAIN_COMMAND *agc_gain_command = (AGC_GAIN_COMMAND *)data;
+    const AGC_GAIN_COMMAND *agc_gain_command = (AGC_GAIN_COMMAND *)data;
     int r = agc_gain_command->id;
     CHECK_RX(r);
     RECEIVER *rx = receiver[r];
@@ -2676,7 +2516,7 @@ static int remote_command(void *data) {
   break;
 
   case CMD_RX_GAIN: {
-    RFGAIN_COMMAND *command = (RFGAIN_COMMAND *) data;
+    const RFGAIN_COMMAND *command = (RFGAIN_COMMAND *) data;
     double td = from_double(command->gain);
     set_rf_gain(command->id, td);
   }
@@ -2690,12 +2530,11 @@ static int remote_command(void *data) {
   break;
 
   case CMD_RX_SQUELCH: {
-    SQUELCH_COMMAND *squelch_command = (SQUELCH_COMMAND *)data;
+    const SQUELCH_COMMAND *squelch_command = (SQUELCH_COMMAND *)data;
     int r = squelch_command->id;
     CHECK_RX(r);
     receiver[r]->squelch_enable = squelch_command->enable;
-    temp = from_short(squelch_command->squelch);
-    receiver[r]->squelch = (double)temp;
+    receiver[r]->squelch = (double)from_short(squelch_command->squelch);
     set_squelch(receiver[r]);
   }
   break;
@@ -2767,7 +2606,7 @@ static int remote_command(void *data) {
     //
     // Update bandstack data of "old" band
     //
-    BAND *band = band_get_band(oldband);
+    const BAND *band = band_get_band(oldband);
 
     for (int s = 0; s < band->bandstack->entries; s++) {
       send_bandstack_data(client->socket, oldband, s);
@@ -2957,7 +2796,7 @@ static int remote_command(void *data) {
   break;
 
   case CMD_SAMPLE_RATE: {
-    SAMPLE_RATE_COMMAND *sample_rate_command = (SAMPLE_RATE_COMMAND *)data;
+    const SAMPLE_RATE_COMMAND *sample_rate_command = (SAMPLE_RATE_COMMAND *)data;
     int rx = (int)sample_rate_command->id;
     CHECK_RX(rx);
     long long rate = from_ll(sample_rate_command->sample_rate);
@@ -3015,7 +2854,7 @@ static int remote_command(void *data) {
   case CMD_REGION: {
     region = header->b1;
     radio_change_region(region);
-    BAND *band = band_get_band(band60);
+    const BAND *band = band_get_band(band60);
 
     for (int s = 0; s < band->bandstack->entries; s++) {
       send_bandstack_data(client->socket, band60, s);
@@ -3030,7 +2869,7 @@ static int remote_command(void *data) {
   break;
 
   case CMD_RX_EQ: {
-    EQUALIZER_COMMAND *command = (EQUALIZER_COMMAND *)data;
+    const EQUALIZER_COMMAND *command = (EQUALIZER_COMMAND *)data;
     int id = command->id;
     CHECK_RX(id);
     RECEIVER *rx = receiver[id];
@@ -3046,7 +2885,7 @@ static int remote_command(void *data) {
   break;
 
   case CMD_TX_EQ: if (can_transmit) {
-    EQUALIZER_COMMAND *command = (EQUALIZER_COMMAND *)data;
+    const EQUALIZER_COMMAND *command = (EQUALIZER_COMMAND *)data;
     transmitter->eq_enable = command->enable;
 
     for (int i = 0; i < 11; i++) {
@@ -3057,6 +2896,39 @@ static int remote_command(void *data) {
     update_eq();
   }
   break;
+
+  case CMD_RX_DISPLAY: {
+    const DISPLAY_COMMAND *command = (DISPLAY_COMMAND *)data;
+    int id = command->id;
+    CHECK_RX(id);
+    RECEIVER *rx = receiver[id];
+
+    rx->display_detector_mode = command->detector_mode;
+    rx->display_average_mode = command->average_mode;
+    rx->display_average_time = from_double(command->average_time);
+
+    rx_set_average(rx);
+    rx_set_detector(rx);
+  }
+  break;
+
+  case CMD_TX_DISPLAY: if (can_transmit) {
+    const DISPLAY_COMMAND *command = (DISPLAY_COMMAND *)data;
+
+    transmitter->display_detector_mode = command->detector_mode;
+    transmitter->display_average_mode = command->average_mode;
+    transmitter->display_average_time = from_double(command->average_time);
+
+    tx_set_average(transmitter);
+    tx_set_detector(transmitter);
+  }
+  break;
+
+  default: {
+    t_print("%s: forgotten case type=%d\n", __FUNCTION__, type);
+  }
+  break;
+
   }
 
   g_free(data);
