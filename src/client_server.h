@@ -96,6 +96,9 @@ enum _header_type_enum {
   CMD_TX_DISPLAY,
   CMD_PTT,
   CMD_TUNE,
+  CMD_TWOTONE,
+  CMD_MICGAIN,
+  CMD_DRIVE,
   CLIENT_SERVER_COMMANDS,
 };
 
@@ -104,18 +107,6 @@ enum _header_type_enum {
 #define AUDIO_DATA_SIZE 1024             // 1024 stereo samples
 
 #define REMOTE_SYNC (uint16_t)0xFAFA
-
-typedef struct _remote_rx {
-  int receiver;
-  gboolean send_audio;
-  int audio_format;
-  int audio_port;
-  struct sockaddr_in audio_address;
-  gboolean send_spectrum;
-  int spectrum_fps;
-  int spectrum_port;
-  struct sockaddr_in spectrum_address;
-} REMOTE_RX;
 
 typedef struct _remote_client {
   gboolean running;
@@ -126,7 +117,7 @@ typedef struct _remote_client {
   CLIENT_STATE state;
   int receivers;
   guint spectrum_update_timer_id;
-  REMOTE_RX receiver[8];
+  int send_spectrum[10];  // slot #8 is for the transmitter
   void *next;
 } REMOTE_CLIENT;
 
@@ -410,7 +401,8 @@ typedef struct __attribute__((__packed__)) _vfo_data {
 
 typedef struct __attribute__((__packed__)) _spectrum_data {
   HEADER header;
-  uint8_t rx;
+  uint8_t id;
+  uint8_t pscorr;
   uint16_t width;
 //
   uint64_t vfo_a_freq;
@@ -421,7 +413,7 @@ typedef struct __attribute__((__packed__)) _spectrum_data {
   uint64_t vfo_b_offset;
 //
   mydouble meter;
-  mydouble agc;
+  mydouble alc;
   mydouble fwd;
   mydouble swr;
   uint16_t sample[SPECTRUM_DATA_SIZE];
@@ -434,44 +426,16 @@ typedef struct __attribute__((__packed__)) _audio_data {
   uint16_t sample[AUDIO_DATA_SIZE * 2];
 } AUDIO_DATA;
 
-typedef struct __attribute__((__packed__)) _freq_command {
-  HEADER header;
-  uint8_t id;
-  uint64_t hz;
-} FREQ_COMMAND;
 
-typedef struct __attribute__((__packed__)) _sample_rate_command {
+typedef struct __attribute__((__packed__)) _u64_command {
   HEADER header;
-  int8_t id;
-  uint64_t sample_rate;
-} SAMPLE_RATE_COMMAND;
+  uint64_t u64;
+} U64_COMMAND;
 
-typedef struct __attribute__((__packed__)) _move_command {
+typedef struct __attribute__((__packed__)) _double_command {
   HEADER header;
-  uint8_t id;
-  uint64_t hz;
-  uint8_t round;
-} MOVE_COMMAND;
-
-typedef struct __attribute__((__packed__)) _move_to_command {
-  HEADER header;
-  uint8_t id;
-  uint64_t hz;
-} MOVE_TO_COMMAND;
-
-typedef struct __attribute__((__packed__)) _volume_command {
-  HEADER header;
-  uint8_t id;
-  mydouble volume;
-} VOLUME_COMMAND;
-
-typedef struct __attribute__((__packed__)) _filter_command {
-  HEADER header;
-  uint8_t id;
-  uint8_t filter;
-  uint16_t filter_low;
-  uint16_t filter_high;
-} FILTER_COMMAND;
+  mydouble dbl;
+} DOUBLE_COMMAND;
 
 typedef struct __attribute__((__packed__)) _agc_gain_command {
   HEADER header;
@@ -482,19 +446,6 @@ typedef struct __attribute__((__packed__)) _agc_gain_command {
   mydouble hang_thresh;
 } AGC_GAIN_COMMAND;
 
-typedef struct __attribute__((__packed__)) _rfgain_command {
-  HEADER header;
-  uint8_t id;
-  mydouble gain;
-} RFGAIN_COMMAND;
-
-typedef struct __attribute__((__packed__)) _squelch_command {
-  HEADER header;
-  uint8_t id;
-  uint8_t enable;
-  mydouble squelch;
-} SQUELCH_COMMAND;
-
 typedef struct __attribute__((__packed__)) _equalizer_command {
   HEADER header;
   uint8_t  id;
@@ -502,14 +453,6 @@ typedef struct __attribute__((__packed__)) _equalizer_command {
   mydouble freq[11];
   mydouble gain[11];
 } EQUALIZER_COMMAND;
-
-typedef struct __attribute__((__packed__)) _display_command {
-  HEADER header;
-  uint8_t id;
-  uint8_t detector_mode;
-  uint8_t average_mode;
-  mydouble average_time;
-} DISPLAY_COMMAND;
 
 typedef struct __attribute__((__packed__)) _noise_command {
   HEADER header;
@@ -560,7 +503,6 @@ extern void send_vfo_data(int sock, int v);
 extern void send_startstop_spectrum(int s, int rx, int state);
 extern void send_vfo_frequency(int s, int rx, long long hz);
 extern void send_vfo_move_to(int s, int rx, long long hz);
-extern void send_vfo_move(int s, int rx, long long hz, int round);
 extern void update_vfo_move(int rx, long long hz, int round);
 extern void send_vfo_step(int s, int rx, int steps);
 extern void update_vfo_step(int rx, int steps);
@@ -573,11 +515,14 @@ extern void send_attenuation(int s, int rx, int attenuation);
 extern void send_rfgain(int s, int rx, double gain);
 extern void send_squelch(int s, int rx, int enable, double squelch);
 extern void send_eq(int s, int id);
+extern void send_micgain(int s, double gain);
+extern void send_drive(int s, double value);
 extern void send_noise(int s, const RECEIVER *rx);
 extern void send_band(int s, int rx, int band);
 extern void send_mode(int s, int rx, int mode);
-extern void send_ptt(int s, int mox);
-extern void send_tune(int s, int tune);
+extern void send_ptt(int s, int state);
+extern void send_tune(int s, int state);
+extern void send_twotone(int s, int state);
 extern void send_filter_sel(int s, int vfo, int filter);
 extern void send_filter_var(int s, int mode, int filter);
 extern void send_filter_cut(int s, int rx);

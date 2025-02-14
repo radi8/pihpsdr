@@ -884,6 +884,19 @@ static void radio_create_visual() {
     }
   } else {
 #ifdef CLIENT_SERVER
+    if (duplex) {
+      transmitter->width = tx_dialog_width;
+      transmitter->pixels = 4 *tx_dialog_width;
+    } else {
+      transmitter->width = my_width;
+      transmitter->pixels = my_width;
+    }
+
+    if (transmitter->pixel_samples != NULL) {
+      g_free(transmitter->pixel_samples);
+    }
+
+    transmitter->pixel_samples = g_new(float, transmitter->pixels);
     tx_create_remote(transmitter);
 #endif
   }
@@ -1746,6 +1759,8 @@ static void rxtx(int state) {
         if (!radio_is_remote) {
           rx_off(receiver[i]);
           rx_set_displaying(receiver[i]);
+        } else {
+          send_startstop_spectrum(client_socket, i, 0);
         }
 
         g_object_ref((gpointer)receiver[i]->panel);
@@ -1788,6 +1803,8 @@ static void rxtx(int state) {
       //soapy_protocol_start_transmitter(transmitter);
 #endif
       }
+    } else {
+      send_startstop_spectrum(client_socket, transmitter->id, 1);
     }
 
 #ifdef DUMP_TX_DATA
@@ -1828,6 +1845,8 @@ static void rxtx(int state) {
 
       tx_off(transmitter);
       tx_set_displaying(transmitter);
+    } else {
+      send_startstop_spectrum(client_socket, transmitter->id, 0);
     }
 
     if (transmitter->dialog) {
@@ -1899,6 +1918,8 @@ static void rxtx(int state) {
           }
 
           receiver[i]->txrxcount = 0;
+        } else {
+          send_startstop_spectrum(client_socket, i, 1);
         }
       }
     }
@@ -1943,6 +1964,12 @@ void radio_remote_set_mox(int state) {
   vox = 0;
 }
 
+void radio_remote_set_twotone(int state) {
+  if (can_transmit) {
+    transmitter->twotone = state;
+  }
+}
+
 void radio_remote_set_tune(int state) {
   if (state != tune) {
     vox_cancel();
@@ -1956,6 +1983,7 @@ void radio_remote_set_tune(int state) {
     tune=state;
   }
 }
+
 #endif
 
 void radio_set_mox(int state) {
@@ -2027,6 +2055,16 @@ void radio_set_vox(int state) {
   vox = state;
   schedule_high_priority();
   schedule_receive_specific();
+}
+
+void radio_set_twotone(TRANSMITTER *tx, int state) {
+  if (radio_is_remote) {
+#ifdef CLIENT_SERVER
+    send_twotone(client_socket, state);
+#endif
+    return;
+  }
+  tx_set_twotone(tx, state);
 }
 
 void radio_set_tune(int state) {

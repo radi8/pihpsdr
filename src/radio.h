@@ -305,6 +305,7 @@ extern void   radio_tx_vfo_changed(void);
 extern void   radio_split_toggle(void);
 extern void   radio_set_split(int v);
 extern void   radio_set_mox(int state);
+extern void   radio_set_twotone(TRANSMITTER *tx, int state);
 extern int    radio_get_mox(void);
 extern void   radio_set_tune(int state);
 extern int    radio_get_tune(void);
@@ -335,6 +336,7 @@ extern int compare_doubles(const void *a, const void *b);
   extern int radio_remote_start(void *data);
   extern void radio_remote_set_mox(int state);
   extern void radio_remote_set_tune(int state);
+  extern void radio_remote_set_twotone(int state);
 #endif
 
 extern int optimize_for_touchscreen;

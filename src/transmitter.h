@@ -86,6 +86,7 @@ typedef struct _transmitter {
   int puresignal;
   int feedback;
   int auto_on;
+  int pscorr; // PS info14 status
 
   // PS 2.0 parameters
   double ps_ampdelay;
@@ -243,6 +244,7 @@ extern void   tx_set_twotone(TRANSMITTER *tx, int state);
 #ifdef CLIENT_SERVER
   extern void tx_create_remote(TRANSMITTER *rx);
   extern void tx_remote_update_display(TRANSMITTER *rx);
+  extern void tx_remote_update_display(TRANSMITTER *tx);
 #endif
 
 #endif
