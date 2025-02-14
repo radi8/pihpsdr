@@ -36,6 +36,7 @@ typedef enum {
 enum _header_type_enum {
   INFO_RADIO,
   INFO_ADC,
+  INFO_DAC,
   INFO_RECEIVER,
   INFO_TRANSMITTER,
   INFO_VFO,
@@ -93,6 +94,8 @@ enum _header_type_enum {
   CMD_TX_EQ,
   CMD_RX_DISPLAY,
   CMD_TX_DISPLAY,
+  CMD_PTT,
+  CMD_TUNE,
   CLIENT_SERVER_COMMANDS,
 };
 
@@ -190,7 +193,6 @@ typedef struct __attribute__((__packed__)) _radio_data {
   char name[32];
 //
   uint8_t  locked;
-  uint8_t  can_transmit;
   uint8_t  protocol;
   uint8_t  supported_receivers;
   uint8_t  receivers;
@@ -250,6 +252,12 @@ typedef struct __attribute__((__packed__)) _radio_data {
   uint64_t radio_frequency_max;
 } RADIO_DATA;
 
+typedef struct __attribute__((__packed__)) _dac_data {
+  HEADER header;
+  uint8_t antenna;
+  mydouble gain;
+} DAC_DATA;
+
 typedef struct __attribute__((__packed__)) _adc_data {
   HEADER header;
   uint8_t adc;
@@ -276,7 +284,6 @@ typedef struct __attribute__((__packed__)) _transmitter_data {
   uint8_t  display_average_mode;
   uint8_t  use_rx_filter;
   uint8_t  alex_antenna;
-  uint8_t  twotone;
   uint8_t  puresignal;
   uint8_t  feedback;
   uint8_t  auto_on;
@@ -546,6 +553,7 @@ extern int radio_connect_remote(char *host, int port);
 
 extern void send_radio_data(int sock);
 extern void send_adc_data(int sock, int i);
+extern void send_dac_data(int sock);
 extern void send_receiver_data(int sock, int rx);
 extern void send_vfo_data(int sock, int v);
 
@@ -568,6 +576,8 @@ extern void send_eq(int s, int id);
 extern void send_noise(int s, const RECEIVER *rx);
 extern void send_band(int s, int rx, int band);
 extern void send_mode(int s, int rx, int mode);
+extern void send_ptt(int s, int mox);
+extern void send_tune(int s, int tune);
 extern void send_filter_sel(int s, int vfo, int filter);
 extern void send_filter_var(int s, int mode, int filter);
 extern void send_filter_cut(int s, int rx);

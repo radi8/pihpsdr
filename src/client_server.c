@@ -23,8 +23,7 @@
  * Client = piHPSDR running on a "remote" computer without a radio
  *
  * The server starts after all data has been initialized and the props file has
- * been read, and then sends out all this data to the client with the
- * INFO_RADIO, INFO_RECEIVER, INFO_ADC, and INFO_VFO packets.
+ * been read, and then sends out all this data to the client.
  *
  * It then periodically sends audio (INFO_AUDIO) and pixel (INFO_SPECTRUM) data,
  * the latter is used both for the panadapter and the waterfall.
@@ -33,30 +32,16 @@
  * a menu). Take, for example, the case that a noise reduction setting/parameter
  * is changed.
  *
- * The client never calls WDSP functions, instead in this case it calls send_noid()
+ * The client never calls WDSP functions, instead in this case it calls send_noise()
  * which sends a CMD_RX_NOISE packet to the server.
  *
  * If the server receives this packet, it stores the noise reduction settings
  * contained therein in its internal data structures and applies them by calling
- * WDSP functions. In addition, it calls send_noise(), that is, the server then
- * creates and sends back an identical CMD_RX_NOISE packet to the client.
+ * WDSP functions. In addition, it calls send_rx_data() which contains all the
+ * receiver data. In some cases, more packets have to be sent back. In case of
+ * a mode change, this can be receiver, transmitter, and VFO data.
  *
- * When the client receives, the CMD_RX_NOISE packet, it stores the noise
- * reduction settings therein in its internal data structures but does not call
- * WDSP functions.
- *
- * There is some reduncancy here. It is important (not yet done) to handle such
- * a packet in one place only, with a code structure of the form
- *
- * copy_data_from_packet_to_local_data_structures();
- * if (!radio_is_remote) {
- *   apply_these_settings();
- * }
- *
- * Some settings, e.g. window width etc. need to be applied on both sides.
- *
- * Note that processing such a CMD_NOISE packet is very similar on both sides,
- * except that only the server actually *applies* the settings.
+ * On the client side, such data is simply stored but no action takes place.
  *
  * Most packets are sent from the GTK queue, but audio data is sent directly from
  * the receive thread, so we need a mutex in send_bytes. It is important that
@@ -447,7 +432,6 @@ void send_radio_data(int sock) {
   radio_data.header.version = to_short(CLIENT_SERVER_VERSION);
   STRLCPY(radio_data.name, radio->name, sizeof(radio_data.name));
   radio_data.locked = locked;
-  radio_data.can_transmit = can_transmit;
   radio_data.protocol = protocol;
   radio_data.supported_receivers = radio->supported_receivers;
   radio_data.receivers = receivers;
@@ -509,24 +493,36 @@ void send_radio_data(int sock) {
   send_bytes(sock, (char *)&radio_data, sizeof(RADIO_DATA));
 }
 
+void send_dac_data(int sock) {
+  DAC_DATA data;
+  data.header.sync = REMOTE_SYNC;
+  data.header.data_type = to_short(INFO_DAC);
+  data.header.version = to_short(CLIENT_SERVER_VERSION);
+  data.antenna = dac.antenna;
+  data.gain    = to_double(dac.gain);
+
+  send_bytes(sock, (char *)&data, sizeof(DAC_DATA));
+}
+
 void send_adc_data(int sock, int i) {
-  ADC_DATA adc_data;
-  adc_data.header.sync = REMOTE_SYNC;
-  adc_data.header.data_type = to_short(INFO_ADC);
-  adc_data.header.version = to_short(CLIENT_SERVER_VERSION);
-  adc_data.adc = i;
-  adc_data.filters = to_short(adc[i].filters);
-  adc_data.hpf = to_short(adc[i].hpf);
-  adc_data.lpf = to_short(adc[i].lpf);
-  adc_data.antenna = to_short(adc[i].antenna);
-  adc_data.dither = adc[i].dither;
-  adc_data.random = adc[i].random;
-  adc_data.preamp = adc[i].preamp;
-  adc_data.attenuation = to_short(adc[i].attenuation);
-  adc_data.gain = to_double(adc[i].gain);
-  adc_data.min_gain = to_double(adc[i].min_gain);
-  adc_data.max_gain = to_double(adc[i].max_gain);
-  send_bytes(sock, (char *)&adc_data, sizeof(adc_data));
+  ADC_DATA data;
+  data.header.sync = REMOTE_SYNC;
+  data.header.data_type = to_short(INFO_ADC);
+  data.header.version = to_short(CLIENT_SERVER_VERSION);
+  data.adc = i;
+  data.filters = to_short(adc[i].filters);
+  data.hpf = to_short(adc[i].hpf);
+  data.lpf = to_short(adc[i].lpf);
+  data.antenna = to_short(adc[i].antenna);
+  data.dither = adc[i].dither;
+  data.random = adc[i].random;
+  data.preamp = adc[i].preamp;
+  data.attenuation = to_short(adc[i].attenuation);
+  data.gain = to_double(adc[i].gain);
+  data.min_gain = to_double(adc[i].min_gain);
+  data.max_gain = to_double(adc[i].max_gain);
+
+  send_bytes(sock, (char *)&data, sizeof(ADC_DATA));
 }
 
 void send_tx_data(int sock) {
@@ -542,7 +538,6 @@ void send_tx_data(int sock) {
   data.display_average_mode = tx->display_average_mode;
   data.use_rx_filter = tx->use_rx_filter;
   data.alex_antenna = tx->alex_antenna;
-  data.twotone = tx->twotone;
   data.puresignal = tx->puresignal;
   data.feedback = tx->feedback;
   data.auto_on = tx->auto_on;
@@ -700,12 +695,25 @@ static void *server_thread(void *arg) {
   HEADER header;
   t_print("Client connected on port %d\n", client->address.sin_port);
   //
-  // The server starts with sending much of the radio data in order
-  // to initialize data structures on the client side.
+  // The server starts with sending  a lot of data to initialize
+  // the data on the client side.
   //
-  send_radio_data(client->socket);   // send INFO_RADIO  packet
-  send_adc_data(client->socket, 0);  // send INFO_ADC    packet
-  send_adc_data(client->socket, 1);  // send INFO_ADC    packet
+
+  //
+  // Send global variables
+  //
+  send_radio_data(client->socket);
+
+  //
+  // send ADC data structure
+  //
+  send_adc_data(client->socket, 0);
+  send_adc_data(client->socket, 1);
+
+  //
+  // send DAC data structure
+  //
+  send_dac_data(client->socket);
 
   //
   // Send filter edges of the Var1 and Var2 filters
@@ -715,13 +723,28 @@ static void *server_thread(void *arg) {
     send_filter_var(client->socket, m, filterVar2);
   }
 
+  //
+  // Send receiver data. For HPSDR, this includes the PS RX feedback
+  // receiver since it has a setting (antenna used for feedpack) that
+  // can be changed through the GUI
+  //
   for (int i = 0; i < RECEIVERS; i++) {
-    send_rx_data(client->socket, i);       // send INFO_RECEIVER packet
+    send_rx_data(client->socket, i);
   }
 
+  if (protocol == ORIGINAL_PROTOCOL || protocol == NEW_PROTOCOL) {
+    send_rx_data(client->socket, PS_RX_FEEDBACK);
+  }
+
+  //
+  // Send VFO data
+  //
   send_vfo_data(client->socket, VFO_A);    // send INFO_VFO packet
   send_vfo_data(client->socket, VFO_B);    // send INFO_VFO packet
 
+  //
+  // Send Band and Bandstack data
+  //
   for (int b = 0; b < BANDS + XVTRS; b++) {
     send_band_data(client->socket, b);
     const BAND *band = band_get_band(b);
@@ -731,10 +754,19 @@ static void *server_thread(void *arg) {
     }
   }
 
+  //
+  // Send transmitter data
+  //
+  send_tx_data(client->socket);
+
+  //
+  // If everything has been sent, start the radio
+  //
   send_start_radio(client->socket);
 
   //
-  // get and parse client commands
+  // Now, enter an "inifinte" loop, get and parse commands from the client.
+  // This loop is (only) left if there is an I/O error
   //
   while (client->running) {
     int bytes_read = recv_bytes(client->socket, (char *)&header.sync, sizeof(header.sync));
@@ -752,14 +784,14 @@ static void *server_thread(void *arg) {
       char c;
 
       while (syncs != sizeof(header.sync) && client->running) {
-        // try to resync on 2 0xFA bytes
+        // try to resync on two subsequent 0xFA bytes
         bytes_read = recv_bytes(client->socket, (char *)&c, 1);
 
         if (bytes_read <= 0) {
           t_print("%: ReadErr for HEADER RESYNC\n", __FUNCTION__);
           t_perror("server_thread");
           client->running = FALSE;
-          continue;
+          break;
         }
 
         if (c == (char)0xFA) {
@@ -770,15 +802,20 @@ static void *server_thread(void *arg) {
       }
     }
 
-    bytes_read = recv_bytes(client->socket, (char *)&header.data_type, sizeof(header) - sizeof(header.sync));
+    //
+    // Assert that a valid header has been read
+    //
+    if (!client->running) { break; }
 
-    if (bytes_read <= 0) {
+    if (recv_bytes(client->socket, (char *)&header.data_type, sizeof(header) - sizeof(header.sync)) <= 0) {
       t_print("%s: ReadErr for HEADER\n", __FUNCTION__);
-      t_perror("server_thread");
       client->running = FALSE;
       continue;
     }
 
+    //
+    // Now we have a valid header
+    //
     int data_type = from_short(header.data_type);
     t_print("%s: received header: type=%d\n", __FUNCTION__, data_type);
 
@@ -835,35 +872,35 @@ static void *server_thread(void *arg) {
     }
     break;
 
-    case CMD_RX_MOVE:
-      t_print("%s: CMD_RX_MOVE\n", __FUNCTION__);
-      {
-        MOVE_COMMAND *move_command = g_new(MOVE_COMMAND, 1);
-        move_command->header.data_type = header.data_type;
-        move_command->header.version = header.version;
-        move_command->header.context.client = client;
+    case CMD_RX_MOVE: {
+      MOVE_COMMAND *move_command = g_new(MOVE_COMMAND, 1);
+      move_command->header.data_type = header.data_type;
+      move_command->header.version = header.version;
+      move_command->header.context.client = client;
 
-        if (recv_bytes(client->socket, (char *)move_command + sizeof(HEADER), sizeof(MOVE_COMMAND) - sizeof(HEADER)) < 0) { return NULL; }
-
+      if (recv_bytes(client->socket, (char *)move_command + sizeof(HEADER), sizeof(MOVE_COMMAND) - sizeof(HEADER)) > 0) {
         g_idle_add(remote_command, move_command);
+      } else {
+        client->running = FALSE;
       }
+    }
 
-      break;
+    break;
 
-    case CMD_RX_MOVETO:
-      t_print("%s: CMD_RX_MOVETO\n", __FUNCTION__);
-      {
-        MOVE_TO_COMMAND *move_to_command = g_new(MOVE_TO_COMMAND, 1);
-        move_to_command->header.data_type = header.data_type;
-        move_to_command->header.version = header.version;
-        move_to_command->header.context.client = client;
+    case CMD_RX_MOVETO: {
+      MOVE_TO_COMMAND *move_to_command = g_new(MOVE_TO_COMMAND, 1);
+      move_to_command->header.data_type = header.data_type;
+      move_to_command->header.version = header.version;
+      move_to_command->header.context.client = client;
 
-        if (recv_bytes(client->socket, (char *)move_to_command + sizeof(HEADER), sizeof(MOVE_TO_COMMAND) - sizeof(HEADER)) < 0) { return NULL; };
-
+      if (recv_bytes(client->socket, (char *)move_to_command + sizeof(HEADER), sizeof(MOVE_TO_COMMAND) - sizeof(HEADER)) > 0) {
         g_idle_add(remote_command, move_to_command);
+      } else {
+        client->running = FALSE;
       }
+    }
 
-      break;
+    break;
 
     case CMD_RX_VOLUME: {
       VOLUME_COMMAND *volume_command = g_new(VOLUME_COMMAND, 1);
@@ -871,64 +908,74 @@ static void *server_thread(void *arg) {
       volume_command->header.version = header.version;
       volume_command->header.context.client = client;
 
-      if (recv_bytes(client->socket, (char *)volume_command + sizeof(HEADER), sizeof(VOLUME_COMMAND) - sizeof(HEADER)) < 0) { return NULL; }
-
-      g_idle_add(remote_command, volume_command);
+      if (recv_bytes(client->socket, (char *)volume_command + sizeof(HEADER), sizeof(VOLUME_COMMAND) - sizeof(HEADER)) > 0) {
+        g_idle_add(remote_command, volume_command);
+      } else {
+        client->running = FALSE;
+      }
     }
 
     break;
 
     case CMD_RX_AGC_GAIN: {
-        AGC_GAIN_COMMAND *agc_gain_command = g_new(AGC_GAIN_COMMAND, 1);
-        agc_gain_command->header.data_type = header.data_type;
-        agc_gain_command->header.version = header.version;
-        agc_gain_command->header.context.client = client;
+      AGC_GAIN_COMMAND *agc_gain_command = g_new(AGC_GAIN_COMMAND, 1);
+      agc_gain_command->header.data_type = header.data_type;
+      agc_gain_command->header.version = header.version;
+      agc_gain_command->header.context.client = client;
 
-        if (recv_bytes(client->socket, (char *)agc_gain_command + sizeof(HEADER), sizeof(AGC_GAIN_COMMAND) - sizeof(HEADER)) < 0) { return NULL; }
-
+      if (recv_bytes(client->socket, (char *)agc_gain_command + sizeof(HEADER), sizeof(AGC_GAIN_COMMAND) - sizeof(HEADER)) > 0) {
         g_idle_add(remote_command, agc_gain_command);
+      } else {
+        client->running = FALSE;
       }
+    }
 
-      break;
+    break;
 
     case CMD_RX_GAIN: {
-        RFGAIN_COMMAND *command = g_new(RFGAIN_COMMAND, 1);
-        command->header.data_type = header.data_type;
-        command->header.version = header.version;
-        command->header.context.client = client;
+      RFGAIN_COMMAND *command = g_new(RFGAIN_COMMAND, 1);
+      command->header.data_type = header.data_type;
+      command->header.version = header.version;
+      command->header.context.client = client;
 
-        if (recv_bytes(client->socket, (char *)command+ sizeof(HEADER), sizeof(RFGAIN_COMMAND) - sizeof(HEADER)) < 0) { return NULL; }
-
+      if (recv_bytes(client->socket, (char *)command+ sizeof(HEADER), sizeof(RFGAIN_COMMAND) - sizeof(HEADER)) > 0) {
         g_idle_add(remote_command, command);
+      } else {
+        client->running = FALSE;
       }
+    }
 
-      break;
+    break;
 
     case CMD_RX_SQUELCH: {
-        SQUELCH_COMMAND *squelch_command = g_new(SQUELCH_COMMAND, 1);
-        squelch_command->header.data_type = header.data_type;
-        squelch_command->header.version = header.version;
-        squelch_command->header.context.client = client;
+      SQUELCH_COMMAND *squelch_command = g_new(SQUELCH_COMMAND, 1);
+      squelch_command->header.data_type = header.data_type;
+      squelch_command->header.version = header.version;
+      squelch_command->header.context.client = client;
 
-        if (recv_bytes(client->socket, (char *)squelch_command + sizeof(HEADER), sizeof(SQUELCH_COMMAND) - sizeof(HEADER)) < 0) { return NULL; };
-
+      if (recv_bytes(client->socket, (char *)squelch_command + sizeof(HEADER), sizeof(SQUELCH_COMMAND) - sizeof(HEADER)) > 0) {
         g_idle_add(remote_command, squelch_command);
+      } else {
+        client->running = FALSE;
       }
+    }
 
-      break;
+    break;
 
     case CMD_RX_NOISE: {
-        NOISE_COMMAND *noise_command = g_new(NOISE_COMMAND, 1);
-        noise_command->header.data_type = header.data_type;
-        noise_command->header.version = header.version;
-        noise_command->header.context.client = client;
+      NOISE_COMMAND *noise_command = g_new(NOISE_COMMAND, 1);
+      noise_command->header.data_type = header.data_type;
+      noise_command->header.version = header.version;
+      noise_command->header.context.client = client;
 
-        if (recv_bytes(client->socket, (char *)noise_command + sizeof(HEADER), sizeof(NOISE_COMMAND) - sizeof(HEADER)) < 0) { return NULL; }
-
+      if (recv_bytes(client->socket, (char *)noise_command + sizeof(HEADER), sizeof(NOISE_COMMAND) - sizeof(HEADER)) > 0) {
         g_idle_add(remote_command, noise_command);
+      } else {
+        client->running = FALSE;
       }
+    }
 
-      break;
+    break;
 
     case CMD_SAMPLE_RATE: {
       SAMPLE_RATE_COMMAND *sample_rate_command = g_new(SAMPLE_RATE_COMMAND, 1);
@@ -936,9 +983,11 @@ static void *server_thread(void *arg) {
       sample_rate_command->header.version = header.version;
       sample_rate_command->header.context.client = client;
 
-      if (recv_bytes(client->socket, (char *)sample_rate_command + sizeof(HEADER), sizeof(SAMPLE_RATE_COMMAND) - sizeof(HEADER)) < 0) { return NULL; };
-
-      g_idle_add(remote_command, sample_rate_command);
+      if (recv_bytes(client->socket, (char *)sample_rate_command + sizeof(HEADER), sizeof(SAMPLE_RATE_COMMAND) - sizeof(HEADER)) > 0) {
+        g_idle_add(remote_command, sample_rate_command);
+      } else {
+        client->running = FALSE;
+      }
     }
     break;
 
@@ -949,9 +998,11 @@ static void *server_thread(void *arg) {
       command->header.version = header.version;
       command->header.context.client = client;
 
-      if (recv_bytes(client->socket, (char *)command + sizeof(HEADER), sizeof(EQUALIZER_COMMAND) - sizeof(HEADER)) < 0) { return NULL; }
-
-      g_idle_add(remote_command, command);
+      if (recv_bytes(client->socket, (char *)command + sizeof(HEADER), sizeof(EQUALIZER_COMMAND) - sizeof(HEADER)) > 0) {
+        g_idle_add(remote_command, command);
+      } else {
+        client->running = FALSE;
+      }
     }
     break;
 
@@ -962,14 +1013,17 @@ static void *server_thread(void *arg) {
       command->header.version = header.version;
       command->header.context.client = client;
 
-      if (recv_bytes(client->socket, (char *)command + sizeof(HEADER), sizeof(DISPLAY_COMMAND) - sizeof(HEADER)) < 0) { return NULL; }
-
-      g_idle_add(remote_command, command);
+      if (recv_bytes(client->socket, (char *)command + sizeof(HEADER), sizeof(DISPLAY_COMMAND) - sizeof(HEADER)) > 0) {
+        g_idle_add(remote_command, command);
+      } else {
+        client->running = FALSE;
+      }
     }
     break;
 
     //
-    // All "header-only" do the same
+    // All "header-only" commands simply make a copy of the header and
+    // submit that copy  to remote_command().
     //
     case CMD_RX_BAND:
     case CMD_RX_MODE:
@@ -999,19 +1053,20 @@ static void *server_thread(void *arg) {
     case CMD_SAT:
     case CMD_SPLIT:
     case CMD_RX_ATTENUATION:
-    case CMD_RX_AGC:
-      t_print("%s: ShortCommand=%d\n", __FUNCTION__, data_type);
-      {
-        HEADER *command = g_new(HEADER, 1);
-        memcpy(command, &header, sizeof(HEADER));
-        command->context.client = client;
-        g_idle_add(remote_command, command);
-      }
+    case CMD_PTT:
+    case CMD_TUNE:
+    case CMD_RX_AGC: {
+      HEADER *command = g_new(HEADER, 1);
+      memcpy(command, &header, sizeof(HEADER));
+      command->context.client = client;
+      g_idle_add(remote_command, command);
+    }
 
-      break;
+    break;
 
     default:
       t_print("%s: UNKNOWN command: %d\n", __FUNCTION__, from_short(header.data_type));
+      client->running = FALSE;
       break;
     }
   }
@@ -1280,9 +1335,26 @@ void send_band(int s, int rx, int band) {
   send_bytes(s, (char *)&header, sizeof(header));
 }
 
+void send_tune(int s, int state) {
+  HEADER header;
+  header.sync = REMOTE_SYNC;
+  header.data_type = to_short(CMD_TUNE);
+  header.version = to_short(CLIENT_SERVER_VERSION);
+  header.b1 = state;
+  send_bytes(s, (char *)&header, sizeof(header));
+}
+
+void send_ptt(int s, int state) {
+  HEADER header;
+  header.sync = REMOTE_SYNC;
+  header.data_type = to_short(CMD_PTT);
+  header.version = to_short(CLIENT_SERVER_VERSION);
+  header.b1 = state;
+  send_bytes(s, (char *)&header, sizeof(header));
+}
+
 void send_mode(int s, int rx, int mode) {
   HEADER header;
-  t_print("send_mode rx=%d mode=%d\n", rx, mode);
   header.sync = REMOTE_SYNC;
   header.data_type = to_short(CMD_RX_MODE);
   header.version = to_short(CLIENT_SERVER_VERSION);
@@ -1695,17 +1767,22 @@ static void *client_thread(void* arg) {
   char *server = (char *)arg;
   running = TRUE;
   //
-  // Allocate HERE so INFO packets can be sent multiple times
-  // Note RECEIVERS is (not yet) set, so create 2 RX
+  // Some settings/allocation must be made HERE
   //
   radio       = g_new(DISCOVERED, 1);
   transmitter = g_new(TRANSMITTER, 1);
   memset(radio,       0, sizeof(DISCOVERED));
   memset(transmitter, 0, sizeof(TRANSMITTER));
 
+  RECEIVERS = 2;
+  PS_TX_FEEDBACK = 2;
+  PS_RX_FEEDBACK = 3;
+
+  can_transmit = 0;  // will be set when receiving an INFO_TRANSMITTER
+  
   for (int i = 0; i < 2; i++) {
-    receiver[i] = g_new(RECEIVER, 1);
-    RECEIVER *rx = receiver[i];
+    RECEIVER *rx = receiver[i] = g_new(RECEIVER, 1);
+    memset(rx, 0, sizeof(RECEIVER));
     memset(rx, 0, sizeof(RECEIVER));
     g_mutex_init(&rx->display_mutex);
     g_mutex_init(&rx->mutex);
@@ -1737,6 +1814,30 @@ static void *client_thread(void* arg) {
     rx->audio_device = -1;
   }
 
+  transmitter->display_panadapter = 1;
+  transmitter->display_waterfall = 0;
+  transmitter->panadapter_high = 0;
+  transmitter->panadapter_low = -70;
+  transmitter->panadapter_step = 10;
+
+  transmitter->panadapter_peaks_on = 0;
+  transmitter->panadapter_num_peaks = 4;  // if the typical application is a two-tone test we need four
+  transmitter->panadapter_ignore_range_divider = 24;
+  transmitter->panadapter_ignore_noise_percentile = 50;
+  transmitter->panadapter_hide_noise_filled = 1;
+  transmitter->panadapter_peaks_in_passband_filled = 0;
+  transmitter->displaying = 0;
+  transmitter->dialog_x = -1;
+  transmitter->dialog_y = -1;
+  transmitter->dialog = NULL;
+
+
+  if (protocol == ORIGINAL_PROTOCOL || protocol == NEW_PROTOCOL) {
+    RECEIVER *rx = receiver[PS_RX_FEEDBACK] = g_new(RECEIVER, 1);
+    memset(rx, 0, sizeof(RECEIVER));
+    rx->id = PS_RX_FEEDBACK;
+  }
+    
   while (running) {
     bytes_read = recv_bytes(client_socket, (char *)&header, sizeof(header));
 
@@ -1816,7 +1917,6 @@ static void *client_thread(void* arg) {
 
       STRLCPY(radio->name, data.name, sizeof(radio->name));
       locked = data.locked;
-      can_transmit = 0;  // TEMPORARY
       have_rx_gain = data.have_rx_gain;
       protocol = radio->protocol = data.protocol;
       radio->supported_receivers = from_short(data.supported_receivers);
@@ -1888,23 +1988,31 @@ static void *client_thread(void* arg) {
     }
     break;
 
-    case INFO_ADC: {
-      ADC_DATA adc_data;
-      if (recv_bytes(client_socket, (char *)&adc_data + sizeof(HEADER), sizeof(ADC_DATA) - sizeof(HEADER)) < 0) { return NULL; }
+    case INFO_DAC: {
+      DAC_DATA data;
+      if (recv_bytes(client_socket, (char *)&data + sizeof(HEADER), sizeof(DAC_DATA) - sizeof(HEADER)) < 0) { return NULL; }
 
-      int i = adc_data.adc;
-      adc[i].filters = from_short(adc_data.filters);
-      adc[i].hpf = from_short(adc_data.hpf);
-      adc[i].lpf = from_short(adc_data.lpf);
-      adc[i].antenna = from_short(adc_data.antenna);
-      // cppcheck-suppress uninitvar
-      adc[i].dither = adc_data.dither;
-      adc[i].random = adc_data.random;
-      adc[i].preamp = adc_data.preamp;
-      adc[i].attenuation = from_short(adc_data.attenuation);
-      adc[i].gain = from_double(adc_data.gain);
-      adc[i].min_gain = from_double(adc_data.min_gain);
-      adc[i].max_gain = from_double(adc_data.max_gain);
+      dac.antenna = data.antenna;
+      dac.gain = from_double(data.gain);
+    }
+    break;
+
+    case INFO_ADC: {
+      ADC_DATA data;
+      if (recv_bytes(client_socket, (char *)&data + sizeof(HEADER), sizeof(ADC_DATA) - sizeof(HEADER)) < 0) { return NULL; }
+
+      int i = data.adc;
+      adc[i].filters = from_short(data.filters);
+      adc[i].hpf = from_short(data.hpf);
+      adc[i].lpf = from_short(data.lpf);
+      adc[i].antenna = from_short(data.antenna);
+      adc[i].dither = data.dither;
+      adc[i].random = data.random;
+      adc[i].preamp = data.preamp;
+      adc[i].attenuation = from_short(data.attenuation);
+      adc[i].gain = from_double(data.gain);
+      adc[i].min_gain = from_double(data.min_gain);
+      adc[i].max_gain = from_double(data.max_gain);
     }
     break;
 
@@ -1914,7 +2022,6 @@ static void *client_thread(void* arg) {
 
       int id = rx_data.id;
       RECEIVER *rx = receiver[id];
-      t_print("id=%d rx=%p\n", id, rx);
       rx->id                    = id;
       rx->adc                   = rx_data.adc;
       rx->agc                   = rx_data.agc;
@@ -1983,7 +2090,68 @@ static void *client_thread(void* arg) {
     break;
 
     case INFO_TRANSMITTER: {
-      t_print("%s: INFO_TRANSMITTER should not occur\n");
+      TRANSMITTER_DATA data;
+      if (recv_bytes(client_socket, (char *)&data + sizeof(HEADER), sizeof(TRANSMITTER_DATA) - sizeof(HEADER)) < 0) { return NULL; }
+
+      //
+      // When transmitter data is fully received, we can set can_transmit
+      //
+      transmitter->id                        = data.id;
+      transmitter->dac                       = data.dac;
+      transmitter->display_detector_mode     = data.display_detector_mode;
+      transmitter->display_average_mode      = data.display_average_mode;
+      transmitter->use_rx_filter             = data.use_rx_filter;
+      transmitter->alex_antenna              = data.alex_antenna;
+      transmitter->puresignal                = data.puresignal;
+      transmitter->feedback                  = data.feedback;
+      transmitter->auto_on                   = data.auto_on;
+      transmitter->ps_oneshot                = data.ps_oneshot;
+      transmitter->ctcss_enabled             = data.ctcss_enabled;
+      transmitter->ctcss                     = data.ctcss;
+      transmitter->pre_emphasize             = data.pre_emphasize;
+      transmitter->drive                     = data.drive;
+      transmitter->tune_use_drive            = data.tune_use_drive;
+      transmitter->tune_drive                = data.tune_drive;
+      transmitter->compressor                = data.compressor;
+      transmitter->cfc                       = data.cfc;
+      transmitter->cfc_eq                    = data.cfc_eq;
+      transmitter->dexp                      = data.dexp;
+      transmitter->dexp_filter               = data.dexp_filter;
+      transmitter->eq_enable                 = data.eq_enable;
+//
+      transmitter->dexp_filter_low           = from_short(data.dexp_filter_low);
+      transmitter->dexp_filter_high          = from_short(data.dexp_filter_high);
+      transmitter->dexp_trigger              = from_short(data.dexp_trigger);
+      transmitter->dexp_exp                  = from_short(data.dexp_exp);
+      transmitter->filter_low                = from_short(data.filter_low);
+      transmitter->filter_high               = from_short(data.filter_high);
+      transmitter->deviation                 = from_short(data.deviation);
+      transmitter->width                     = from_short(data.width);
+      transmitter->height                    = from_short(data.height);
+      transmitter->attenuation               = from_short(data.attenuation);
+//
+      transmitter->dexp_tau                  = from_double(data.dexp_tau);
+      transmitter->dexp_attack               = from_double(data.dexp_attack);
+      transmitter->dexp_release              = from_double(data.dexp_release);
+      transmitter->dexp_hold                 = from_double(data.dexp_hold);
+      transmitter->dexp_hyst                 = from_double(data.dexp_hyst);
+      transmitter->mic_gain                  = from_double(data.mic_gain);
+      transmitter->compressor_level          = from_double(data.compressor_level);
+      transmitter->display_average_time      = from_double(data.display_average_time);
+      transmitter->am_carrier_level          = from_double(data.am_carrier_level);
+      transmitter->ps_ampdelay               = from_double(data.ps_ampdelay);
+      transmitter->ps_moxdelay               = from_double(data.ps_moxdelay);
+      transmitter->ps_loopdelay              = from_double(data.ps_loopdelay);
+
+      for (int i = 0; i < 11; i++) {
+        transmitter->eq_freq[i]                = from_double(data.eq_freq[i]);
+        transmitter->eq_gain[i]                = from_double(data.eq_gain[i]);
+        transmitter->cfc_freq[i]               = from_double(data.cfc_freq[i]);
+        transmitter->cfc_lvl[i]                = from_double(data.cfc_lvl[i]);
+        transmitter->cfc_post[i]               = from_double(data.cfc_post[i]);
+     }
+
+      can_transmit = 1;
     }
     break;
 
@@ -2306,6 +2474,17 @@ static void *client_thread(void* arg) {
     }
     break;
 
+    case CMD_PTT: {
+      radio_remote_set_mox(header.b1);
+    }
+    break;
+        
+    case CMD_TUNE: {
+      radio_remote_set_tune(header.b1);
+    }
+    break;
+
+    break;
     default:
       t_print("client_thread: Unknown type=%d\n", from_short(header.data_type));
       break;
@@ -2372,6 +2551,7 @@ static int remote_command(void *data) {
   const REMOTE_CLIENT *client = header->context.client;
   int type = from_short(header->data_type);
 
+  t_print("RemoteCommand: Type=%d\n", type);
   switch (type) {
   case INFO_RADIO: {
     const RADIO_DATA *radio_data = (RADIO_DATA *)data;
@@ -2498,6 +2678,20 @@ static int remote_command(void *data) {
     rx_set_agc(rx);
     send_agc(client->socket, rx->id, rx->agc);
     g_idle_add(ext_vfo_update, NULL);
+  }
+  break;
+
+  case CMD_PTT: {
+   radio_mox_update(header->b1);
+   g_idle_add(ext_vfo_update, NULL);
+   send_ptt(client->socket, mox);
+  }
+  break;
+
+  case CMD_TUNE: {
+   radio_tune_update(header->b1);
+   g_idle_add(ext_vfo_update, NULL);
+   send_tune(client->socket, tune);
   }
   break;
 

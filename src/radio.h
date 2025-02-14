@@ -163,7 +163,7 @@ extern int mic_input_xlr;
 extern int receivers;
 
 extern ADC adc[2];
-extern DAC dac[2];
+extern DAC dac;
 
 extern int locked;
 
@@ -333,6 +333,8 @@ extern int compare_doubles(const void *a, const void *b);
 
 #ifdef CLIENT_SERVER
   extern int radio_remote_start(void *data);
+  extern void radio_remote_set_mox(int state);
+  extern void radio_remote_set_tune(int state);
 #endif
 
 extern int optimize_for_touchscreen;

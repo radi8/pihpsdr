@@ -835,6 +835,18 @@ static void tx_create_visual(TRANSMITTER *tx) {
   }
 }
 
+#ifdef CLIENT_SERVER
+void tx_create_remote(TRANSMITTER *tx) {
+  //
+  // transmitter structure already setup via INFO_TRANSMITTER packet.
+  // since everything is done on the "local" side, we only need
+  // to set-up the panadapter
+  //
+  tx_create_visual(tx);
+}
+
+#endif
+
 TRANSMITTER *tx_create_transmitter(int id, int pixels, int width, int height) {
   ASSERT_SERVER(NULL);
   TRANSMITTER *tx = g_new(TRANSMITTER, 1);

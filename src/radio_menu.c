@@ -76,7 +76,7 @@ static void rx_gain_element_changed_cb(GtkWidget *widget, gpointer data) {
 static void tx_gain_element_changed_cb(GtkWidget *widget, gpointer data) {
   if (can_transmit && device == SOAPYSDR_USB_DEVICE) {
     double gain = gtk_spin_button_get_value(GTK_SPIN_BUTTON(widget));
-    dac[0].gain = gain;
+    dac.gain = gain;
     soapy_protocol_set_tx_gain_element(transmitter, (char *)gtk_widget_get_name(widget), (int) gain);
   }
 }
