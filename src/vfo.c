@@ -987,8 +987,6 @@ int vfo_id_get_stepindex(int id) {
 }
 
 void vfo_id_set_step_from_index(int id, int index) {
-  ASSERT_SERVER();
-
   //
   // Set VFO step size to steps[index], with range checking
   //
@@ -999,10 +997,14 @@ void vfo_id_set_step_from_index(int id, int index) {
   int step = steps[index];
   vfo[id].step = step;
 
-  if (id == 0) {
-    int mode = vfo[id].mode;
-    mode_settings[mode].step = step;
-    copy_mode_settings(mode);
+  if (radio_is_remote) {
+    send_vfo_stepsize(client_socket, id, step);
+  } else {
+    if (id == 0) {
+      int mode = vfo[id].mode;
+      mode_settings[mode].step = step;
+      copy_mode_settings(mode);
+    }
   }
 }
 

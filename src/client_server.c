@@ -424,6 +424,14 @@ void send_band_data(int sock, int b) {
   send_bytes(sock, (char *)&data, sizeof(BAND_DATA));
 }
 
+void send_xvtr_changed(int sock) {
+  HEADER header;
+  header.sync = REMOTE_SYNC;
+  header.data_type = to_short(CMD_XVTR);
+  header.version = to_short(CLIENT_SERVER_VERSION);
+  send_bytes(sock, (char *)&header, sizeof(HEADER));
+}
+
 void send_bandstack_data(int sock, int b, int stack) {
   BANDSTACK_DATA data;
   data.header.sync = REMOTE_SYNC;
@@ -847,12 +855,51 @@ static void *server_thread(void *arg) {
 
     switch (data_type) {
     case INFO_RADIO: {
+      //
+      // Radio data is sent back by the client if settings in the RADIO
+      // menu are changed
+      //
       RADIO_DATA*  command = g_new(RADIO_DATA, 1);
       command->header.data_type = header.data_type;
       command->header.version = header.version;
       command->header.context.client = client;
 
       if (recv_bytes(client->socket, (char *)command + sizeof(HEADER), sizeof(RADIO_DATA) - sizeof(HEADER)) > 0) {
+        g_idle_add(remote_command, command);
+      } else {
+        client->running = FALSE;
+      }
+    }
+    break;
+
+    case INFO_BAND: {
+      //
+      // Band data for the XVTR bands are sent back from the XVTR menu on the client side
+      //
+      BAND_DATA *command = g_new(BAND_DATA, 1);
+      command->header.data_type = header.data_type;
+      command->header.version = header.version;
+      command->header.context.client = client;
+
+      if (recv_bytes(client->socket, (char *)command + sizeof(HEADER), sizeof(BAND_DATA) - sizeof(HEADER)) > 0) {
+        g_idle_add(remote_command, command);
+      } else {
+        client->running = FALSE;
+      }
+    }
+    break;
+
+
+    case INFO_BANDSTACK: {
+      //
+      // Bandstack data for the XVTR bands are sent back from the XVTR menu on the client side
+      //
+      BANDSTACK_DATA *command = g_new(BANDSTACK_DATA, 1);
+      command->header.data_type = header.data_type;
+      command->header.version = header.version;
+      command->header.context.client = client;
+
+      if (recv_bytes(client->socket, (char *)command + sizeof(HEADER), sizeof(BANDSTACK_DATA) - sizeof(HEADER)) > 0) {
         g_idle_add(remote_command, command);
       } else {
         client->running = FALSE;
@@ -952,6 +999,7 @@ static void *server_thread(void *arg) {
     // All commands with a single uint64_t in the command  body
     //
     case CMD_SAMPLE_RATE:
+    case CMD_VFO_STEPSIZE:
     case CMD_RX_MOVETO:
     case CMD_RX_FREQ:
     case CMD_RX_MOVE: {
@@ -1005,6 +1053,7 @@ static void *server_thread(void *arg) {
     case CMD_TWOTONE:
     case CMD_SCREEN:
     case CMD_METER:
+    case CMD_XVTR:
     case CMD_RX_AGC: {
       HEADER *command = g_new(HEADER, 1);
       memcpy(command, &header, sizeof(HEADER));
@@ -1088,6 +1137,16 @@ void update_vfo_move(int rx, long long hz, int round) {
   accumulated_hz += hz;
   accumulated_round = round;
   g_mutex_unlock(&accumulated_mutex);
+}
+
+void send_vfo_stepsize(int s, int v, int stepsize) {
+  U64_COMMAND command;
+  command.header.sync = REMOTE_SYNC;
+  command.header.data_type = to_short(CMD_VFO_STEPSIZE);
+  command.header.version = to_short(CLIENT_SERVER_VERSION);
+  command.header.b1 = v;
+  command.u64 = to_ll(stepsize);
+  send_bytes(s, (char *)&command, sizeof(U64_COMMAND));
 }
 
 void send_vfo_step(int s, int rx, int steps) {
@@ -2586,7 +2645,7 @@ static int remote_command(void *data) {
   t_print("RemoteCommand: Type=%d\n", type);
   switch (type) {
   case INFO_RADIO: {
-    const RADIO_DATA *radio_data = (RADIO_DATA *)data;
+   const RADIO_DATA *radio_data = (RADIO_DATA *)data;
     locked = radio_data->locked;
     have_rx_gain = radio_data->have_rx_gain;
     filter_board = radio_data->filter_board;
@@ -2608,7 +2667,8 @@ static int remote_command(void *data) {
     mic_ptt_enabled = radio_data->mic_ptt_enabled;
     mic_bias_enabled = radio_data->mic_bias_enabled;
     mic_ptt_tip_bias_ring = radio_data->mic_ptt_tip_bias_ring;
-    cw_keyer_sidetone_volume = mic_input_xlr = radio_data->mic_input_xlr;
+    cw_keyer_sidetone_volume =  radio_data->cw_keyer_sidetone_volume;
+    mic_input_xlr = radio_data->mic_input_xlr;
     OCtune = radio_data->OCtune;
     vox_enabled = radio_data->vox_enabled;
     mute_rx_while_transmitting = radio_data->mute_rx_while_transmitting;
@@ -2625,6 +2685,64 @@ static int remote_command(void *data) {
     schedule_general();
     schedule_transmit_specific();
     schedule_high_priority();
+  }
+  break;
+
+  case INFO_BAND: {
+    const BAND_DATA *band_data = (BAND_DATA *)data;
+    if (band_data->band > BANDS + XVTRS) {
+      t_print("WARNING: band data received for b=%d, too large.\n", band_data->band);
+      break;
+    }
+
+    BAND *band = band_get_band(band_data->band);
+
+    if (band_data->current > band->bandstack->entries) {
+      t_print("WARNING: band stack too large for b=%d, s=%d.\n", band_data->band, band_data->current);
+      break;
+    }
+
+    snprintf(band->title, 16, "%s", band_data->title);
+    band->OCrx = band_data->OCrx;
+    band->OCtx = band_data->OCtx;
+    band->alexRxAntenna = band_data->alexRxAntenna;
+    band->alexTxAntenna = band_data->alexTxAntenna;
+    band->alexAttenuation = band_data->alexAttenuation;
+    band->disablePA = band_data->disablePA;
+    band->bandstack->current_entry = band_data->current;
+    band->gain = from_short(band_data->gain);
+    band->pa_calibration = from_double(band_data->pa_calibration);
+    band->frequencyMin = from_ll(band_data->frequencyMin);
+    band->frequencyMax = from_ll(band_data->frequencyMax);
+    band->frequencyLO  = from_ll(band_data->frequencyLO);
+    band->errorLO  = from_ll(band_data->errorLO);
+  }
+  break;
+
+  case INFO_BANDSTACK: {
+    const BANDSTACK_DATA *bandstack_data = (BANDSTACK_DATA *)data;
+    if (bandstack_data->band > BANDS + XVTRS) {
+      t_print("WARNING: band data received for b=%d, too large.\n", bandstack_data->band);
+      break;
+    }
+
+    BAND *band = band_get_band(bandstack_data->band);
+
+    if (bandstack_data->stack > band->bandstack->entries) {
+      t_print("WARNING: band stack too large for b=%d, s=%d.\n", bandstack_data->band, bandstack_data->stack);
+      break;
+    }
+
+    BANDSTACK_ENTRY *entry = band->bandstack->entry;
+    entry += bandstack_data->stack;
+    entry->mode = bandstack_data->mode;
+    entry->filter = bandstack_data->filter;
+    entry->ctun = bandstack_data->ctun;
+    entry->ctcss_enabled = bandstack_data->ctcss_enabled;
+    entry->ctcss = bandstack_data->ctcss_enabled;
+    entry->deviation = from_short(bandstack_data->deviation);
+    entry->frequency =  from_ll(bandstack_data->frequency);
+    entry->ctun_frequency = from_ll(bandstack_data->ctun_frequency);
   }
   break;
 
@@ -2693,6 +2811,20 @@ static int remote_command(void *data) {
     if (can_transmit) {
       transmitter->alcmode = header->b2;
     }
+  }
+  break;
+
+  case CMD_XVTR: {
+    vfo_xvtr_changed();
+  }
+  break;
+
+  case CMD_VFO_STEPSIZE: {
+    const  U64_COMMAND *command = (U64_COMMAND *)data;
+    int id = command->header.b1;
+    int step = from_ll(command->u64);
+    vfo[id].step = step;
+    g_idle_add(ext_vfo_update, NULL);
   }
   break;
 

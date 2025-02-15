@@ -101,6 +101,8 @@ enum _header_type_enum {
   CMD_DRIVE,
   CMD_SCREEN,
   CMD_METER,
+  CMD_XVTR,
+  CMD_VFO_STEPSIZE,
   CLIENT_SERVER_COMMANDS,
 };
 
@@ -510,6 +512,7 @@ extern void send_startstop_spectrum(int s, int rx, int state);
 extern void send_vfo_frequency(int s, int rx, long long hz);
 extern void send_vfo_move_to(int s, int rx, long long hz);
 extern void update_vfo_move(int rx, long long hz, int round);
+extern void send_vfo_stepsize(int s, int v, int stepsize);
 extern void send_vfo_step(int s, int rx, int steps);
 extern void update_vfo_step(int rx, int steps);
 extern void send_zoom(int s, int rx, int zoom);
@@ -526,7 +529,10 @@ extern void send_eq(int s, int id);
 extern void send_micgain(int s, double gain);
 extern void send_drive(int s, double value);
 extern void send_noise(int s, const RECEIVER *rx);
+extern void send_xvtr_changed(int s);
 extern void send_band(int s, int rx, int band);
+extern void send_band_data(int s, int band);
+extern void send_bandstack_data(int s, int band, int stack);
 extern void send_mode(int s, int rx, int mode);
 extern void send_ptt(int s, int state);
 extern void send_tune(int s, int state);
