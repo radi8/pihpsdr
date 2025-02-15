@@ -99,6 +99,8 @@ enum _header_type_enum {
   CMD_TWOTONE,
   CMD_MICGAIN,
   CMD_DRIVE,
+  CMD_SCREEN,
+  CMD_METER,
   CLIENT_SERVER_COMMANDS,
 };
 
@@ -222,6 +224,7 @@ typedef struct __attribute__((__packed__)) _radio_data {
   uint8_t  have_preamp;
   uint8_t  have_dither;
   uint8_t  have_saturn_xdma;
+  uint8_t  rx_stack_horizontal;
 //
   uint16_t pa_power;
   uint16_t OCfull_tune_time;
@@ -231,6 +234,7 @@ typedef struct __attribute__((__packed__)) _radio_data {
   uint16_t device;
   uint16_t tx_filter_low;
   uint16_t tx_filter_high;
+  uint16_t display_width;
 //
   mydouble vox_threshold;
   mydouble vox_hang;
@@ -291,6 +295,7 @@ typedef struct __attribute__((__packed__)) _transmitter_data {
   uint8_t  dexp;
   uint8_t  dexp_filter;
   uint8_t  eq_enable;
+  uint8_t  alcmode;
 //  
   uint16_t dexp_filter_low;
   uint16_t dexp_filter_high;
@@ -347,6 +352,7 @@ typedef struct __attribute__((__packed__)) _receiver_data {
   uint8_t squelch_enable;
   uint8_t binaural;
   uint8_t eq_enable;
+  uint8_t smetermode;
 //
   uint16_t fps;
   uint16_t filter_low;
@@ -508,6 +514,8 @@ extern void send_vfo_step(int s, int rx, int steps);
 extern void update_vfo_step(int rx, int steps);
 extern void send_zoom(int s, int rx, int zoom);
 extern void send_pan(int s, int rx, int pan);
+extern void send_meter(int s, int metermode, int alcmode);
+extern void send_screen(int s, int hstack, int width);
 extern void send_volume(int s, int rx, double volume);
 extern void send_agc(int s, int rx, int agc);
 extern void send_agc_gain(int s, int rx, double gain, double hang, double thresh, double hang_thresh);

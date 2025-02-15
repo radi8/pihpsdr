@@ -1781,7 +1781,9 @@ static void rxtx(int state) {
           rx_off(receiver[i]);
           rx_set_displaying(receiver[i]);
         } else {
+#ifdef CLIENT_SERVER
           send_startstop_spectrum(client_socket, i, 0);
+#endif
         }
 
         g_object_ref((gpointer)receiver[i]->panel);
@@ -1825,7 +1827,9 @@ static void rxtx(int state) {
 #endif
       }
     } else {
+#ifdef CLIENT_SERVER
       send_startstop_spectrum(client_socket, transmitter->id, 1);
+#endif
     }
 
 #ifdef DUMP_TX_DATA
@@ -1867,7 +1871,9 @@ static void rxtx(int state) {
       tx_off(transmitter);
       tx_set_displaying(transmitter);
     } else {
+#ifdef CLIENT_SERVER
       send_startstop_spectrum(client_socket, transmitter->id, 0);
+#endif
     }
 
     if (transmitter->dialog) {
@@ -1940,7 +1946,9 @@ static void rxtx(int state) {
 
           receiver[i]->txrxcount = 0;
         } else {
+#ifdef CLIENT_SERVER
           send_startstop_spectrum(client_socket, i, 1);
+#endif
         }
       }
     }

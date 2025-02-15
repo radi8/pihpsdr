@@ -487,7 +487,9 @@ void show_filter_shift(int rx, int shift) {
 static void micgain_value_changed_cb(GtkWidget *widget, gpointer data) {
   double gain = gtk_range_get_value(GTK_RANGE(widget));
   if (radio_is_remote) {
+#ifdef CLIENT_SERVER
     send_micgain(client_socket,gain);
+#endif
     return;
   }
   if (can_transmit) {
@@ -513,7 +515,9 @@ void set_mic_gain(double value) {
   }
 
   if (radio_is_remote) {
+#ifdef CLIENT_SERVER
     send_micgain(client_socket, value);
+#endif
     return;
   }
 
@@ -534,7 +538,9 @@ void set_drive(double value) {
   }
 
   if (radio_is_remote) {
+#ifdef CLIENT_SERVER
     send_drive(client_socket, value);
+#endif
     return;
   }
 
@@ -552,7 +558,9 @@ static void drive_value_changed_cb(GtkWidget *widget, gpointer data) {
   double value = gtk_range_get_value(GTK_RANGE(drive_scale));
 
   if (radio_is_remote) {
+#ifdef CLIENT_SERVER
     send_drive(client_socket, value);
+#endif
     return;
   }
 
