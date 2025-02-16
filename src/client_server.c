@@ -1021,6 +1021,7 @@ static void *server_thread(void *arg) {
     // submit that copy  to remote_command().
     //
     case CMD_RX_BAND:
+    case CMD_RX_BANDSTACK:
     case CMD_RX_MODE:
     case CMD_RX_SELECT:
     case CMD_RIT_INCR:
@@ -1370,6 +1371,16 @@ void send_noise(int s, const RECEIVER *rx) {
   send_bytes(s, (char *)&command, sizeof(command));
 }
 
+void send_bandstack(int s, int old,int new) {
+  HEADER header;
+  header.sync = REMOTE_SYNC;
+  header.data_type = to_short(CMD_RX_BANDSTACK);
+  header.version = to_short(CLIENT_SERVER_VERSION);
+  header.b1 = old;
+  header.b2 = new;
+  send_bytes(s, (char *)&header, sizeof(header));
+}
+
 void send_band(int s, int rx, int band) {
   HEADER header;
   t_print("send_band rx=%d band=%d\n", rx, band);
@@ -1482,12 +1493,12 @@ void send_sat(int s, int sat) {
   send_bytes(s, (char *)&header, sizeof(HEADER));
 }
 
-void send_dup(int s, int dup) {
+void send_duplex(int s, int state) {
   HEADER header;
   header.sync = REMOTE_SYNC;
   header.data_type = to_short(CMD_DUP);
   header.version = to_short(CLIENT_SERVER_VERSION);
-  header.b1 = dup;
+  header.b1 = state;
   send_bytes(s, (char *)&header, sizeof(HEADER));
 }
 
@@ -2560,18 +2571,18 @@ static void *client_thread(void* arg) {
     break;
 
     case CMD_PTT: {
-      radio_remote_set_mox(header.b1);
+      g_idle_add(ext_radio_remote_set_mox, GINT_TO_POINTER(header.b1));
     }
     break;
 
     case CMD_TUNE: {
-      radio_remote_set_tune(header.b1);
+      g_idle_add(ext_radio_remote_set_tune, GINT_TO_POINTER(header.b1));
     }
     break;
 
     case CMD_TWOTONE: {
       radio_remote_set_twotone(header.b1);
-      radio_remote_set_mox(header.b1);
+      g_idle_add(ext_radio_remote_set_mox, GINT_TO_POINTER(header.b1));
     }
     break;
 
@@ -2989,6 +3000,24 @@ static int remote_command(void *data) {
   }
   break;
 
+  case CMD_RX_BANDSTACK: {
+    int old = header->b1;
+    int new = header->b2;
+    int id = active_receiver->id;
+    int b = vfo[id].band;
+
+    vfo_bandstack_changed(new);
+    //
+    // The "old" bandstack may have changed.
+    // The mode, and thus all mode settings, may have changed
+    //
+    send_bandstack_data(client->socket, b, old);
+    send_vfo_data(client->socket, id);
+    send_rx_data(client->socket, id);
+    send_tx_data(client_socket);
+  }
+  break;
+
   case CMD_RX_BAND: {
     int r = header->b1;
     CHECK_RX(r);
@@ -3061,9 +3090,9 @@ static int remote_command(void *data) {
       split = header->b1;
       tx_set_mode(transmitter, vfo_get_tx_mode());
       g_idle_add(ext_vfo_update, NULL);
+      send_tx_data(client->socket);
+      send_rx_data(client->socket, 0);
     }
-
-    send_split(client->socket, split);
   }
   break;
 
@@ -3076,8 +3105,8 @@ static int remote_command(void *data) {
 
   case CMD_DUP: {
     duplex = header->b1;
+    setDuplex();
     g_idle_add(ext_vfo_update, NULL);
-    send_dup(client->socket, duplex);
   }
   break;
 
@@ -3099,7 +3128,6 @@ static int remote_command(void *data) {
     vfo[v].ctun_frequency = vfo[v].frequency;
     rx_set_offset(active_receiver, vfo[v].offset);
     g_idle_add(ext_vfo_update, NULL);
-    send_ctun(client->socket, v, vfo[v].ctun);
     send_vfo_data(client->socket, v);
   }
   break;

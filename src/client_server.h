@@ -60,6 +60,7 @@ enum _header_type_enum {
   CMD_RX_MOVE,
   CMD_RX_MOVETO,
   CMD_RX_BAND,               // short command: vfo=b1, band=b2
+  CMD_RX_BANDSTACK,          // short command: stack=b1
   CMD_RX_MODE,               // short command: vfo=b1, mode=b2
   CMD_RX_FILTER_SEL,         // short command: vfo=b1, filter=b2
   CMD_RX_FILTER_VAR,         // short command: mode=b1, filter=b2, low=s1, high=s2
@@ -531,6 +532,7 @@ extern void send_drive(int s, double value);
 extern void send_noise(int s, const RECEIVER *rx);
 extern void send_xvtr_changed(int s);
 extern void send_band(int s, int rx, int band);
+extern void send_bandstack(int s, int old, int new);
 extern void send_band_data(int s, int band);
 extern void send_bandstack_data(int s, int band, int stack);
 extern void send_mode(int s, int rx, int mode);
@@ -540,9 +542,9 @@ extern void send_twotone(int s, int state);
 extern void send_filter_sel(int s, int vfo, int filter);
 extern void send_filter_var(int s, int mode, int filter);
 extern void send_filter_cut(int s, int rx);
-extern void send_split(int s, int split);
+extern void send_split(int s, int state);
 extern void send_sat(int s, int sat);
-extern void send_dup(int s, int dup);
+extern void send_duplex(int s, int state);
 extern void send_ctun(int s, int vfo, int ctun);
 extern void send_display(int s, int id);
 extern void send_fps(int s, int rx, int fps);

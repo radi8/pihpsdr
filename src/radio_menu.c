@@ -188,6 +188,12 @@ static void split_cb(GtkWidget *widget, gpointer data) {
 void setDuplex() {
   if (!can_transmit) { return; }
 
+  if (radio_is_remote) {
+#ifdef CLIENT_SERVER
+    send_duplex(client_socket, duplex);
+#endif
+  }
+
   if (duplex) {
     // TX is in separate window, also in full-screen mode
     gtk_container_remove(GTK_CONTAINER(fixed), transmitter->panel);

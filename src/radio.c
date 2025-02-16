@@ -2540,7 +2540,6 @@ void radio_split_toggle() {
 }
 
 void radio_set_split(int val) {
-  ASSERT_SERVER();
   //
   // "split" *must only* be set through this interface,
   // since it may change the TX band and thus requires
@@ -2548,6 +2547,12 @@ void radio_set_split(int val) {
   //
   if (can_transmit) {
     split = val;
+    if (radio_is_remote) {
+#ifdef CLIENT_SERVER
+      send_split(client_socket, val);
+#endif
+      return;
+    }
     radio_tx_vfo_changed();
     radio_set_alex_antennas();
     g_idle_add(ext_vfo_update, NULL);

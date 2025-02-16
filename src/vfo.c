@@ -745,10 +745,16 @@ void vfo_id_band_changed(int id, int b) {
 }
 
 void vfo_bandstack_changed(int b) {
-  ASSERT_SERVER();
   int id = active_receiver->id;
   int oldmode = vfo[id].mode;
   BANDSTACK *bandstack = bandstack_get_bandstack(vfo[id].band);
+
+  if (radio_is_remote) {
+#ifdef CLIENT_SERVER
+    send_bandstack(client_socket, bandstack->current_entry, b);
+#endif
+    return;
+  }
 
   if (id == 0) {
     vfo_save_bandstack();
@@ -2414,7 +2420,12 @@ void vfo_id_set_frequency(int v, long long f) {
 // Set CTUN state of a VFO
 //
 void vfo_id_ctun_update(int id, int state) {
-  ASSERT_SERVER();
+  if (radio_is_remote) {
+#ifdef CLIENT_SERVER
+    send_ctun(client_socket, id, state);
+#endif
+    return;
+  }
 
   //
   // Note: if this VFO does not control a (running) receiver,
