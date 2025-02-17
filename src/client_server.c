@@ -87,6 +87,8 @@
 #include "radio_menu.h"
 #include "receiver.h"
 #include "sliders.h"
+#include "store.h"
+#include "store_menu.h"
 #include "transmitter.h"
 #include "vfo.h"
 #include "zoompan.h"
@@ -365,8 +367,12 @@ static int send_spectrum(void *arg) {
 
         if (numsamples > SPECTRUM_DATA_SIZE) { numsamples = SPECTRUM_DATA_SIZE; }
 
+        //
+        // When running duplex, tx->pixels = 4*tx->width, so transfer only  a part
+        //
+        int offset = (tx->pixels - tx->width) / 2;
         for (int i = 0; i < numsamples; i++) {
-          spectrum_data.sample[i] = to_short(samples[i]);
+          spectrum_data.sample[i] = to_short(samples[i + offset]);
         }
 
         g_mutex_unlock(&tx->display_mutex);
@@ -398,6 +404,62 @@ void send_start_radio(int sock) {
   header.data_type = to_short(CMD_START_RADIO);
   header.version = to_short(CLIENT_SERVER_VERSION);
   send_bytes(sock, (char *)&header, sizeof(HEADER));
+}
+
+void send_rxmenu(int sock, int id) {
+  RXMENU_DATA data;
+  data.header.sync = REMOTE_SYNC;
+  data.header.data_type = to_short(CMD_RXMENU);
+  data.header.version = to_short(CLIENT_SERVER_VERSION);
+  data.id = id;
+  data.dither = receiver[id]->dither;
+  data.random = receiver[id]->random;
+  data.preamp = receiver[id]->preamp;
+  data.adc0_filter_bypass = adc0_filter_bypass;
+  data.adc1_filter_bypass = adc1_filter_bypass;
+  send_bytes(sock, (char *)&data, sizeof(RXMENU_DATA));
+}
+
+void send_radiomenu(int sock) {
+  RADIOMENU_DATA data;
+  data.header.sync = REMOTE_SYNC;
+  data.header.data_type = to_short(CMD_RADIOMENU);
+  data.header.version = to_short(CLIENT_SERVER_VERSION);
+  data.mic_ptt_tip_bias_ring = mic_ptt_tip_bias_ring;
+  data.sat_mode = sat_mode;
+  data.mic_input_xlr = mic_input_xlr;
+  data.atlas_clock_source_10mhz = atlas_clock_source_10mhz;
+  data.atlas_clock_source_128mhz = atlas_clock_source_128mhz;
+  data.atlas_mic_source = atlas_mic_source;
+  data.atlas_penelope = atlas_penelope;
+  data.atlas_janus = atlas_janus;
+  data.mic_ptt_enabled = mic_ptt_enabled;
+  data.mic_bias_enabled = mic_bias_enabled;
+  data.pa_enabled = pa_enabled;
+  data.mute_spkr_amp = mute_spkr_amp;
+  data.hl2_audio_codec = hl2_audio_codec;
+  data.soapy_iqswap = soapy_iqswap;
+  data.enable_tx_inhibit = enable_tx_inhibit;
+  data.enable_auto_tune = enable_auto_tune;
+  data.rx_gain_calibration = to_short(rx_gain_calibration);
+  data.frequency_calibration = to_ll(frequency_calibration);
+  send_bytes(sock, (char *)&data, sizeof(RADIOMENU_DATA));
+}
+
+void send_memory_data(int sock, int index) {
+  MEMORY_DATA data;
+  data.header.sync = REMOTE_SYNC;
+  data.header.data_type = to_short(INFO_MEMORY);
+  data.header.version = to_short(CLIENT_SERVER_VERSION);
+  data.index          = index;
+  data.ctun           = mem[index].ctun;
+  data.mode           = mem[index].mode;
+  data.filter         = mem[index].filter;
+  data.ctcss_enabled  = mem[index].filter;
+  data.ctcss          = mem[index].bd;
+  data.frequency      = to_ll(mem[index].frequency);
+  data.ctun_frequency = to_ll(mem[index].ctun_frequency);
+  send_bytes(sock, (char *)&data, sizeof(MEMORY_DATA));
 }
 
 void send_band_data(int sock, int b) {
@@ -499,6 +561,7 @@ void send_radio_data(int sock) {
   data.have_dither = have_dither;
   data.have_saturn_xdma = have_saturn_xdma;
   data.rx_stack_horizontal = rx_stack_horizontal;
+  data.n_adc = n_adc;
 //
   data.pa_power = to_short(pa_power);
   data.OCfull_tune_time = to_short(OCfull_tune_time);
@@ -558,68 +621,70 @@ void send_adc_data(int sock, int i) {
 }
 
 void send_tx_data(int sock) {
-  TRANSMITTER_DATA data;
-  const TRANSMITTER *tx = transmitter;
-  data.header.sync = REMOTE_SYNC;
-  data.header.data_type = to_short(INFO_TRANSMITTER);
-  data.header.version = to_short(CLIENT_SERVER_VERSION);
-  //
-  data.id = tx->id;
-  data.dac = tx->dac;
-  data.display_detector_mode = tx->display_detector_mode;
-  data.display_average_mode = tx->display_average_mode;
-  data.use_rx_filter = tx->use_rx_filter;
-  data.alex_antenna = tx->alex_antenna;
-  data.puresignal = tx->puresignal;
-  data.feedback = tx->feedback;
-  data.auto_on = tx->auto_on;
-  data.ps_oneshot = tx->ps_oneshot;
-  data.ctcss_enabled = tx->ctcss_enabled;
-  data.ctcss = tx->ctcss;
-  data.pre_emphasize = tx->pre_emphasize;
-  data.drive = tx->drive;
-  data.tune_use_drive = tx->tune_use_drive;
-  data.tune_drive = tx->tune_drive;
-  data.compressor = tx->compressor;
-  data.cfc = tx->cfc;
-  data.cfc_eq = tx->cfc_eq;
-  data.dexp = tx->dexp;
-  data.dexp_filter = tx->dexp_filter;
-  data.eq_enable = tx->eq_enable;
-  data.alcmode = tx->alcmode;
-  //
-  data.dexp_filter_low = to_short(tx->dexp_filter_low);
-  data.dexp_filter_high = to_short(tx->dexp_filter_high);
-  data.dexp_trigger = to_short(tx->dexp_trigger);
-  data.dexp_exp = to_short(tx->dexp_exp);
-  data.filter_low = to_short(tx->filter_low);
-  data.filter_high = to_short(tx->filter_high);
-  data.deviation = to_short(tx->deviation);
-  data.width = to_short(tx->width);
-  data.height = to_short(tx->height);
-  data.attenuation = to_short(tx->attenuation);
+  if (can_transmit) {
+    TRANSMITTER_DATA data;
+    const TRANSMITTER *tx = transmitter;
+    data.header.sync = REMOTE_SYNC;
+    data.header.data_type = to_short(INFO_TRANSMITTER);
+    data.header.version = to_short(CLIENT_SERVER_VERSION);
+    //
+    data.id = tx->id;
+    data.dac = tx->dac;
+    data.display_detector_mode = tx->display_detector_mode;
+    data.display_average_mode = tx->display_average_mode;
+    data.use_rx_filter = tx->use_rx_filter;
+    data.alex_antenna = tx->alex_antenna;
+    data.puresignal = tx->puresignal;
+    data.feedback = tx->feedback;
+    data.auto_on = tx->auto_on;
+    data.ps_oneshot = tx->ps_oneshot;
+    data.ctcss_enabled = tx->ctcss_enabled;
+    data.ctcss = tx->ctcss;
+    data.pre_emphasize = tx->pre_emphasize;
+    data.drive = tx->drive;
+    data.tune_use_drive = tx->tune_use_drive;
+    data.tune_drive = tx->tune_drive;
+    data.compressor = tx->compressor;
+    data.cfc = tx->cfc;
+    data.cfc_eq = tx->cfc_eq;
+    data.dexp = tx->dexp;
+    data.dexp_filter = tx->dexp_filter;
+    data.eq_enable = tx->eq_enable;
+    data.alcmode = tx->alcmode;
+    //
+    data.dexp_filter_low = to_short(tx->dexp_filter_low);
+    data.dexp_filter_high = to_short(tx->dexp_filter_high);
+    data.dexp_trigger = to_short(tx->dexp_trigger);
+    data.dexp_exp = to_short(tx->dexp_exp);
+    data.filter_low = to_short(tx->filter_low);
+    data.filter_high = to_short(tx->filter_high);
+    data.deviation = to_short(tx->deviation);
+    data.width = to_short(tx->width);
+    data.height = to_short(tx->height);
+    data.attenuation = to_short(tx->attenuation);
 
-  //
-  for (int i = 0; i < 11; i++) {
-    data.eq_freq[i] =  to_double(tx->eq_freq[i]);
-    data.eq_gain[i] =  to_double(tx->eq_gain[i]);
-    data.cfc_freq[i] =  to_double(tx->cfc_freq[i]);
-    data.cfc_lvl[i] =  to_double(tx->cfc_lvl[i]);
-    data.cfc_post[i] =  to_double(tx->cfc_post[i]);
+    //
+    for (int i = 0; i < 11; i++) {
+      data.eq_freq[i] =  to_double(tx->eq_freq[i]);
+      data.eq_gain[i] =  to_double(tx->eq_gain[i]);
+      data.cfc_freq[i] =  to_double(tx->cfc_freq[i]);
+      data.cfc_lvl[i] =  to_double(tx->cfc_lvl[i]);
+      data.cfc_post[i] =  to_double(tx->cfc_post[i]);
+    }
+
+    data.dexp_tau =  to_double(tx->dexp_tau);
+    data.dexp_attack =  to_double(tx->dexp_attack);
+    data.dexp_release =  to_double(tx->dexp_release);
+    data.dexp_hold =  to_double(tx->dexp_hold);
+    data.dexp_hyst =  to_double(tx->dexp_hyst);
+    data.mic_gain =  to_double(tx->mic_gain);
+    data.compressor_level =  to_double(tx->compressor_level);
+    data.display_average_time =  to_double(tx->display_average_time);
+    data.ps_ampdelay =  to_double(tx->ps_ampdelay);
+    data.ps_moxdelay =  to_double(tx->ps_moxdelay);
+    data.ps_loopdelay =  to_double(tx->ps_loopdelay);
+    send_bytes(sock, (char *)&data, sizeof(TRANSMITTER_DATA));
   }
-
-  data.dexp_tau =  to_double(tx->dexp_tau);
-  data.dexp_attack =  to_double(tx->dexp_attack);
-  data.dexp_release =  to_double(tx->dexp_release);
-  data.dexp_hold =  to_double(tx->dexp_hold);
-  data.dexp_hyst =  to_double(tx->dexp_hyst);
-  data.mic_gain =  to_double(tx->mic_gain);
-  data.compressor_level =  to_double(tx->compressor_level);
-  data.display_average_time =  to_double(tx->display_average_time);
-  data.ps_ampdelay =  to_double(tx->ps_ampdelay);
-  data.ps_moxdelay =  to_double(tx->ps_moxdelay);
-  data.ps_loopdelay =  to_double(tx->ps_loopdelay);
-  send_bytes(sock, (char *)&data, sizeof(TRANSMITTER_DATA));
 }
 
 void send_rx_data(int sock, int id) {
@@ -681,6 +746,9 @@ void send_rx_data(int sock, int id) {
   data.nr4_noise_rescale     = to_double(rx->nr4_noise_rescale);
   data.nr4_post_threshold    = to_double(rx->nr4_post_threshold);
 #else
+  //
+  // If this side is not compiled with EXTNR, fill in default values
+  //
   data.nr4_reduction_amount  = to_double(10.0);
   data.nr4_smoothing_factor  = to_double(0.0);
   data.nr4_whitening_factor  = to_double(0.0);
@@ -789,6 +857,13 @@ static void *server_thread(void *arg) {
   }
 
   //
+  // Send memory slots
+  //
+  for (int i = 0; i < NUM_OF_MEMORYS; i++) {
+    send_memory_data(client->socket, i);
+  }
+
+  //
   // Send transmitter data
   //
   send_tx_data(client->socket);
@@ -800,7 +875,9 @@ static void *server_thread(void *arg) {
 
   //
   // Now, enter an "inifinte" loop, get and parse commands from the client.
-  // This loop is (only) left if there is an I/O error
+  // This loop is (only) left if there is an I/O error.
+  // If a complete command has been received, put a "remote_command()" with that
+  // command into the GTK idle queue.
   //
   while (client->running) {
     int bytes_read = recv_bytes(client->socket, (char *)&header.sync, sizeof(header.sync));
@@ -854,31 +931,12 @@ static void *server_thread(void *arg) {
     t_print("%s: received header: type=%d\n", __FUNCTION__, data_type);
 
     switch (data_type) {
-    case INFO_RADIO: {
-      //
-      // Radio data is sent back by the client if settings in the RADIO
-      // menu are changed
-      //
-      RADIO_DATA*  command = g_new(RADIO_DATA, 1);
-      command->header.data_type = header.data_type;
-      command->header.version = header.version;
-      command->header.context.client = client;
-
-      if (recv_bytes(client->socket, (char *)command + sizeof(HEADER), sizeof(RADIO_DATA) - sizeof(HEADER)) > 0) {
-        g_idle_add(remote_command, command);
-      } else {
-        client->running = FALSE;
-      }
-    }
-    break;
-
     case INFO_BAND: {
       //
       // Band data for the XVTR bands are sent back from the XVTR menu on the client side
       //
       BAND_DATA *command = g_new(BAND_DATA, 1);
-      command->header.data_type = header.data_type;
-      command->header.version = header.version;
+      command->header = header;
       command->header.context.client = client;
 
       if (recv_bytes(client->socket, (char *)command + sizeof(HEADER), sizeof(BAND_DATA) - sizeof(HEADER)) > 0) {
@@ -895,8 +953,7 @@ static void *server_thread(void *arg) {
       // Bandstack data for the XVTR bands are sent back from the XVTR menu on the client side
       //
       BANDSTACK_DATA *command = g_new(BANDSTACK_DATA, 1);
-      command->header.data_type = header.data_type;
-      command->header.version = header.version;
+      command->header = header;
       command->header.context.client = client;
 
       if (recv_bytes(client->socket, (char *)command + sizeof(HEADER), sizeof(BANDSTACK_DATA) - sizeof(HEADER)) > 0) {
@@ -929,13 +986,12 @@ static void *server_thread(void *arg) {
     break;
 
     case CMD_RX_AGC_GAIN: {
-      AGC_GAIN_COMMAND *agc_gain_command = g_new(AGC_GAIN_COMMAND, 1);
-      agc_gain_command->header.data_type = header.data_type;
-      agc_gain_command->header.version = header.version;
-      agc_gain_command->header.context.client = client;
+      AGC_GAIN_COMMAND *command = g_new(AGC_GAIN_COMMAND, 1);
+      command->header = header;
+      command->header.context.client = client;
 
-      if (recv_bytes(client->socket, (char *)agc_gain_command + sizeof(HEADER), sizeof(AGC_GAIN_COMMAND) - sizeof(HEADER)) > 0) {
-        g_idle_add(remote_command, agc_gain_command);
+      if (recv_bytes(client->socket, (char *)command + sizeof(HEADER), sizeof(AGC_GAIN_COMMAND) - sizeof(HEADER)) > 0) {
+        g_idle_add(remote_command, command);
       } else {
         client->running = FALSE;
       }
@@ -944,13 +1000,12 @@ static void *server_thread(void *arg) {
     break;
 
     case CMD_RX_NOISE: {
-      NOISE_COMMAND *noise_command = g_new(NOISE_COMMAND, 1);
-      noise_command->header.data_type = header.data_type;
-      noise_command->header.version = header.version;
-      noise_command->header.context.client = client;
+      NOISE_COMMAND *command = g_new(NOISE_COMMAND, 1);
+      command->header = header;
+      command->header.context.client = client;
 
-      if (recv_bytes(client->socket, (char *)noise_command + sizeof(HEADER), sizeof(NOISE_COMMAND) - sizeof(HEADER)) > 0) {
-        g_idle_add(remote_command, noise_command);
+      if (recv_bytes(client->socket, (char *)command + sizeof(HEADER), sizeof(NOISE_COMMAND) - sizeof(HEADER)) > 0) {
+        g_idle_add(remote_command, command);
       } else {
         client->running = FALSE;
       }
@@ -961,11 +1016,36 @@ static void *server_thread(void *arg) {
     case CMD_RX_EQ:
     case CMD_TX_EQ: {
       EQUALIZER_COMMAND *command = g_new(EQUALIZER_COMMAND, 1);
-      command->header.data_type = header.data_type;
-      command->header.version = header.version;
+      command->header = header;
       command->header.context.client = client;
 
       if (recv_bytes(client->socket, (char *)command + sizeof(HEADER), sizeof(EQUALIZER_COMMAND) - sizeof(HEADER)) > 0) {
+        g_idle_add(remote_command, command);
+      } else {
+        client->running = FALSE;
+      }
+    }
+    break;
+
+    case CMD_RADIOMENU: {
+      RADIOMENU_DATA *command = g_new(RADIOMENU_DATA, 1);
+      command->header = header;
+      command->header.context.client = client;
+
+      if (recv_bytes(client->socket, (char *)command + sizeof(HEADER), sizeof(RADIOMENU_DATA) - sizeof(HEADER)) > 0) {
+        g_idle_add(remote_command, command);
+      } else {
+        client->running = FALSE;
+      }
+    }
+    break;
+
+    case CMD_RXMENU: {
+      RXMENU_DATA *command = g_new(RXMENU_DATA, 1);
+      command->header = header;
+      command->header.context.client = client;
+
+      if (recv_bytes(client->socket, (char *)command + sizeof(HEADER), sizeof(RXMENU_DATA) - sizeof(HEADER)) > 0) {
         g_idle_add(remote_command, command);
       } else {
         client->running = FALSE;
@@ -1055,9 +1135,14 @@ static void *server_thread(void *arg) {
     case CMD_SCREEN:
     case CMD_METER:
     case CMD_XVTR:
+    case CMD_RCL:
+    case CMD_STORE:
+    case CMD_ADC:
+    case CMD_ANAN10E:
+    case CMD_CWPEAK:
     case CMD_RX_AGC: {
       HEADER *command = g_new(HEADER, 1);
-      memcpy(command, &header, sizeof(HEADER));
+      *command = header;
       command->context.client = client;
       g_idle_add(remote_command, command);
     }
@@ -1138,6 +1223,24 @@ void update_vfo_move(int rx, long long hz, int round) {
   accumulated_hz += hz;
   accumulated_round = round;
   g_mutex_unlock(&accumulated_mutex);
+}
+
+void send_store(int s, int index) {
+  HEADER header;
+  header.sync = REMOTE_SYNC;
+  header.data_type = to_short(CMD_STORE);
+  header.version = to_short(CLIENT_SERVER_VERSION);
+  header.b1 = index;
+  send_bytes(s, (char *)&header, sizeof(HEADER));
+}
+
+void send_recall(int s, int index) {
+  HEADER header;
+  header.sync = REMOTE_SYNC;
+  header.data_type = to_short(CMD_RCL);
+  header.version = to_short(CLIENT_SERVER_VERSION);
+  header.b1 = index;
+  send_bytes(s, (char *)&header, sizeof(HEADER));
 }
 
 void send_vfo_stepsize(int s, int v, int stepsize) {
@@ -1352,6 +1455,7 @@ void send_noise(int s, const RECEIVER *rx) {
   command.nb_advtime                = to_double(rx->nb_advtime);
   command.nb_thresh                 = to_double(rx->nb_thresh);
   command.nr2_trained_threshold     = to_double(rx->nr2_trained_threshold);
+  command.nr2_trained_t2            = to_double(rx->nr2_trained_t2);
 #ifdef EXTNR
   command.nr4_reduction_amount      = to_double(rx->nr4_reduction_amount);
   command.nr4_smoothing_factor      = to_double(rx->nr4_smoothing_factor);
@@ -1371,7 +1475,7 @@ void send_noise(int s, const RECEIVER *rx) {
   send_bytes(s, (char *)&command, sizeof(command));
 }
 
-void send_bandstack(int s, int old,int new) {
+void send_bandstack(int s, int old, int new) {
   HEADER header;
   header.sync = REMOTE_SYNC;
   header.data_type = to_short(CMD_RX_BANDSTACK);
@@ -1475,12 +1579,22 @@ void send_filter_sel(int s, int v, int f) {
   send_bytes(s, (char *)&header, sizeof(HEADER));
 }
 
-void send_split(int s, int split) {
+void send_cwpeak(int s, int v, int p) {
+  HEADER header;
+  header.sync = REMOTE_SYNC;
+  header.data_type = to_short(CMD_CWPEAK);
+  header.version = to_short(CLIENT_SERVER_VERSION);
+  header.b1 = v;
+  header.b2 = p;
+  send_bytes(s, (char *)&header, sizeof(HEADER));
+}
+
+void send_split(int s, int state) {
   HEADER header;
   header.sync = REMOTE_SYNC;
   header.data_type = to_short(CMD_SPLIT);
   header.version = to_short(CLIENT_SERVER_VERSION);
-  header.b1 = split;
+  header.b1 = state;
   send_bytes(s, (char *)&header, sizeof(HEADER));
 }
 
@@ -1667,6 +1781,16 @@ void send_swap_iq(int s, int iqswap) {
   send_bytes(s, (char *)&header, sizeof(HEADER));
 }
 
+void send_adc(int s, int rx, int adc) {
+  HEADER header;
+  header.sync = REMOTE_SYNC;
+  header.data_type = to_short(CMD_ADC);
+  header.version = to_short(CLIENT_SERVER_VERSION);
+  header.b1 = rx;
+  header.b2 = adc;
+  send_bytes(s, (char *)&header, sizeof(HEADER));
+}
+
 void send_anan10E(int s, int new) {
   HEADER header;
   header.sync = REMOTE_SYNC;
@@ -1774,6 +1898,11 @@ int destroy_hpsdr_server() {
 
 // CLIENT Code
 
+//
+// Not all VFO frequency updates generate a packet to be sent by the client.
+// Instead, frequency updates are "collected" and sent out  (if necessary)
+// every 100 milli seconds. TODO: do this for both receivers independently.
+//
 static int check_vfo(void *arg) {
   if (!running) { return FALSE; }
 
@@ -1914,6 +2043,22 @@ static void *client_thread(void* arg) {
     }
 
     switch (from_short(header.data_type)) {
+    case INFO_MEMORY: {
+      MEMORY_DATA data;
+      if (recv_bytes(client_socket, (char *)&data + sizeof(HEADER), sizeof(data) - sizeof(HEADER)) < 0) { return NULL; }
+
+      int index = data.index;
+      mem[index].ctun = data.ctun;
+      mem[index].mode = data.mode;
+      mem[index].filter = data.filter;
+      mem[index].ctcss_enabled = data.ctcss_enabled;
+      mem[index].ctcss = data.ctcss;
+      mem[index].bd = data.bd;
+      mem[index].frequency = from_ll(data.frequency);
+      mem[index].ctun_frequency = from_ll(data.ctun_frequency);
+    }
+    break;
+
     case INFO_BAND: {
       BAND_DATA data;
       if (recv_bytes(client_socket, (char *)&data + sizeof(HEADER), sizeof(data) - sizeof(HEADER)) < 0) { return NULL; }
@@ -2022,6 +2167,7 @@ static void *client_thread(void* arg) {
       have_dither = data.have_dither;
       have_saturn_xdma = data.have_saturn_xdma;
       rx_stack_horizontal = data.rx_stack_horizontal;
+      n_adc = data.n_adc;
 //
       pa_power = from_short(data.pa_power);
       OCfull_tune_time = from_short(data.OCfull_tune_time);
@@ -2300,7 +2446,7 @@ static void *client_thread(void* arg) {
         if (tx->pixel_samples == NULL) {
           tx->pixel_samples = g_new(float, (int) tx->width);
         }
-        if (width != tx->width) {
+        if (width != tx->width || tx->pixels < width) {
           //
           // The spectral data does not fit to the panadapter,
           // simply draw a line at -32 dBm
@@ -2454,31 +2600,6 @@ static void *client_thread(void* arg) {
     case CMD_RX_AGC: {
       int id = header.b1;
       receiver[id]->agc = header.b2;
-      g_idle_add(ext_vfo_update, NULL);
-    }
-    break;
-
-    case CMD_RX_NOISE: {
-      NOISE_COMMAND noise_command;
-      if (recv_bytes(client_socket, (char *)&noise_command + sizeof(HEADER), sizeof(NOISE_COMMAND) - sizeof(HEADER)) < 0) { return NULL; }
-
-      int id = noise_command.id;
-      RECEIVER *rx = receiver[id];
-      // cppcheck-suppress uninitvar
-      rx->nb = noise_command.nb;
-      rx->nr = noise_command.nr;
-      rx->snb = noise_command.snb;
-      rx->anf = noise_command.anf;
-
-      if (id == 0) {
-        int mode = vfo[id].mode;
-        mode_settings[mode].nb = rx->nb;
-        mode_settings[mode].nr = rx->nr;
-        mode_settings[mode].snb = rx->snb;
-        mode_settings[mode].anf = rx->anf;
-        copy_mode_settings(mode);
-      }
-
       g_idle_add(ext_vfo_update, NULL);
     }
     break;
@@ -2655,50 +2776,6 @@ static int remote_command(void *data) {
 
   t_print("RemoteCommand: Type=%d\n", type);
   switch (type) {
-  case INFO_RADIO: {
-   const RADIO_DATA *radio_data = (RADIO_DATA *)data;
-    locked = radio_data->locked;
-    have_rx_gain = radio_data->have_rx_gain;
-    filter_board = radio_data->filter_board;
-    load_filters();
-    enable_auto_tune = radio_data->enable_auto_tune;
-    new_pa_board = radio_data->new_pa_board;
-    region = radio_data->region;
-    radio_change_region(region);
-    atlas_penelope = radio_data->atlas_penelope;
-    atlas_clock_source_10mhz = radio_data->atlas_clock_source_10mhz;
-    atlas_clock_source_128mhz = radio_data->atlas_clock_source_128mhz;
-    atlas_mic_source = radio_data->atlas_mic_source;
-    atlas_janus = radio_data->atlas_janus;
-    hl2_audio_codec = radio_data->hl2_audio_codec;
-    tx_out_of_band_allowed = radio_data->tx_out_of_band_allowed;
-    pa_enabled = radio_data->pa_enabled;
-    mic_boost = radio_data->mic_boost;
-    mic_linein = radio_data->mic_linein;
-    mic_ptt_enabled = radio_data->mic_ptt_enabled;
-    mic_bias_enabled = radio_data->mic_bias_enabled;
-    mic_ptt_tip_bias_ring = radio_data->mic_ptt_tip_bias_ring;
-    cw_keyer_sidetone_volume =  radio_data->cw_keyer_sidetone_volume;
-    mic_input_xlr = radio_data->mic_input_xlr;
-    OCtune = radio_data->OCtune;
-    vox_enabled = radio_data->vox_enabled;
-    mute_rx_while_transmitting = radio_data->mute_rx_while_transmitting;
-    mute_spkr_amp = radio_data->mute_spkr_amp;
-    adc0_filter_bypass = radio_data->adc0_filter_bypass;
-    adc1_filter_bypass = radio_data->adc1_filter_bypass;
-    sat_mode = radio_data->sat_mode;
-
-    for (int i = 0; i < 11; i++) {
-      pa_trim[i] = from_double(radio_data->pa_trim[i]);
-    }
-
-    frequency_calibration = from_ll(radio_data->frequency_calibration);
-    schedule_general();
-    schedule_transmit_specific();
-    schedule_high_priority();
-  }
-  break;
-
   case INFO_BAND: {
     const BAND_DATA *band_data = (BAND_DATA *)data;
     if (band_data->band > BANDS + XVTRS) {
@@ -2839,6 +2916,23 @@ static int remote_command(void *data) {
   }
   break;
 
+  case CMD_STORE: {
+    int index = header->b1;
+    store_memory_slot(index);
+    send_memory_data(client->socket, index);
+  }
+  break;
+
+  case CMD_RCL: {
+    int index = header->b1;
+    int id = active_receiver->id;
+    recall_memory_slot(index);
+    send_vfo_data(client->socket, id);
+    send_rx_data(client->socket, id);
+    send_tx_data(client->socket);
+  }
+  break;
+
   case CMD_SCREEN: {
     rx_stack_horizontal = header->b1;
     display_width = from_short(header->s1);
@@ -2943,30 +3037,31 @@ static int remote_command(void *data) {
   break;
 
   case CMD_RX_NOISE: {
-    const NOISE_COMMAND *noise_command = (NOISE_COMMAND *)data;
-    int id = noise_command->id;
+    const NOISE_COMMAND *command = (NOISE_COMMAND *)data;
+    int id = command->id;
     CHECK_RX(id);
     RECEIVER *rx = receiver[id];
-    rx->nb                     = noise_command->nb;
-    rx->nr                     = noise_command->nr;
-    rx->anf                    = noise_command->anf;
-    rx->snb                    = noise_command->snb;
-    rx->nb2_mode               = noise_command->nb2_mode;
-    rx->nr_agc                 = noise_command->nr_agc;
-    rx->nr2_gain_method        = noise_command->nr2_gain_method;
-    rx->nr2_npe_method         = noise_command->nr2_npe_method;
-    rx->nr2_ae                 = noise_command->nr2_ae;
-    rx->nb_tau                 = from_double(noise_command->nb_tau);
-    rx->nb_hang                = from_double(noise_command->nb_hang);
-    rx->nb_advtime             = from_double(noise_command->nb_advtime);
-    rx->nb_thresh              = from_double(noise_command->nb_thresh);
-    rx->nr2_trained_threshold  = from_double(noise_command->nr2_trained_threshold);
+    rx->nb                     = command->nb;
+    rx->nr                     = command->nr;
+    rx->anf                    = command->anf;
+    rx->snb                    = command->snb;
+    rx->nb2_mode               = command->nb2_mode;
+    rx->nr_agc                 = command->nr_agc;
+    rx->nr2_gain_method        = command->nr2_gain_method;
+    rx->nr2_npe_method         = command->nr2_npe_method;
+    rx->nr2_ae                 = command->nr2_ae;
+    rx->nb_tau                 = from_double(command->nb_tau);
+    rx->nb_hang                = from_double(command->nb_hang);
+    rx->nb_advtime             = from_double(command->nb_advtime);
+    rx->nb_thresh              = from_double(command->nb_thresh);
+    rx->nr2_trained_threshold  = from_double(command->nr2_trained_threshold);
+    rx->nr2_trained_t2         = from_double(command->nr2_trained_t2);
 #ifdef EXTNR
-    rx->nr4_reduction_amount   = from_double(noise_command->nr4_reduction_amount);
-    rx->nr4_smoothing_factor   = from_double(noise_command->nr4_smoothing_factor);
-    rx->nr4_whitening_factor   = from_double(noise_command->nr4_whitening_factor);
-    rx->nr4_noise_rescale      = from_double(noise_command->nr4_noise_rescale);
-    rx->nr4_post_threshold     = from_double(noise_command->nr4_post_threshold);
+    rx->nr4_reduction_amount   = from_double(command->nr4_reduction_amount);
+    rx->nr4_smoothing_factor   = from_double(command->nr4_smoothing_factor);
+    rx->nr4_whitening_factor   = from_double(command->nr4_whitening_factor);
+    rx->nr4_noise_rescale      = from_double(command->nr4_noise_rescale);
+    rx->nr4_post_threshold     = from_double(command->nr4_post_threshold);
 #endif
 
     if (id == 0) {
@@ -2997,6 +3092,16 @@ static int remote_command(void *data) {
     rx_set_noise(rx);
     send_rx_data(client->socket, id);
     g_idle_add(ext_vfo_update, NULL);
+  }
+  break;
+
+  case CMD_ADC: {
+    int id = header->b1;
+    if (id < receivers) {
+      RECEIVER *rx = receiver[id];
+      rx->adc = header->b2;
+      rx_change_adc(rx);
+    }
   }
   break;
 
@@ -3049,6 +3154,7 @@ static int remote_command(void *data) {
     //
     send_vfo_data(client->socket, v);
     send_rx_data(client->socket, v);
+    send_tx_data(client->socket);
   }
   break;
 
@@ -3138,8 +3244,8 @@ static int remote_command(void *data) {
 
     if (id == 8 && can_transmit) {
       transmitter->fps = fps;
-      tx_set_framerate(transmitter),
-                       send_fps(client->socket, id, transmitter->fps);
+      tx_set_framerate(transmitter);
+      send_fps(client->socket, id, transmitter->fps);
     } else {
       CHECK_RX(id);
       receiver[id]->fps = fps;
@@ -3282,6 +3388,21 @@ static int remote_command(void *data) {
   }
   break;
 
+  case CMD_CWPEAK: {
+    int id = header->b1;
+    vfo[id].cwAudioPeakFilter = header->b2;
+
+    if (id == 0) {
+      int mode = vfo[id].mode;
+      mode_settings[mode].cwPeak = vfo[id].cwAudioPeakFilter;
+      copy_mode_settings(mode);
+    }
+
+    rx_filter_changed(receiver[id]);
+    g_idle_add(ext_vfo_update, NULL);
+  }
+  break;
+
   case CMD_ANAN10E: {
     radio_set_anan10E(header->b1);
     send_radio_data(client->socket);
@@ -3341,6 +3462,45 @@ static int remote_command(void *data) {
 
     tx_set_average(transmitter);
     tx_set_detector(transmitter);
+  }
+  break;
+
+  case CMD_RADIOMENU: {
+    const RADIOMENU_DATA *command = (RADIOMENU_DATA *)data;
+    mic_ptt_tip_bias_ring = command->mic_ptt_tip_bias_ring;
+    sat_mode = command->sat_mode;
+    mic_input_xlr = command->mic_input_xlr;
+    atlas_clock_source_10mhz = command->atlas_clock_source_10mhz;
+    atlas_clock_source_128mhz = command->atlas_clock_source_128mhz;
+    atlas_mic_source = command->atlas_mic_source;
+    atlas_penelope = command->atlas_penelope;
+    atlas_janus = command->atlas_janus;
+    mic_ptt_enabled = command->mic_ptt_enabled;
+    mic_bias_enabled = command->mic_bias_enabled;
+    pa_enabled = command->pa_enabled;
+    mute_spkr_amp = command->mute_spkr_amp;
+    hl2_audio_codec = command->hl2_audio_codec;
+    soapy_iqswap = command->soapy_iqswap;
+    enable_tx_inhibit = command->enable_tx_inhibit;
+    enable_auto_tune = command->enable_auto_tune;
+    rx_gain_calibration = from_short(command->rx_gain_calibration);
+    frequency_calibration = from_ll(command->frequency_calibration);
+    schedule_transmit_specific();
+    schedule_general();
+    schedule_high_priority();
+  }
+  break;
+
+  case CMD_RXMENU: {
+    const RXMENU_DATA *command = (RXMENU_DATA *)data;
+    int id = command->id;
+    receiver[id]->dither = command->dither;
+    receiver[id]->random = command->random;
+    receiver[id]->preamp = command->preamp;
+    adc0_filter_bypass = command->adc0_filter_bypass;
+    adc1_filter_bypass = command->adc1_filter_bypass;
+    schedule_receive_specific();
+    schedule_high_priority();
   }
   break;
 
