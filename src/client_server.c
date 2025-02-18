@@ -74,6 +74,7 @@
 #endif
 #include "band.h"
 #include "dac.h"
+#include "diversity_menu.h"
 #include "discovered.h"
 #include "equalizer_menu.h"
 #include "ext.h"
@@ -1053,6 +1054,19 @@ static void *server_thread(void *arg) {
     }
     break;
 
+    case CMD_DIVERSITY: {
+      DIVERSITY_COMMAND *command = g_new(DIVERSITY_COMMAND, 1);
+      command->header = header;
+      command->header.context.client = client;
+
+      if (recv_bytes(client->socket, (char *)command + sizeof(HEADER), sizeof(DIVERSITY_COMMAND) - sizeof(HEADER)) > 0) {
+        g_idle_add(remote_command, command);
+      } else {
+        client->running = FALSE;
+      }
+    }
+    break;
+
     //
     // All commands with a single  "double" in the body
     //
@@ -1337,6 +1351,17 @@ void send_volume(int s, int rx, double volume) {
   command.header.version = to_short(CLIENT_SERVER_VERSION);
   command.header.b1 = rx;
   command.dbl = to_double(volume);
+  send_bytes(s, (char *)&command, sizeof(command));
+}
+
+void send_diversity(int s, int enabled, double gain, double phase) {
+  DIVERSITY_COMMAND command;
+  command.header.sync = REMOTE_SYNC;
+  command.header.data_type = to_short(CMD_DIVERSITY);
+  command.header.version = to_short(CLIENT_SERVER_VERSION);
+  command.diversity_enabled = enabled;
+  command.div_gain = to_double(gain);
+  command.div_phase =  to_double(phase);
   send_bytes(s, (char *)&command, sizeof(command));
 }
 
@@ -2636,6 +2661,11 @@ static void *client_thread(void* arg) {
     break;
 
     case CMD_RX_AGC_GAIN: {
+      //
+      // When this command comes back from the server,
+      // it has re-calculated "hant" and "thresh", while the other two
+      // entries should be exactly those the client has just sent.
+      //
       AGC_GAIN_COMMAND agc_gain_cmd;
       if (recv_bytes(client_socket, (char *)&agc_gain_cmd + sizeof(HEADER), sizeof(AGC_GAIN_COMMAND) - sizeof(HEADER)) < 0) { return NULL; }
 
@@ -3000,15 +3030,19 @@ static int remote_command(void *data) {
   break;
 
   case CMD_RX_AGC_GAIN: {
+    //
+    // The client sends gain and hang_threshold
+    //
     const AGC_GAIN_COMMAND *agc_gain_command = (AGC_GAIN_COMMAND *)data;
     int r = agc_gain_command->id;
     CHECK_RX(r);
     RECEIVER *rx = receiver[r];
-    rx->agc_hang = from_double(agc_gain_command->hang);
-    rx->agc_thresh = from_double(agc_gain_command->thresh);
     rx->agc_hang_threshold = from_double(agc_gain_command->hang_thresh);
     set_agc_gain(r, from_double(agc_gain_command->gain));
     rx_set_agc(rx);
+    //
+    // Now hang and thresh have been calculated and need be sent back
+    //
     send_agc_gain(client->socket, rx->id, rx->agc_gain, rx->agc_hang, rx->agc_thresh, rx->agc_hang_threshold);
   }
   break;
@@ -3501,6 +3535,17 @@ static int remote_command(void *data) {
     adc1_filter_bypass = command->adc1_filter_bypass;
     schedule_receive_specific();
     schedule_high_priority();
+  }
+  break;
+
+  case CMD_DIVERSITY: {
+    const DIVERSITY_COMMAND *command = (DIVERSITY_COMMAND *)data;
+    int save = suppress_popup_sliders;
+    suppress_popup_sliders = 1;
+    set_diversity(command->diversity_enabled);
+    set_diversity_gain(from_double(command->div_gain));
+    set_diversity_phase(from_double(command->div_phase));
+    suppress_popup_sliders = save;
   }
   break;
 

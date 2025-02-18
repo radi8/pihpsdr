@@ -111,6 +111,7 @@ enum _header_type_enum {
   CMD_RADIOMENU,
   CMD_RXMENU,
   CMD_CWPEAK,
+  CMD_DIVERSITY,
   CLIENT_SERVER_COMMANDS,
 };
 
@@ -560,6 +561,13 @@ typedef struct __attribute__((__packed__)) _double_command {
   mydouble dbl;
 } DOUBLE_COMMAND;
 
+typedef struct __attribute__((__packed__)) _diversity_command {
+  HEADER header;
+  uint8_t diversity_enabled;
+  mydouble div_gain;
+  mydouble div_phase;
+} DIVERSITY_COMMAND;
+
 typedef struct __attribute__((__packed__)) _agc_gain_command {
   HEADER header;
   uint8_t id;
@@ -646,6 +654,7 @@ extern void send_meter(int s, int metermode, int alcmode);
 extern void send_screen(int s, int hstack, int width);
 extern void send_volume(int s, int rx, double volume);
 extern void send_agc(int s, int rx, int agc);
+extern void send_diversity(int s, int enabled, double gain, double phase);
 extern void send_agc_gain(int s, int rx, double gain, double hang, double thresh, double hang_thresh);
 extern void send_attenuation(int s, int rx, int attenuation);
 extern void send_rfgain(int s, int rx, double gain);
