@@ -2381,7 +2381,10 @@ void vfo_id_rit_incr(int id, int incr) {
 // - CAT "set frequency" command
 //
 void vfo_id_set_frequency(int v, long long f) {
-  ASSERT_SERVER();
+  if (radio_is_remote) {
+     send_vfo_frequency(client_socket, v, f);
+     return;
+  }
   //
   // Here we used to have call vfo_id_band_changed() for
   // frequency jumps from one band to another.

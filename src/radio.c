@@ -2963,7 +2963,29 @@ int radio_remote_start(void *data) {
   radio_create_visual();
   radio_reconfigure_screen();
 
+#ifdef TCI
+
+  if (tci_enable) {
+    launch_tci();
+  }
+
+#endif
+
+  if (rigctl_tcp_enable) {
+    launch_tcp_rigctl();
+  }
+
+  for (int id = 0; id < MAX_SERIAL; id++) {
+    //
+    // If serial port is enabled but no success, clear "enable" flag
+    //
+    if (SerialPorts[id].enable) {
+      SerialPorts[id].enable = launch_serial_rigctl(id);
+    }
+  }
+
   if (can_transmit) {
+    tx_restore_state(transmitter);
     if (transmitter->local_microphone) {
       if (audio_open_input() != 0) {
         t_print("audio_open_input failed\n");
@@ -2985,6 +3007,23 @@ int radio_remote_start(void *data) {
   radio_reconfigure();
   g_idle_add(ext_vfo_update, NULL);
   gdk_window_set_cursor(gtk_widget_get_window(top_window), gdk_cursor_new(GDK_ARROW));
+
+#ifdef MIDI
+
+  for (int i = 0; i < n_midi_devices; i++) {
+    if (midi_devices[i].active) {
+      //
+      // Normally the "active" flags marks a MIDI device that is up and running.
+      // It is hi-jacked by the props file to indicate the device should be
+      // opened, so we set it to zero. Upon successfull opening of the MIDI device,
+      // it will be set again.
+      //
+      midi_devices[i].active = 0;
+      register_midi_device(i);
+    }
+  }
+
+#endif
 
   for (int i = 0; i < receivers; i++) {
     //(void) gdk_threads_add_timeout_full(G_PRIORITY_DEFAULT_IDLE, 100, start_spectrum, receiver[i], NULL);

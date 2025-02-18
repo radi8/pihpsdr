@@ -398,7 +398,7 @@ void tx_save_state(const TRANSMITTER *tx) {
   }
 }
 
-static void tx_restore_state(TRANSMITTER *tx) {
+void tx_restore_state(TRANSMITTER *tx) {
   //
   // Start with "local" data
   //

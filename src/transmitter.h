@@ -218,6 +218,7 @@ extern void   tx_ps_setparams(const TRANSMITTER *tx);
 extern void   tx_ps_setpk(const TRANSMITTER *tx, double pk);
 
 extern void   tx_save_state(const TRANSMITTER *tx);
+extern void   tx_restore_state(TRANSMITTER *tx);
 
 extern void   tx_set_am_carrier_level(const TRANSMITTER *tx);
 extern void   tx_set_analyzer(const TRANSMITTER *tx);
