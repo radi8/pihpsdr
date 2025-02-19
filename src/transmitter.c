@@ -1422,14 +1422,38 @@ static void tx_full_buffer(TRANSMITTER *tx) {
   }
 }
 
-void tx_add_mic_sample(TRANSMITTER *tx, float mic_sample) {
+void tx_add_mic_sample(TRANSMITTER *tx, short next_mic_sample) {
   ASSERT_SERVER();
   int txmode = vfo_get_tx_mode();
   double mic_sample_double;
   int i, j;
-  mic_sample_double = (double)mic_sample;
-
   //
+  // If we have registered clients, the the TX audio data *exclusively*
+  // comes from the client
+  //
+  if (remoteclients != NULL) {
+#ifdef CLIENT_SERVER
+    mic_sample_double = remote_get_mic_sample() * 0.0003051;  // divide by 32768;
+#else
+    mic_sample_double = 0.0;
+#endif
+  } else {
+    mic_sample_double = (double)next_mic_sample * 0.0003051;  // divide by 32768
+
+    //
+    // If we have local tx microphone, *replace* the sample by data
+    // from the sound card. In this case *add* both radio and sound card
+    // samples if PTT comes from the radio.
+    //
+    if (tx->local_microphone) {
+      if (radio_ptt) {
+        mic_sample_double += audio_get_next_mic_sample();
+      } else {
+        mic_sample_double = audio_get_next_mic_sample();
+      }
+    }
+  }
+
   // If there is captured data to re-play, replace incoming
   // mic samples by captured data.
   //

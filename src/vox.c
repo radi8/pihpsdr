@@ -40,6 +40,13 @@ static int vox_timeout_cb(gpointer data) {
   return FALSE;
 }
 
+void vox_set_peak(double value) {
+  //
+  // only used on the client side
+  //
+  peak = value;
+}
+
 double vox_get_peak() {
   double result = peak;
   return result;

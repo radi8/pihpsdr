@@ -25,7 +25,7 @@
  * The server starts after all data has been initialized and the props file has
  * been read, and then sends out all this data to the client.
  *
- * It then periodically sends audio (INFO_AUDIO) and pixel (INFO_SPECTRUM) data,
+ * It then periodically sends audio (INFO_RXAUDIO) and pixel (INFO_SPECTRUM) data,
  * the latter is used both for the panadapter and the waterfall.
  *
  * On the client side, a packet is sent if the user changes the state (e.g. via
@@ -92,9 +92,9 @@
 #include "store_menu.h"
 #include "transmitter.h"
 #include "vfo.h"
+#include "vox.h"
 #include "zoompan.h"
 
-#define DISCOVERY_PORT 4992
 #define LISTEN_PORT 50000
 
 int listen_port = LISTEN_PORT;
@@ -102,8 +102,6 @@ int listen_port = LISTEN_PORT;
 REMOTE_CLIENT *remoteclients = NULL;
 
 GMutex client_mutex;
-
-#define MAX_COMMAND 256
 
 static char title[128];
 
@@ -118,8 +116,21 @@ static GThread *listen_thread_id;
 static gboolean running;
 static int listen_socket;
 
-static int audio_buffer_index[2] = { 0, 0};
-AUDIO_DATA audio_data[2];  // for up to 2 receivers
+//
+// Audio
+//
+#define MIC_RING_BUFFER_SIZE 9600
+#define MIC_RING_LOW         3000
+
+static short *mic_ring_buffer;
+static volatile short  mic_ring_outpt = 0;
+static volatile short  mic_ring_inpt = 0;
+
+static int txaudio_buffer_index = 0;
+static int rxaudio_buffer_index[2] = { 0, 0};
+RXAUDIO_DATA rxaudio_data[2];  // for up to 2 receivers
+
+TXAUDIO_DATA txaudio_data;
 
 static int remote_command(void * data);
 
@@ -245,9 +256,9 @@ static int recv_bytes(int s, char *buffer, int bytes) {
 
 //
 // This function is called from within the GTK queue but
-// also from the receive thread (via remote_audio).
+// also from the receive thread (via remote_rxaudio).
 // To make this bullet proof, we need a mutex here in case a
-// remote_audio occurs while sending another packet.
+// remote_rxaudio occurs while sending another packet.
 //
 static int send_bytes(int s, char *buffer, int bytes) {
   static GMutex send_mutex;  // static so correctly initialized
@@ -276,27 +287,78 @@ static int send_bytes(int s, char *buffer, int bytes) {
   return bytes_sent;
 }
 
-void remote_audio(const RECEIVER *rx, short left_sample, short right_sample) {
-  int id = rx->id;
-  int i = audio_buffer_index[id] * 2;
-  audio_data[id].sample[i] = to_short(left_sample);
-  audio_data[id].sample[i + 1] = to_short(right_sample);
-  audio_buffer_index[id]++;
+short remote_get_mic_sample() {
+  //
+  // return one sample from the  microphone audio ring buffer
+  // If it is empty, return a zero, and continue to return
+  // zero until it is at least filled with  MIC_RING_LOW samples
+  //
+  short sample;
+  static int is_empty = 1;
 
-  if (audio_buffer_index[id] >= AUDIO_DATA_SIZE) {
+  int numsamples = mic_ring_outpt - mic_ring_inpt;
+
+  if (numsamples < 0) { numsamples += MIC_RING_BUFFER_SIZE; }
+
+  if (numsamples <= 0) { is_empty = 1; }
+
+  if (is_empty && numsamples < MIC_RING_LOW) {
+    return 0;
+  }
+
+  is_empty = 0;
+  int newpt = mic_ring_outpt + 1;
+
+  if (newpt == MIC_RING_BUFFER_SIZE) { newpt = 0; }
+
+  MEMORY_BARRIER;
+  sample = mic_ring_buffer[mic_ring_outpt];
+  // atomic update of read pointer
+  MEMORY_BARRIER;
+  mic_ring_outpt = newpt;
+  return sample;
+}
+
+void server_tx_audio(short sample) {
+  //
+  // This is called in the client and collects data to be
+  // sent to the server
+  //
+  txaudio_data.sample[txaudio_buffer_index++] = to_short(sample);
+  if (txaudio_buffer_index >= AUDIO_DATA_SIZE) {
+     txaudio_data.header.sync = REMOTE_SYNC;
+     txaudio_data.header.data_type = to_short(INFO_TXAUDIO);
+     txaudio_data.header.version = to_short(CLIENT_SERVER_VERSION);
+     txaudio_data.samples = from_short(txaudio_buffer_index);
+     if (send_bytes(client_socket, (char *)&txaudio_data, sizeof(TXAUDIO_DATA)) < 0) {
+       t_perror("server_txaudio");
+       client_socket = -1;
+     }
+    txaudio_buffer_index = 0;
+  }
+}
+
+void remote_rxaudio(const RECEIVER *rx, short left_sample, short right_sample) {
+  int id = rx->id;
+  int i = rxaudio_buffer_index[id] * 2;
+  rxaudio_data[id].sample[i] = to_short(left_sample);
+  rxaudio_data[id].sample[i + 1] = to_short(right_sample);
+  rxaudio_buffer_index[id]++;
+
+  if (rxaudio_buffer_index[id] >= AUDIO_DATA_SIZE) {
     g_mutex_lock(&client_mutex);
     REMOTE_CLIENT *c = remoteclients;
 
     while (c != NULL && c->socket != -1) {
-      audio_data[id].header.sync = REMOTE_SYNC;
-      audio_data[id].header.data_type = to_short(INFO_AUDIO);
-      audio_data[id].header.version = to_short(CLIENT_SERVER_VERSION);
-      audio_data[id].rx = id;
-      audio_data[id].samples = from_short(audio_buffer_index[id]);
-      int bytes_sent = send_bytes(c->socket, (char *)&audio_data[id], sizeof(AUDIO_DATA));
+      rxaudio_data[id].header.sync = REMOTE_SYNC;
+      rxaudio_data[id].header.data_type = to_short(INFO_RXAUDIO);
+      rxaudio_data[id].header.version = to_short(CLIENT_SERVER_VERSION);
+      rxaudio_data[id].rx = id;
+      rxaudio_data[id].samples = from_short(rxaudio_buffer_index[id]);
+      int bytes_sent = send_bytes(c->socket, (char *)&rxaudio_data[id], sizeof(RXAUDIO_DATA));
 
       if (bytes_sent < 0) {
-        t_perror("remote_audio");
+        t_perror("remote_rxaudio");
         close(c->socket);
         c->socket = -1;
       }
@@ -305,7 +367,7 @@ void remote_audio(const RECEIVER *rx, short left_sample, short right_sample) {
     }
 
     g_mutex_unlock(&client_mutex);
-    audio_buffer_index[id] = 0;
+    rxaudio_buffer_index[id] = 0;
   }
 }
 
@@ -356,9 +418,10 @@ static int send_spectrum(void *arg) {
     } else if (can_transmit) {
       tx = transmitter;
       spectrum_data.pscorr = tx->pscorr;
-      spectrum_data.alc = to_double(tx->alc);
-      spectrum_data.fwd = to_double(tx->fwd);
-      spectrum_data.swr = to_double(tx->swr);
+      spectrum_data.alc   = to_double(tx->alc);
+      spectrum_data.fwd   = to_double(tx->fwd);
+      spectrum_data.swr   = to_double(tx->swr);
+      spectrum_data.peak  = to_double(vox_get_peak());
       spectrum_data.width = to_short(tx->width);
 
       if (tx->displaying && (tx->pixels > 0) && (tx->pixel_samples != NULL)) {
@@ -797,6 +860,13 @@ static void *server_thread(void *arg) {
   REMOTE_CLIENT *client = (REMOTE_CLIENT *)arg;
   HEADER header;
   t_print("Client connected on port %d\n", client->address.sin_port);
+
+  //
+  // Allocate ring buffer for TX mic data
+  //
+  mic_ring_buffer = g_new(short, MIC_RING_BUFFER_SIZE);
+  mic_ring_outpt = 0;
+  mic_ring_inpt = 0;
   //
   // The server starts with sending  a lot of data to initialize
   // the data on the client side.
@@ -929,9 +999,37 @@ static void *server_thread(void *arg) {
     // Now we have a valid header
     //
     int data_type = from_short(header.data_type);
-    t_print("%s: received header: type=%d\n", __FUNCTION__, data_type);
+    if (data_type != INFO_TXAUDIO) {
+      t_print("%s: received header: type=%d\n", __FUNCTION__, data_type);
+    }
 
     switch (data_type) {
+    case INFO_TXAUDIO: {
+      //
+      // The txaudio  command is statically allocated and the data will be IMMEDIATELY
+      // (not through the GTK queue) put  to the ring buffer
+      //
+
+      if (recv_bytes(client->socket, (char *)&txaudio_data + sizeof(HEADER), sizeof(TXAUDIO_DATA) - sizeof(HEADER)) > 0) {
+        unsigned int samples = from_short(txaudio_data.samples);
+        for (unsigned int i = 0; i < samples; i++) {
+          int newpt = mic_ring_inpt + 1;
+
+          if (newpt == MIC_RING_BUFFER_SIZE) { newpt = 0; }
+
+          if (newpt != mic_ring_outpt) {
+            MEMORY_BARRIER;
+            // buffer space available, do the write
+            mic_ring_buffer[mic_ring_inpt] = from_short(txaudio_data.sample[i]);
+            MEMORY_BARRIER;
+            // atomic update of mic_ring_inpt
+            mic_ring_inpt = newpt;
+          }
+        }
+      }
+    }
+    break;
+
     case INFO_BAND: {
       //
       // Band data for the XVTR bands are sent back from the XVTR menu on the client side
@@ -2466,6 +2564,7 @@ static void *client_thread(void* arg) {
         tx->alc = from_double(spectrum_data.alc);
         tx->fwd = from_double(spectrum_data.fwd);
         tx->swr = from_double(spectrum_data.swr);
+        vox_set_peak(from_double(spectrum_data.peak));
         int width = from_short(spectrum_data.width);
 
         if (tx->pixel_samples == NULL) {
@@ -2501,9 +2600,9 @@ static void *client_thread(void* arg) {
     }
     break;
 
-    case INFO_AUDIO: {
-      AUDIO_DATA adata;
-      if (recv_bytes(client_socket, (char *)&adata + sizeof(HEADER), sizeof(AUDIO_DATA) - sizeof(HEADER)) < 0) { return NULL; }
+    case INFO_RXAUDIO: {
+      RXAUDIO_DATA adata;
+      if (recv_bytes(client_socket, (char *)&adata + sizeof(HEADER), sizeof(RXAUDIO_DATA) - sizeof(HEADER)) < 0) { return NULL; }
 
       RECEIVER *rx = receiver[adata.rx];
       int samples = from_short(adata.samples);

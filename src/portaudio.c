@@ -39,6 +39,9 @@
 #include <portaudio.h>
 
 #include "audio.h"
+#ifdef CLIENT_SERVER
+#include "client_server.h"
+#endif
 #include "message.h"
 #include "mode.h"
 #include "radio.h"
@@ -322,6 +325,20 @@ int pa_mic_cb(const void *inputBuffer, void *outputBuffer, unsigned long framesP
     return paContinue;
   }
 
+  //
+  // If we are a client, simply collect and transfer data
+  // to the server without any buffering
+  //
+#ifdef CLIENT_SERVER
+  if (radio_is_remote) {
+    for (unsigned int i = 0; i < framesPerBuffer; i++) {
+      short sample = in[i]*32768.0;
+      server_tx_audio(sample);
+    }
+    return paContinue;
+  }
+#endif
+  
   g_mutex_lock(&audio_mutex);
 
   if (mic_ring_buffer != NULL) {

@@ -195,7 +195,7 @@ extern int cw_not_ready;
 
 extern void   cw_hold_key(int state);
 
-extern void   tx_add_mic_sample(TRANSMITTER *tx, float mic_sample);
+extern void   tx_add_mic_sample(TRANSMITTER *tx, short next_mic_sample);
 extern void   tx_add_ps_iq_samples(const TRANSMITTER *tx, double i_sample_0, double q_sample_0, double i_sample_1,
                                    double q_sample_1);
 

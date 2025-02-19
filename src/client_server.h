@@ -44,10 +44,10 @@ enum _header_type_enum {
   INFO_BANDSTACK,
   INFO_MEMORY,
   INFO_SPECTRUM,
-  INFO_AUDIO,
+  INFO_RXAUDIO,
+  INFO_TXAUDIO,
   CMD_START_RADIO,
   CMD_SPECTRUM,
-  CMD_AUDIO,
   CMD_SAMPLE_RATE,
   CMD_LOCK,
   CMD_CTUN,
@@ -530,15 +530,27 @@ typedef struct __attribute__((__packed__)) _spectrum_data {
   mydouble alc;
   mydouble fwd;
   mydouble swr;
+  mydouble peak;
   uint16_t sample[SPECTRUM_DATA_SIZE];
 } SPECTRUM_DATA;
 
-typedef struct __attribute__((__packed__)) _audio_data {
+//
+// The difference between RX and TX audio is that the latter is mono
+// this is done to save Client==>Server bandwidth
+//
+typedef struct __attribute__((__packed__)) _txaudio_data {
+  HEADER header;
+  uint8_t rx;
+  uint16_t samples;
+  uint16_t sample[AUDIO_DATA_SIZE];
+} TXAUDIO_DATA;
+
+typedef struct __attribute__((__packed__)) _rxaudio_data {
   HEADER header;
   uint8_t rx;
   uint16_t samples;
   uint16_t sample[AUDIO_DATA_SIZE * 2];
-} AUDIO_DATA;
+} RXAUDIO_DATA;
 
 
 //
@@ -705,6 +717,8 @@ extern void send_adc(int s, int id, int adc);
 extern void send_radiomenu(int s);
 extern void send_rxmenu(int s, int id);
 
-extern void remote_audio(const RECEIVER *rx, short left_sample, short right_sample);
+extern void remote_rxaudio(const RECEIVER *rx, short left_sample, short right_sample);
+extern void server_tx_audio(short sample);
+extern short remote_get_mic_sample();
 
 #endif
