@@ -186,15 +186,6 @@ extern TRANSMITTER *tx_create_transmitter(int id, int pixels, int width, int hei
 void tx_create_dialog(TRANSMITTER *tx);
 void tx_reconfigure(TRANSMITTER *tx, int pixels, int width, int height);
 
-//
-// CW pulse shaper variables
-//
-extern int cw_key_up;
-extern int cw_key_down;
-extern int cw_not_ready;
-
-extern void   cw_hold_key(int state);
-
 extern void   tx_add_mic_sample(TRANSMITTER *tx, short next_mic_sample);
 extern void   tx_add_ps_iq_samples(const TRANSMITTER *tx, double i_sample_0, double q_sample_0, double i_sample_1,
                                    double q_sample_1);
@@ -241,6 +232,7 @@ extern void   tx_set_pre_emphasize(const TRANSMITTER *tx);
 extern void   tx_set_ramps(TRANSMITTER *tx);
 extern void   tx_set_singletone(const TRANSMITTER *tx, int state, double freq);
 extern void   tx_set_twotone(TRANSMITTER *tx, int state);
+extern void   tx_queue_cw_event(int state, int wait);
 
 #ifdef CLIENT_SERVER
   extern void tx_create_remote(TRANSMITTER *rx);

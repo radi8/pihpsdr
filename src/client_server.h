@@ -109,6 +109,8 @@ enum _header_type_enum {
   CMD_STORE,
   CMD_VFO_STEPSIZE,
   CMD_ADC,
+  CMD_CW,
+  CMD_SIDETONEFREQ,
   CMD_RADIOMENU,
   CMD_RXMENU,
   CMD_CWPEAK,
@@ -680,6 +682,8 @@ extern void send_filter_cut(int s, int rx);
 extern void send_cwpeak(int s, int id, int state);
 extern void send_split(int s, int state);
 extern void send_sat(int s, int sat);
+extern void send_cw(int s, int state,  int wait);
+extern void send_sidetone_freq(int s, int freq);
 extern void send_duplex(int s, int state);
 extern void send_ctun(int s, int vfo, int ctun);
 extern void send_display(int s, int id);

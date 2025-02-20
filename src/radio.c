@@ -2947,6 +2947,7 @@ int radio_remote_start(void *data) {
 
   radio_is_remote = TRUE;
   optimize_for_touchscreen = 1;
+  cw_keyer_internal = 0;
 
   switch (controller) {
   case CONTROLLER2_V1:

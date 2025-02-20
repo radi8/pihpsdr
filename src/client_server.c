@@ -1185,6 +1185,8 @@ static void server_loop() {
     case CMD_RCL:
     case CMD_STORE:
     case CMD_ADC:
+    case CMD_CW:
+    case CMD_SIDETONEFREQ:
     case CMD_ANAN10E:
     case CMD_CWPEAK:
     case CMD_RX_AGC: {
@@ -1643,6 +1645,15 @@ void send_filter_sel(int s, int v, int f) {
   send_bytes(s, (char *)&header, sizeof(HEADER));
 }
 
+void send_sidetone_freq(int s, int f) {
+  HEADER header;
+  header.sync = REMOTE_SYNC;
+  header.data_type = to_short(CMD_SIDETONEFREQ);
+  header.version = to_short(CLIENT_SERVER_VERSION);
+  header.s1 = f;
+  send_bytes(s, (char *)&header, sizeof(HEADER));
+}
+
 void send_cwpeak(int s, int v, int p) {
   HEADER header;
   header.sync = REMOTE_SYNC;
@@ -1659,6 +1670,20 @@ void send_split(int s, int state) {
   header.data_type = to_short(CMD_SPLIT);
   header.version = to_short(CLIENT_SERVER_VERSION);
   header.b1 = state;
+  send_bytes(s, (char *)&header, sizeof(HEADER));
+}
+
+void send_cw(int s, int state, int wait) {
+  //
+  // Send this in one header although wait may exceed a short
+  //
+  HEADER header;
+  header.sync = REMOTE_SYNC;
+  header.data_type = to_short(CMD_CW);
+  header.version = to_short(CLIENT_SERVER_VERSION);
+  header.b1  = state;
+  header.s1 = to_short(wait >> 12);
+  header.s2 = to_short(wait & 0xFFF);
   send_bytes(s, (char *)&header, sizeof(HEADER));
 }
 
@@ -3305,6 +3330,19 @@ static int remote_command(void *data) {
       send_tx_data(remoteclient.socket);
       send_rx_data(remoteclient.socket, 0);
     }
+  }
+  break;
+
+  case CMD_SIDETONEFREQ: {
+    cw_keyer_sidetone_frequency = from_short(header->b2);
+    rx_filter_changed(active_receiver);
+    schedule_high_priority();
+    g_idle_add(ext_vfo_update, NULL);
+  }
+  break;
+
+  case CMD_CW: {
+    tx_queue_cw_event(header->b1, (from_short(header->s1) << 12) | (from_short(header->s2) & 0xFFF));
   }
   break;
 

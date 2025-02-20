@@ -59,19 +59,18 @@
 #define max(x,y) (x<y?y:x)
 
 //
-// CW pulses are timed by the heart-beat of the mic samples.
-// Other parts of the program may produce CW RF pulses by manipulating
-// these global variables:
+// CW events: There is a ring buffer of CW events that
+// contain the state (key-up or key-down) and the minimum
+// time (in units of 1/48 msec) that has to pass since
+// the previous event has been executed. CW is done
+// exclusively by queuing CW events
 //
-// cw_key_up/cw_key_down: set number of samples for next key-down/key-up sequence
-//                        Any of these variable will only be set from outside if
-//                        both have value 0.
-// cw_not_ready:          set to 0 if transmitting in CW mode. This is used to
-//                        abort pending CAT CW messages if MOX or MODE is switched
-//                        manually.
-int cw_key_up = 0;
-int cw_key_down = 0;
-int cw_not_ready = 1;
+#define CW_RING_SIZE 1024
+static uint8_t cw_ring_state[CW_RING_SIZE];
+static int     cw_ring_wait[CW_RING_SIZE];
+static volatile int cw_ring_inpt = 0;
+static volatile int cw_ring_outpt = 0;
+
 
 double ctcss_frequencies[CTCSS_FREQUENCIES] = {
   67.0,  71.9,  74.4,  77.0,  79.7,  82.5,  85.4,  88.5,  91.5,  94.8,
@@ -1433,10 +1432,45 @@ static void tx_full_buffer(TRANSMITTER *tx) {
   }
 }
 
+void tx_queue_cw_event(int down, int wait) {
+  if (radio_is_remote) {
+#ifdef CLIENT_SERVER
+    send_cw(client_socket, down, wait);
+    return;
+#endif
+  }
+  //
+  // Put a CW event into the ring buffer
+  // If buffer is nearly full, only queue key-up events
+  //
+  int num, newpt;
+
+  if ((num = cw_ring_inpt - cw_ring_outpt) < 0) num += CW_RING_SIZE;
+
+  //
+  // If buffer is nearly full, make all events key-up
+  //
+  if (num + 16 > CW_RING_SIZE) { down = 0; }
+
+  newpt = cw_ring_inpt + 1;
+
+  if (newpt == CW_RING_SIZE) { newpt = 1; }
+
+  if (newpt != cw_ring_outpt) {
+    cw_ring_state[cw_ring_inpt] = down;
+    cw_ring_wait[cw_ring_inpt] = wait;
+    MEMORY_BARRIER;
+    cw_ring_inpt = newpt;
+  } else {
+    t_print("WARNING: CW ring buffer full.\n");
+  }
+}
+
 void tx_add_mic_sample(TRANSMITTER *tx, short next_mic_sample) {
   ASSERT_SERVER();
   int txmode = vfo_get_tx_mode();
   double mic_sample_double;
+  static int keydown = 0;   // 1: key-down, 0: key-up
   int i, j;
   //
   // If we have registered clients, the the TX audio data *exclusively*
@@ -1489,15 +1523,24 @@ void tx_add_mic_sample(TRANSMITTER *tx, short next_mic_sample) {
   }
 
   //
+  //  CW events are obtained from a ring buffer. The variable
+  //  cw_delay_time measures the time since the last CW event
+  //  (key-up or key-down). For QRS, it is increased up to
+  //  a maximum value of It is increased up do a maximum value
+  //  of 99999 (21 seconds). To protect the hardware, a
+  //  key-down is canceled at 960000 (20 seconds) anyway.
+  //
+  static int cw_delay_time = 0;
+
+  if (cw_delay_time < 9999999) {
+    cw_delay_time++;
+  }
+
+  //
   // shape CW pulses when doing CW and transmitting, else nullify them
   //
   if ((txmode == modeCWL || txmode == modeCWU) && radio_is_transmitting()) {
-    int updown;
     float cwsample;
-    //
-    //  'piHPSDR' CW sets the variables cw_key_up and cw_key_down
-    //  to the number of samples for the next down/up sequence.
-    //  cw_key_down can be zero, for inserting some space
     //
     //  We HAVE TO shape the signal to avoid hard clicks to be
     //  heard way beside our frequency. The envelope (ramp function)
@@ -1516,17 +1559,24 @@ void tx_add_mic_sample(TRANSMITTER *tx, short next_mic_sample) {
     //  we have to produce tx->ratio RF samples and one sidetone
     //  sample.
     //
-    cw_not_ready = 0;
-
-    if (cw_key_down > 0 ) {
-      cw_key_down--;            // decrement key-up counter
-      updown = 1;
-    } else {
-      if (cw_key_up > 0) {
-        cw_key_up--;  // decrement key-down counter
+    if (keydown && cw_delay_time > 960000) {
+      keydown = 0;
+    }
+    if (cw_ring_inpt != cw_ring_outpt) {
+      //
+      // There is data in the ring buffer
+      //
+      if (cw_delay_time >= cw_ring_wait[cw_ring_outpt]) {
+        //
+        // Next event ready to be executed
+        //
+        cw_delay_time = 0;
+        keydown = cw_ring_state[cw_ring_outpt];
+        int newpt = cw_ring_outpt + 1;
+        if (newpt >= CW_RING_SIZE) { newpt -= CW_RING_SIZE; }
+        MEMORY_BARRIER;
+        cw_ring_outpt = newpt;
       }
-
-      updown = 0;
     }
 
     //
@@ -1537,7 +1587,7 @@ void tx_add_mic_sample(TRANSMITTER *tx, short next_mic_sample) {
     if (g_mutex_trylock(&tx->cw_ramp_mutex)) {
       double val;
 
-      if (updown) {
+      if (keydown) {
         if (tx->cw_ramp_audio_ptr < tx->cw_ramp_audio_len) {
           tx->cw_ramp_audio_ptr++;
         }
@@ -1635,12 +1685,9 @@ void tx_add_mic_sample(TRANSMITTER *tx, short next_mic_sample) {
     //
     //  If no longer transmitting, or no longer doing CW: reset pulse shaper.
     //  This will also swallow any pending CW and wipe out the buffers
-    //  In order to tell rigctl etc. that CW should be aborted, we also use the cw_not_ready flag.
     //
-    cw_not_ready = 1;
-    cw_key_up = 0;
-
-    if (cw_key_down > 0) { cw_key_down--; }  // in case it occured before the RX/TX transition
+    keydown = 0;
+    cw_ring_inpt = cw_ring_outpt = 0;
 
     tx->cw_ramp_audio_ptr = 0;
     tx->cw_ramp_rf_ptr = 0;
