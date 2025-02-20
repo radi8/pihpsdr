@@ -687,8 +687,8 @@ void rx_panadapter_init(RECEIVER *rx, int width, int height) {
   g_signal_connect (rx->panadapter, "button-press-event", G_CALLBACK (panadapter_button_press_event_cb), rx);
   g_signal_connect (rx->panadapter, "button-release-event", G_CALLBACK (panadapter_button_release_event_cb), rx);
   //
-  // Note the scroll applies to both RX panels AND the vfo panel and will scroll the active receiver only
- //
+  // Note the scroll event is generated from  to both RX1/RX2 AND the vfo panel and will scroll the active receiver only
+  //
   g_signal_connect(rx->panadapter, "scroll_event", G_CALLBACK(panadapter_scroll_event_cb), NULL);
   /* Ask to receive events the drawing area doesn't normally
    * subscribe to. In particular, we need to ask for the
@@ -715,10 +715,14 @@ void display_panadapter_messages(cairo_t *cr, int width, unsigned int fps) {
     //
     // Are shown on display for 2 seconds
     //
+    // For the time being, most of this data
+    // (which needs high-frequency update) is
+    // not available on the client side
+    //
     cairo_set_source_rgba(cr, COLOUR_ALARM);
     cairo_set_font_size(cr, DISPLAY_FONT_SIZE2);
 
-    if (sequence_errors != 0) {
+    if (sequence_errors != 0 && !radio_is_remote) {
       static unsigned int sequence_error_count = 0;
       cairo_move_to(cr, 100.0, 50.0);
       cairo_show_text(cr, "Sequence Error");
@@ -730,7 +734,7 @@ void display_panadapter_messages(cairo_t *cr, int width, unsigned int fps) {
       }
     }
 
-    if (adc0_overload || adc1_overload) {
+    if ((adc0_overload || adc1_overload) && !radio_is_remote) {
       static unsigned int adc_error_count = 0;
       cairo_move_to(cr, 100.0, 70.0);
 
@@ -774,13 +778,13 @@ void display_panadapter_messages(cairo_t *cr, int width, unsigned int fps) {
 
     static unsigned int tx_fifo_count = 0;
 
-    if (tx_fifo_underrun) {
+    if (tx_fifo_underrun && !radio_is_remote) {
       cairo_move_to(cr, 100.0, 110.0);
       cairo_show_text(cr, "TX Underrun");
       tx_fifo_count++;
     }
 
-    if (tx_fifo_overrun) {
+    if (tx_fifo_overrun && !radio_is_remote) {
       cairo_move_to(cr, 100.0, 130.0);
       cairo_show_text(cr, "TX Overrun");
       tx_fifo_count++;
@@ -793,14 +797,14 @@ void display_panadapter_messages(cairo_t *cr, int width, unsigned int fps) {
     }
   }
 
-  if (TxInhibit) {
+  if (TxInhibit && !radio_is_remote) {
     cairo_set_source_rgba(cr, COLOUR_ALARM);
     cairo_set_font_size(cr, DISPLAY_FONT_SIZE3);
     cairo_move_to(cr, 100.0, 30.0);
     cairo_show_text(cr, "TX Inhibit");
   }
 
-  if (display_pacurr && radio_is_transmitting() && !TxInhibit) {
+  if (display_pacurr && radio_is_transmitting() && !TxInhibit && !radio_is_remote) {
     double v;  // value
     int flag;  // 0: dont, 1: do
     static unsigned int count = 0;

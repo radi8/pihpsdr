@@ -113,7 +113,8 @@ int start_spectrum(void *data);
 gboolean remote_started = FALSE;
 
 static GThread *listen_thread_id;
-static int server_running;
+static int server_running = 0;
+static int client_running = 0;
 static int listen_socket = -1;
 
 //
@@ -2015,7 +2016,7 @@ int destroy_hpsdr_server() {
 // every 100 milli seconds. TODO: do this for both receivers independently.
 //
 static int check_vfo(void *arg) {
-  if (!server_running) { return FALSE; }
+  if (!client_running) { return FALSE; }
 
   g_mutex_lock(&accumulated_mutex);
 
@@ -2071,7 +2072,7 @@ static void *client_thread(void* arg) {
   int bytes_read;
   HEADER header;
   char *server = (char *)arg;
-  int client_running = TRUE;
+  client_running = TRUE;
   //
   // Some settings/allocation must be made HERE
   //

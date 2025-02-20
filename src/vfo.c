@@ -2216,13 +2216,12 @@ GtkWidget* vfo_init(int width, int height) {
   g_signal_connect (vfo_panel, "draw",
                     G_CALLBACK (vfo_draw_cb), NULL);
   /* Event signals */
-  g_signal_connect (vfo_panel, "button-press-event",
-                    G_CALLBACK (vfo_press_event_cb), NULL);
-  g_signal_connect(vfo_panel, "scroll_event",
-                   G_CALLBACK(vfo_scroll_event_cb), NULL);
-  gtk_widget_set_events (vfo_panel, gtk_widget_get_events (vfo_panel)
-                         | GDK_BUTTON_PRESS_MASK
-                         | GDK_SCROLL_MASK);
+  g_signal_connect (vfo_panel, "button-press-event", G_CALLBACK (vfo_press_event_cb), NULL);
+  //
+  // Note the scroll event is generated from  to both RX1/RX2 AND the vfo panel and will scroll the active receiver only
+  //
+  g_signal_connect(vfo_panel, "scroll_event", G_CALLBACK(vfo_scroll_event_cb), NULL);
+  gtk_widget_set_events (vfo_panel, gtk_widget_get_events (vfo_panel) | GDK_BUTTON_PRESS_MASK | GDK_SCROLL_MASK);
   return vfo_panel;
 }
 
