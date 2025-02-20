@@ -1198,8 +1198,10 @@ static void tx_full_buffer(TRANSMITTER *tx) {
   if (cwmode) {
     //
     // clear VOX peak level in case is it non-zero.
+    // This prevents the "mic lvl" indicator in the VFO bar
+    // from freezing.
     //
-    clear_vox();
+    vox_clear();
     //
     // Note that WDSP is not needed, but we still call it (and discard the
     // results) since this  may help in correct slew-up and slew-down
@@ -1227,7 +1229,16 @@ static void tx_full_buffer(TRANSMITTER *tx) {
     // Old VOX code, to be applied BEFORE FM preemphasis
     // and the downward expander
     //
-    update_vox(tx);
+    double mypeak = 0.0;
+
+    for (int i = 0; i < tx->buffer_size; i++) {
+      double sample = tx->mic_input_buffer[2 * i];
+
+       if (sample > mypeak) { mypeak = sample; }
+
+       if (-sample > mypeak) { mypeak = sample; }
+    }
+    vox_update(mypeak);
 
     //
     // DL1YCF:
@@ -1248,7 +1259,7 @@ static void tx_full_buffer(TRANSMITTER *tx) {
     // compensated by ALC, so it is important to have FM pre-emphasis
     // before ALC (checkbox in tx_menu checked, that is, pre_emphasis==0).
     //
-    // Note that mic sample amplification has to be done after update_vox()
+    // Note that mic sample amplification has to be done after vox_update()
     //
     if (txmode == modeFMN && !tune) {
       for (int i = 0; i < 2 * tx->samples; i += 2) {
@@ -1431,9 +1442,9 @@ void tx_add_mic_sample(TRANSMITTER *tx, short next_mic_sample) {
   // If we have registered clients, the the TX audio data *exclusively*
   // comes from the client
   //
-  if (remoteclients != NULL) {
+  if (remoteclient.running) {
 #ifdef CLIENT_SERVER
-    mic_sample_double = remote_get_mic_sample() * 0.0003051;  // divide by 32768;
+    mic_sample_double = remote_get_mic_sample() * 0.00003051;  // divide by 32768;
 #else
     mic_sample_double = 0.0;
 #endif

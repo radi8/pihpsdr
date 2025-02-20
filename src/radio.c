@@ -125,7 +125,7 @@ int soapy_radio_sample_rate;   // alias for radio->info.soapy.sample_rate
 gboolean soapy_iqswap;
 
 DISCOVERED *radio = NULL;
-gboolean radio_is_remote = FALSE;     // only used with CLIENT_SERVER
+int radio_is_remote = FALSE;     // only used with CLIENT_SERVER
 
 static char property_path[128];
 static GMutex property_mutex;
@@ -2002,10 +2002,19 @@ void radio_tune_update(int state) {
 }
 
 #ifdef CLIENT_SERVER
+void radio_remote_set_vox(int state) {
+  if (state != radio_is_transmitting()) {
+    rxtx(state);
+  }
+  mox = 0;
+  tune = 0;
+  vox = state;
+}
 void radio_remote_set_mox(int state) {
   if (state != radio_is_transmitting()) {
     rxtx(state);
   }
+  vox_cancel();  // remove time-out
   mox = state;
   tune = 0;
   vox = 0;
@@ -2071,15 +2080,8 @@ void radio_set_mox(int state) {
   tune = 0;
   vox  = 0;
 
-  switch (protocol) {
-  case NEW_PROTOCOL:
-    schedule_high_priority();
-    schedule_receive_specific();
-    break;
-
-  default:
-    break;
-  }
+  schedule_high_priority();
+  schedule_receive_specific();
 }
 
 int radio_get_mox() {
@@ -2087,7 +2089,6 @@ int radio_get_mox() {
 }
 
 void radio_set_vox(int state) {
-  ASSERT_SERVER();
   //t_print("%s: mox=%d vox=%d tune=%d NewState=%d\n", __FUNCTION__, mox,vox,tune,state);
   if (!can_transmit) { return; }
 
@@ -2095,13 +2096,19 @@ void radio_set_vox(int state) {
 
   if (state && TxInhibit) { return; }
 
-  if (vox != state) {
-    rxtx(state);
+  if (radio_is_remote) {
+#ifdef CLIENT_SERVER
+    send_vox(client_socket, state);
+#endif
+    return;
   }
 
-  vox = state;
-  schedule_high_priority();
-  schedule_receive_specific();
+  if (vox != state) {
+    rxtx(state);
+    vox = state;
+    schedule_high_priority();
+    schedule_receive_specific();
+  }
 }
 
 void radio_set_twotone(TRANSMITTER *tx, int state) {
@@ -2597,6 +2604,9 @@ static void radio_restore_state() {
   GetPropI0("vfo_encoder_divisor",                           vfo_encoder_divisor);
   GetPropI0("mute_rx_while_transmitting",                    mute_rx_while_transmitting);
   GetPropI0("analog_meter",                                  analog_meter);
+  GetPropI0("vox_enabled",                                   vox_enabled);
+  GetPropF0("vox_threshold",                                 vox_threshold);
+  GetPropF0("vox_hang",                                      vox_hang);
 
 #ifdef CLIENT_SERVER
   GetPropI0("radio.hpsdr_server",                            hpsdr_server);
@@ -2657,9 +2667,6 @@ static void radio_restore_state() {
     GetPropI0("OCtune",                                      OCtune);
     GetPropI0("OCfull_tune_time",                            OCfull_tune_time);
     GetPropI0("OCmemory_tune_time",                          OCmemory_tune_time);
-    GetPropI0("vox_enabled",                                 vox_enabled);
-    GetPropF0("vox_threshold",                               vox_threshold);
-    GetPropF0("vox_hang",                                    vox_hang);
     GetPropI0("calibration",                                 frequency_calibration);
     GetPropI0("receivers",                                   receivers);
     GetPropI0("iqswap",                                      soapy_iqswap);
@@ -2809,6 +2816,9 @@ void radio_save_state() {
   SetPropI0("vfo_encoder_divisor",                           vfo_encoder_divisor);
   SetPropI0("mute_rx_while_transmitting",                    mute_rx_while_transmitting);
   SetPropI0("analog_meter",                                  analog_meter);
+  SetPropI0("vox_enabled",                                   vox_enabled);
+  SetPropF0("vox_threshold",                                 vox_threshold);
+  SetPropF0("vox_hang",                                      vox_hang);
 
 #ifdef CLIENT_SERVER
   SetPropI0("radio.hpsdr_server",                            hpsdr_server);
@@ -2869,9 +2879,6 @@ void radio_save_state() {
     SetPropI0("OCtune",                                      OCtune);
     SetPropI0("OCfull_tune_time",                            OCfull_tune_time);
     SetPropI0("OCmemory_tune_time",                          OCmemory_tune_time);
-    SetPropI0("vox_enabled",                                 vox_enabled);
-    SetPropF0("vox_threshold",                               vox_threshold);
-    SetPropF0("vox_hang",                                    vox_hang);
     SetPropI0("calibration",                                 frequency_calibration);
     SetPropI0("receivers",                                   receivers);
     SetPropI0("iqswap",                                      soapy_iqswap);

@@ -26,6 +26,7 @@
   extern int ext_remote_set_pan(void *data);
   extern int ext_radio_remote_change_receivers(void *data);
   extern int ext_radio_remote_set_mox(void *data);
+  extern int ext_radio_remote_set_vox(void *data);
   extern int ext_radio_remote_set_tune(void *data);
 #endif
 

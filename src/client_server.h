@@ -97,6 +97,7 @@ enum _header_type_enum {
   CMD_RX_DISPLAY,
   CMD_TX_DISPLAY,
   CMD_PTT,
+  CMD_VOX,
   CMD_TUNE,
   CMD_TWOTONE,
   CMD_MICGAIN,
@@ -122,16 +123,12 @@ enum _header_type_enum {
 #define REMOTE_SYNC (uint16_t)0xFAFA
 
 typedef struct _remote_client {
-  gboolean running;
+  int running;
   int socket;
   socklen_t address_length;
   struct sockaddr_in address;
-  GThread *thread_id;
-  CLIENT_STATE state;
-  int receivers;
   guint spectrum_update_timer_id;
   int send_spectrum[10];  // slot #8 is for the transmitter
-  void *next;
 } REMOTE_CLIENT;
 
 typedef struct __attribute__((__packed__)) _header {
@@ -147,12 +144,6 @@ typedef struct __attribute__((__packed__)) _header {
   uint8_t b2;
   uint16_t s1;
   uint16_t s2;
-  union {
-    // The payload can be used by some variable-length
-    // commands such as INFO_SPECTRUM
-    uint64_t payload;
-    REMOTE_CLIENT *client;
-  } context;
 } HEADER;
 
 //
@@ -294,7 +285,6 @@ typedef struct __attribute__((__packed__)) _radio_data {
   uint8_t  mic_input_xlr;
   uint8_t  cw_keyer_sidetone_volume;
   uint8_t  OCtune;
-  uint8_t  vox_enabled;
   uint8_t  mute_rx_while_transmitting;
   uint8_t  mute_spkr_amp;
   uint8_t  adc0_filter_bypass;
@@ -321,8 +311,6 @@ typedef struct __attribute__((__packed__)) _radio_data {
   uint16_t tx_filter_high;
   uint16_t display_width;
 //
-  mydouble vox_threshold;
-  mydouble vox_hang;
   mydouble drive_digi_max;
   mydouble pa_trim[11];
 //
@@ -530,7 +518,6 @@ typedef struct __attribute__((__packed__)) _spectrum_data {
   mydouble alc;
   mydouble fwd;
   mydouble swr;
-  mydouble peak;
   uint16_t sample[SPECTRUM_DATA_SIZE];
 } SPECTRUM_DATA;
 
@@ -637,7 +624,7 @@ extern int start_spectrum(void *data);
 extern void start_vfo_timer(void);
 extern gboolean remote_started;
 
-extern REMOTE_CLIENT *remoteclients;
+extern REMOTE_CLIENT remoteclient;
 
 extern int listen_port;
 
@@ -684,6 +671,7 @@ extern void send_band_data(int s, int band);
 extern void send_bandstack_data(int s, int band, int stack);
 extern void send_mode(int s, int rx, int mode);
 extern void send_ptt(int s, int state);
+extern void send_vox(int s, int state);
 extern void send_tune(int s, int state);
 extern void send_twotone(int s, int state);
 extern void send_filter_sel(int s, int vfo, int filter);

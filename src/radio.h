@@ -50,7 +50,7 @@ enum _pa_power_enum {
 #define TOGGLE(a) a = (a) ? 0 : 1
 
 extern DISCOVERED *radio;
-extern gboolean radio_is_remote;
+extern int radio_is_remote;
 
 extern GtkWidget *fixed;
 
@@ -301,7 +301,6 @@ extern void   radio_reconfigure(void);
 extern void   radio_reconfigure_screen(void);
 extern void   radio_start_radio(void);
 extern void   radio_change_receivers(int r);
-extern void   radio_remote_change_receivers(int r);
 extern void   radio_change_sample_rate(int rate);
 extern void   radio_set_alex_antennas(void);
 extern void   radio_tx_vfo_changed(void);
@@ -336,8 +335,10 @@ extern void   radio_set_anan10E(int new);
 extern int compare_doubles(const void *a, const void *b);
 
 #ifdef CLIENT_SERVER
-  extern int radio_remote_start(void *data);
+  extern void radio_remote_change_receivers(int r);
+  extern int  radio_remote_start(void *data);
   extern void radio_remote_set_mox(int state);
+  extern void radio_remote_set_vox(int state);
   extern void radio_remote_set_tune(int state);
   extern void radio_remote_set_twotone(int state);
 #endif

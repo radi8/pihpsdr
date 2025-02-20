@@ -40,38 +40,24 @@ static int vox_timeout_cb(gpointer data) {
   return FALSE;
 }
 
-void vox_set_peak(double value) {
-  //
-  // only used on the client side
-  //
-  peak = value;
-}
-
 double vox_get_peak() {
   double result = peak;
   return result;
 }
 
-void clear_vox() {
+void vox_clear() {
   peak = 0.0;
 }
 
-void update_vox(TRANSMITTER *tx) {
-  // calculate peak microphone input
-  // assumes it is interleaved left and right channel with length samples
-  peak = 0.0;
+void vox_update(double lvl) {
+  peak = lvl;
 
-  for (int i = 0; i < tx->buffer_size; i++) {
-    double sample = tx->mic_input_buffer[i * 2];
-
-    if (sample < 0.0) {
-      sample = -sample;
-    }
-
-    if (sample > peak) {
-      peak = sample;
-    }
-  }
+#ifdef CLIENT_SERVER
+  //
+  // As long as a client controls us, VOX is done there
+  // 
+  if (remoteclient.running) { return; }
+#endif
 
   if (vox_enabled && !mox && !tune && !TxInhibit) {
     if (peak > vox_threshold) {

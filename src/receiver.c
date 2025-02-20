@@ -1123,7 +1123,7 @@ static void rx_process_buffer(RECEIVER *rx) {
 
 #ifdef CLIENT_SERVER
 
-    if (remoteclients != NULL) {
+    if (remoteclient.running) {
       remote_rxaudio(rx, left_audio_sample, right_audio_sample);
     }
 

@@ -161,6 +161,12 @@ int ext_radio_remote_set_mox(void *data) {
   return G_SOURCE_REMOVE;
 }
 
+int ext_radio_remote_set_vox(void *data) {
+  int val= GPOINTER_TO_INT(data);
+  radio_remote_set_vox(val);
+  return G_SOURCE_REMOVE;
+}
+
 int ext_remote_set_zoom(void *data) {
   int zoom = GPOINTER_TO_INT(data);
   remote_set_zoom(active_receiver->id, (double)zoom);
