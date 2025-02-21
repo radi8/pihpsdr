@@ -31,6 +31,9 @@
 #include <alsa/asoundlib.h>
 
 #include "audio.h"
+#ifdef CLIENT_SERVER
+#include "client_server.h"
+#endif
 #include "message.h"
 #include "mode.h"
 #include "radio.h"
@@ -677,6 +680,18 @@ static void *mic_read_thread(gpointer arg) {
           sample = 0.0;
           break;
         }
+
+#ifdef CLIENT_SERVER
+        //
+        // If we are a client, simply collect and transfer data
+        // to the server without any buffering
+        //
+        if (radio_is_remote) {
+          short s = sample*32767.0;
+          server_tx_audio(s);
+        }
+        continue;
+#endif
 
         //
         // put sample into ring buffer
