@@ -2381,7 +2381,9 @@ void vfo_id_rit_incr(int id, int incr) {
 //
 void vfo_id_set_frequency(int v, long long f) {
   if (radio_is_remote) {
+#ifdef CLIENT_SERVER
      send_vfo_frequency(client_socket, v, f);
+#endif
      return;
   }
   //

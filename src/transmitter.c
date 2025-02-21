@@ -1472,32 +1472,32 @@ void tx_add_mic_sample(TRANSMITTER *tx, short next_mic_sample) {
   double mic_sample_double;
   static int keydown = 0;   // 1: key-down, 0: key-up
   int i, j;
-  //
-  // If we have registered clients, the the TX audio data *exclusively*
-  // comes from the client
-  //
-  if (remoteclient.running) {
-#ifdef CLIENT_SERVER
-    mic_sample_double = remote_get_mic_sample() * 0.00003051;  // divide by 32768;
-#else
-    mic_sample_double = 0.0;
-#endif
-  } else {
-    mic_sample_double = (double)next_mic_sample * 0.0003051;  // divide by 32768
 
-    //
-    // If we have local tx microphone, *replace* the sample by data
-    // from the sound card. In this case *add* both radio and sound card
-    // samples if PTT comes from the radio.
-    //
-    if (tx->local_microphone) {
-      if (radio_ptt) {
-        mic_sample_double += audio_get_next_mic_sample();
-      } else {
-        mic_sample_double = audio_get_next_mic_sample();
-      }
+  mic_sample_double = (double)next_mic_sample * 0.0003051;  // divide by 32768
+
+  //
+  // If we have local tx microphone, we normally *replace* the sample by data
+  // from the sound card. However, if PTT comes from  the radio, we  *add* both
+  // radio and sound card samples.
+  // This "trick" allows us to switch between SSB (with microphone attached to the
+  // radio) and DIGI (using a virtual audio cable) without going to the TX  menu.
+  //
+  if (tx->local_microphone) {
+    if (radio_ptt) {
+      mic_sample_double += audio_get_next_mic_sample();
+    } else {
+      mic_sample_double = audio_get_next_mic_sample();
     }
   }
+
+#ifdef CLIENT_SERVER
+  //
+  // If we have a client, it overwrites 'local' microphone data.
+  //
+  if (remoteclient.running) {
+    mic_sample_double = remote_get_mic_sample() * 0.00003051;  // divide by 32768;
+  }
+#endif
 
   // If there is captured data to re-play, replace incoming
   // mic samples by captured data.

@@ -56,25 +56,24 @@ enum _header_type_enum {
   CMD_DUP,
   CMD_STEP,
   CMD_RECEIVERS,
-  CMD_RX_FREQ,
-  CMD_RX_STEP,
-  CMD_RX_MOVE,
-  CMD_RX_MOVETO,
-  CMD_RX_BAND,               // short command: vfo=b1, band=b2
-  CMD_RX_BANDSTACK,          // short command: stack=b1
-  CMD_RX_MODE,               // short command: vfo=b1, mode=b2
-  CMD_RX_FILTER_SEL,         // short command: vfo=b1, filter=b2
-  CMD_RX_FILTER_VAR,         // short command: mode=b1, filter=b2, low=s1, high=s2
-  CMD_RX_FILTER_CUT,         // short command: rx=b1, low=s1, high=s2
-  CMD_RX_AGC,
-  CMD_RX_NOISE,
-  CMD_RX_ZOOM,
-  CMD_RX_PAN,
-  CMD_RX_VOLUME,
-  CMD_RX_AGC_GAIN,
-  CMD_RX_ATTENUATION,
-  CMD_RX_GAIN,
-  CMD_RX_SQUELCH,
+  CMD_FREQ,
+  CMD_MOVE,
+  CMD_MOVETO,
+  CMD_BAND,               // short command: vfo=b1, band=b2
+  CMD_BANDSTACK,          // short command: stack=b1
+  CMD_MODE,               // short command: vfo=b1, mode=b2
+  CMD_FILTER_SEL,         // short command: vfo=b1, filter=b2
+  CMD_FILTER_VAR,         // short command: mode=b1, filter=b2, low=s1, high=s2
+  CMD_FILTER_CUT,         // short command: rx=b1, low=s1, high=s2
+  CMD_AGC,
+  CMD_NOISE,
+  CMD_ZOOM,
+  CMD_PAN,
+  CMD_VOLUME,
+  CMD_AGC_GAIN,
+  CMD_ATTENUATION,
+  CMD_RFGAIN,
+  CMD_SQUELCH,
   CMD_FPS,                   // short command: id=b1, fps=b2
   CMD_RX_SELECT,             // short command: rx=b1
   CMD_VFO_A_TO_B,            // short command: no parameters
@@ -115,6 +114,14 @@ enum _header_type_enum {
   CMD_RXMENU,
   CMD_CWPEAK,
   CMD_DIVERSITY,
+  CMD_CTCSS,
+  CMD_DEXP,
+  CMD_COMPRESSOR,
+  CMD_DIGIMAX,
+  CMD_PREEMP,
+  CMD_TXFILTER,
+  CMD_TXMENU,
+  CMD_AMCARRIER,
   CLIENT_SERVER_COMMANDS,
 };
 
@@ -180,7 +187,9 @@ typedef struct __attribute__((__packed__)) _radiomenu_data {
 
 //
 // This is the data changed in the RX  menu
-// which requires no special processing. Some variables
+// which requires no special processing in P1
+// and not more than "packet schedules" in P2.
+// Some variables
 // (like dither) are associated with the receiver #id,
 // but we also find global data such as the ADC bypass
 // options.
@@ -194,6 +203,21 @@ typedef struct __attribute__((__packed__)) _rxmenu_data {
   uint8_t adc0_filter_bypass;
   uint8_t adc1_filter_bypass;
 } RXMENU_DATA;
+
+//
+// This is data from the TX menu that requires no special 
+// processing in P1 (but possibly packet schedules in P2).
+//
+typedef struct __attribute__((__packed__)) _txmenu_data {
+  HEADER header;
+  uint8_t  tune_drive;
+  uint8_t  tune_use_drive;
+  uint8_t  swr_protection;
+  uint8_t  mic_boost;
+  uint8_t  mic_linein;
+  mydouble linein_gain;
+  mydouble swr_alarm;
+} TXMENU_DATA;
 
 //
 // All the data associated with a BAND (note that "current"
@@ -322,6 +346,40 @@ typedef struct __attribute__((__packed__)) _radio_data {
   uint64_t radio_frequency_max;
 } RADIO_DATA;
 
+//
+// This is all the data that will be used by
+// a tx_set_compressor() call on the server side
+//
+typedef struct __attribute__((__packed__)) _compressor_data {
+  HEADER header;
+  uint8_t  compressor;
+  uint8_t  cfc;
+  uint8_t  cfc_eq;
+  mydouble compressor_level;
+  mydouble cfc_freq[11];
+  mydouble cfc_lvl[11];
+  mydouble cfc_post[11];
+} COMPRESSOR_DATA;
+
+//
+// This is all the data that will be used by a
+// tx_set_dexp() call on the server side
+//
+typedef struct __attribute__((__packed__)) _dexp_data {
+  HEADER header;
+  uint8_t  dexp;
+  uint8_t  dexp_filter;
+  uint16_t dexp_trigger;
+  uint16_t dexp_exp;
+  uint16_t dexp_filter_low;
+  uint16_t dexp_filter_high;
+  mydouble dexp_tau;
+  mydouble dexp_attack;
+  mydouble dexp_release;
+  mydouble dexp_hold;
+  mydouble dexp_hyst;
+} DEXP_DATA;
+
 typedef struct __attribute__((__packed__)) _dac_data {
   HEADER header;
   uint8_t antenna;
@@ -377,6 +435,7 @@ typedef struct __attribute__((__packed__)) _transmitter_data {
   uint8_t  eq_enable;
   uint8_t  alcmode;
 //
+  uint16_t fps;
   uint16_t dexp_filter_low;
   uint16_t dexp_filter_high;
   uint16_t dexp_trigger;
@@ -520,12 +579,13 @@ typedef struct __attribute__((__packed__)) _spectrum_data {
   mydouble alc;
   mydouble fwd;
   mydouble swr;
+//
   uint16_t sample[SPECTRUM_DATA_SIZE];
 } SPECTRUM_DATA;
 
 //
 // The difference between RX and TX audio is that the latter is mono
-// this is done to save Client==>Server bandwidth
+// (this saves Client==>Server bandwidth)
 //
 typedef struct __attribute__((__packed__)) _txaudio_data {
   HEADER header;
@@ -695,6 +755,8 @@ extern void send_rit_value(int s, int rx, int ritval);
 extern void send_rit_incr(int s, int rx, int incr);
 extern void send_xit_toggle(int s);
 extern void send_xit_clear(int s);
+extern void send_tx_compressor(int s);
+extern void send_dexp(int s);
 extern void send_xit(int s, int xit);
 extern void send_sample_rate(int s, int rx, int sample_rate);
 extern void send_receivers(int s, int receivers);
@@ -708,6 +770,12 @@ extern void send_anan10E(int s, int new);
 extern void send_adc(int s, int id, int adc);
 extern void send_radiomenu(int s);
 extern void send_rxmenu(int s, int id);
+extern void send_preemp(int s);
+extern void send_txfilter(int s);
+extern void send_txmenu(int s);
+extern void send_ctcss(int s);
+extern void send_digidrivemax(int s);
+extern void send_am_carrier(int s);
 
 extern void remote_rxaudio(const RECEIVER *rx, short left_sample, short right_sample);
 extern void server_tx_audio(short sample);
