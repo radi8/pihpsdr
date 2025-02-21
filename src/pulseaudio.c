@@ -22,6 +22,9 @@
 #include <pulse/simple.h>
 
 #include "audio.h"
+#ifdef CLIENT_SERVER
+#include "client_server.h"
+#endif
 #include "message.h"
 #include "mode.h"
 #include "radio.h"
