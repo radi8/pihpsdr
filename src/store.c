@@ -145,7 +145,6 @@ void recall_memory_slot(int index) {
     vfo[id].filter         = mem[index].filter;
     vfo[id].deviation      = mem[index].deviation;
     vfo[id].lo             = band->frequencyLO + band->errorLO;
- 
   } else {
     int b                  = mem[index].bd;
     int oldmode            = vfo[VFO_A].mode;
