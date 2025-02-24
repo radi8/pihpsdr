@@ -86,8 +86,11 @@ typedef struct _transmitter {
   int puresignal;
   int feedback;
   int auto_on;
-  int pscorr; // PS info14 status
 
+  int psinfo[16];
+  double ps_getmx;
+  double ps_getpk;
+  double ps_setpk;
   // PS 2.0 parameters
   double ps_ampdelay;
   int    ps_ints;
@@ -197,16 +200,15 @@ extern int    tx_get_pixels(TRANSMITTER *tx);
 extern void   tx_off(const TRANSMITTER *tx);
 extern void   tx_on(const TRANSMITTER *tx);
 
-extern void   tx_ps_getinfo(const TRANSMITTER *tx, int *info);
-extern double tx_ps_getmx(const TRANSMITTER *tx);
-extern double tx_ps_getpk(const TRANSMITTER *tx);
+extern void   tx_ps_getinfo(TRANSMITTER *tx);
+extern void   tx_ps_getmx(TRANSMITTER *tx);
+extern void   tx_ps_getpk(TRANSMITTER *tx);
 extern void   tx_ps_mox(const TRANSMITTER *tx, int state);
 extern void   tx_ps_onoff(TRANSMITTER *tx, int state);
 extern void   tx_ps_reset(const TRANSMITTER *tx);
 extern void   tx_ps_resume(const TRANSMITTER *tx);
 extern void   tx_ps_set_sample_rate(const TRANSMITTER *tx, int rate);
 extern void   tx_ps_setparams(const TRANSMITTER *tx);
-extern void   tx_ps_setpk(const TRANSMITTER *tx, double pk);
 
 extern void   tx_save_state(const TRANSMITTER *tx);
 extern void   tx_restore_state(TRANSMITTER *tx);

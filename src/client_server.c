@@ -389,7 +389,6 @@ static int send_spectrum(void *arg) {
 
     } else if (can_transmit) {
       tx = transmitter;
-      spectrum_data.pscorr = tx->pscorr;
       spectrum_data.alc   = to_double(tx->alc);
       spectrum_data.fwd   = to_double(tx->fwd);
       spectrum_data.swr   = to_double(tx->swr);
@@ -427,6 +426,28 @@ static int send_spectrum(void *arg) {
 
       spectrum_data.header.s1 = to_short(payload);
       send_bytes(remoteclient.socket, (char *)&spectrum_data, xferlen);
+    }
+  }
+
+  //
+  // Use this periodic function to update PS info
+  //
+  if (can_transmit) {
+    if (transmitter->puresignal) {
+      PS_DATA ps_data;
+      ps_data.header.sync = REMOTE_SYNC;
+      ps_data.header.data_type = to_short(INFO_PS);
+      ps_data.header.version = to_short(CLIENT_SERVER_VERSION);
+      tx_ps_getinfo(transmitter);
+      for (int i = 0; i < 16; i++) {
+        ps_data.psinfo[i] = to_short(transmitter->psinfo[i]);
+      }
+      ps_data.attenuation = to_short(transmitter->attenuation);
+      tx_ps_getpk(transmitter);
+      ps_data.ps_getpk = to_double(transmitter->ps_getpk);
+      tx_ps_getmx(transmitter);
+      ps_data.ps_getmx = to_double(transmitter->ps_getmx);
+      send_bytes(remoteclient.socket, (char *)&ps_data, sizeof(PS_DATA));
     }
   }
 
@@ -486,14 +507,26 @@ void send_memory_data(int sock, int index) {
   data.header.sync = REMOTE_SYNC;
   data.header.data_type = to_short(INFO_MEMORY);
   data.header.version = to_short(CLIENT_SERVER_VERSION);
-  data.index          = index;
-  data.ctun           = mem[index].ctun;
-  data.mode           = mem[index].mode;
-  data.filter         = mem[index].filter;
-  data.ctcss_enabled  = mem[index].filter;
-  data.ctcss          = mem[index].bd;
-  data.frequency      = to_ll(mem[index].frequency);
-  data.ctun_frequency = to_ll(mem[index].ctun_frequency);
+  data.index              = index;
+  data.sat_mode           = mem[index].sat_mode;
+  data.ctun               = mem[index].ctun;
+  data.mode               = mem[index].mode;
+  data.filter             = mem[index].filter;
+  data.bd                 = mem[index].bd;
+  data.alt_ctun           = mem[index].alt_ctun;
+  data.alt_mode           = mem[index].alt_mode;
+  data.alt_filter         = mem[index].alt_filter;
+  data.alt_bd             = mem[index].alt_bd;
+  data.ctcss_enabled      = mem[index].ctcss_enabled;
+  data.ctcss              = mem[index].ctcss;
+//
+  data.deviation          = to_short(mem[index].deviation);
+  data.alt_deviation      = to_short(mem[index].alt_deviation);
+//
+  data.frequency          = to_ll(mem[index].frequency);
+  data.ctun_frequency     = to_ll(mem[index].ctun_frequency);
+  data.alt_frequency      = to_ll(mem[index].frequency);
+  data.alt_ctun_frequency = to_ll(mem[index].ctun_frequency);
   send_bytes(sock, (char *)&data, sizeof(MEMORY_DATA));
 }
 
@@ -712,6 +745,7 @@ void send_tx_data(int sock) {
     data.dexp_hyst =  to_double(tx->dexp_hyst);
     data.mic_gain =  to_double(tx->mic_gain);
     data.compressor_level =  to_double(tx->compressor_level);
+    data.am_carrier_level = to_double(tx->am_carrier_level);
     data.display_average_time =  to_double(tx->display_average_time);
     data.ps_ampdelay =  to_double(tx->ps_ampdelay);
     data.ps_moxdelay =  to_double(tx->ps_moxdelay);
@@ -1137,6 +1171,15 @@ static void server_loop() {
     }
     break;
 
+    case CMD_PSPARAMS: {
+      PS_PARAMS *command = g_new(PS_PARAMS, 1);
+      command->header = header;
+
+      if (recv_bytes(remoteclient.socket, (char *)command + sizeof(HEADER), sizeof(PS_PARAMS) - sizeof(HEADER)) > 0) {
+        g_idle_add(remote_command, command);
+      }
+    }
+    break;
     //
     // All commands with a single  "double" in the body
     //
@@ -1226,6 +1269,10 @@ static void server_loop() {
     case CMD_SIDETONEFREQ:
     case CMD_ANAN10E:
     case CMD_CWPEAK:
+    case CMD_PSONOFF:
+    case CMD_PSRESUME:
+    case CMD_PSRESET:
+    case CMD_PSATT:
     case CMD_AGC: {
       HEADER *command = g_new(HEADER, 1);
       *command = header;
@@ -1814,6 +1861,58 @@ void send_preemp(int s) {
   }
 }
 
+void send_psparams(int s, const TRANSMITTER *tx) {
+  PS_PARAMS params;
+  params.header.sync = REMOTE_SYNC;
+  params.header.data_type = to_short(CMD_PSPARAMS);
+  params.header.version = to_short(CLIENT_SERVER_VERSION);
+  params.ps_ptol = tx->ps_ptol;
+  params.ps_oneshot = tx->ps_oneshot;
+  params.ps_map = tx->ps_map;
+  params.ps_setpk = to_double(tx->ps_setpk);
+  send_bytes(s, (char *)&params, sizeof(PS_PARAMS));
+}
+
+void send_psresume(int s) {
+  HEADER header;
+  header.sync = REMOTE_SYNC;
+  header.data_type = to_short(CMD_PSRESUME);
+  header.version = to_short(CLIENT_SERVER_VERSION);
+  send_bytes(s, (char *)&header, sizeof(HEADER));
+}
+
+void send_psreset(int s) {
+  HEADER header;
+  header.sync = REMOTE_SYNC;
+  header.data_type = to_short(CMD_PSRESET);
+  header.version = to_short(CLIENT_SERVER_VERSION);
+  send_bytes(s, (char *)&header, sizeof(HEADER));
+}
+
+void send_psonoff(int s, int state) {
+  HEADER header;
+  header.sync = REMOTE_SYNC;
+  header.data_type = to_short(CMD_PSONOFF);
+  header.version = to_short(CLIENT_SERVER_VERSION);
+  header.b1 = state;
+  send_bytes(s, (char *)&header, sizeof(HEADER));
+}
+
+void send_psatt(int s) {
+  //
+  // This sends TX attenuation, PS auto-att, feedback, and PS ant
+  if (can_transmit) {
+    HEADER header;
+    header.sync = REMOTE_SYNC;
+    header.data_type = to_short(CMD_PSATT);
+    header.b1 = transmitter->auto_on;
+    header.b2 = transmitter->feedback;
+    header.s1 = to_short(transmitter->attenuation);
+    header.s2 = to_short(receiver[PS_RX_FEEDBACK]->alex_antenna);
+    send_bytes(s, (char *)&header, sizeof(HEADER));
+  }
+}
+
 void send_split(int s, int state) {
   HEADER header;
   header.sync = REMOTE_SYNC;
@@ -2304,19 +2403,43 @@ static void *client_thread(void* arg) {
     }
 
     switch (from_short(header.data_type)) {
+    case INFO_PS: {
+      if (can_transmit) {
+        PS_DATA data;
+        if (recv_bytes(client_socket, (char *)&data + sizeof(HEADER), sizeof(data) - sizeof(HEADER)) < 0) { return NULL; }
+
+        for (int i = 0; i < 16; i++) {
+          transmitter->psinfo[i] = from_short(data.psinfo[i]);
+        }
+        transmitter->attenuation = from_short(data.attenuation);
+        transmitter->ps_getmx = from_double(data.ps_getmx);
+        transmitter->ps_getpk = from_double(data.ps_getpk);
+      }
+    }
+    break;
+
     case INFO_MEMORY: {
       MEMORY_DATA data;
       if (recv_bytes(client_socket, (char *)&data + sizeof(HEADER), sizeof(data) - sizeof(HEADER)) < 0) { return NULL; }
 
       int index = data.index;
-      mem[index].ctun = data.ctun;
-      mem[index].mode = data.mode;
-      mem[index].filter = data.filter;
-      mem[index].ctcss_enabled = data.ctcss_enabled;
-      mem[index].ctcss = data.ctcss;
-      mem[index].bd = data.bd;
-      mem[index].frequency = from_ll(data.frequency);
-      mem[index].ctun_frequency = from_ll(data.ctun_frequency);
+      mem[index].sat_mode           = data.sat_mode;
+      mem[index].ctun               = data.ctun;
+      mem[index].mode               = data.mode;
+      mem[index].filter             = data.filter;
+      mem[index].bd                 = data.bd;
+      mem[index].alt_ctun           = data.alt_ctun;
+      mem[index].alt_mode           = data.alt_mode;
+      mem[index].alt_filter         = data.alt_filter;
+      mem[index].alt_bd             = data.alt_bd;
+      mem[index].ctcss_enabled      = data.ctcss_enabled;
+      mem[index].ctcss              = data.ctcss;
+      mem[index].deviation          = from_short(data.deviation);
+      mem[index].alt_deviation      = from_short(data.alt_deviation);
+      mem[index].frequency          = from_ll(data.frequency);
+      mem[index].ctun_frequency     = from_ll(data.ctun_frequency);
+      mem[index].alt_frequency      = from_ll(data.alt_frequency);
+      mem[index].alt_ctun_frequency = from_ll(data.alt_ctun_frequency);
     }
     break;
 
@@ -2696,7 +2819,6 @@ static void *client_thread(void* arg) {
         g_idle_add(ext_rx_remote_update_display, rx);
       } else if (can_transmit) {
         TRANSMITTER *tx = transmitter;
-        tx->pscorr = spectrum_data.pscorr;
         tx->alc = from_double(spectrum_data.alc);
         tx->fwd = from_double(spectrum_data.fwd);
         tx->swr = from_double(spectrum_data.swr);
@@ -3833,7 +3955,7 @@ static int remote_command(void *data) {
   case CMD_DIGIMAX: {
     const DOUBLE_COMMAND *command = (DOUBLE_COMMAND *)data;
     int mode = vfo_get_tx_mode();
-    drive_digi_max = command->dbl;
+    drive_digi_max = from_double(command->dbl);
     if ((mode == modeDIGL || mode == modeDIGU) && transmitter->drive > drive_digi_max + 0.5) {
       set_drive(drive_digi_max);
     }
@@ -3892,6 +4014,51 @@ static int remote_command(void *data) {
       transmitter->dexp_hyst = from_double(command->dexp_hyst);
       tx_set_dexp(transmitter);
       g_idle_add(ext_vfo_update, NULL);
+    }
+  }
+  break;
+
+  case CMD_PSONOFF: {
+    if (can_transmit) {
+      tx_ps_onoff(transmitter, header->b1);
+    }
+  }
+  break;
+
+  case CMD_PSRESET: {
+    if (can_transmit) {
+      tx_ps_reset(transmitter);
+    }
+  }
+  break;
+
+  case CMD_PSRESUME: {
+    if (can_transmit) {
+      tx_ps_resume(transmitter);
+    }
+  }
+  break;
+
+  case CMD_PSATT: {
+    if (can_transmit) {
+      transmitter->auto_on = header->b1;
+      transmitter->feedback = header->b2;
+      transmitter->attenuation = from_short(header->s1);
+      receiver[PS_RX_FEEDBACK]->alex_antenna = from_short(header->s2);
+      schedule_high_priority();
+    }
+  }
+  break;
+
+
+  case CMD_PSPARAMS: {
+    if (can_transmit) {
+      const PS_PARAMS  *command = (PS_PARAMS *)data;
+      transmitter->ps_ptol = command->ps_ptol;
+      transmitter->ps_oneshot = command->ps_oneshot;
+      transmitter->ps_map = command->ps_map;
+      transmitter->ps_setpk = from_double(command->ps_setpk);
+      tx_ps_setparams(transmitter);
     }
   }
   break;

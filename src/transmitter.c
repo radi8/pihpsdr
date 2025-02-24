@@ -504,9 +504,7 @@ static gboolean tx_update_display(gpointer data) {
   int rc;
 
   if (tx->puresignal) {
-    int info[16];
-    tx_ps_getinfo(tx, info);
-    tx->pscorr = info[14];
+    tx_ps_getinfo(tx);
   }
 
   if (tx->displaying) {
@@ -1436,8 +1434,8 @@ void tx_queue_cw_event(int down, int wait) {
   if (radio_is_remote) {
 #ifdef CLIENT_SERVER
     send_cw(client_socket, down, wait);
-    return;
 #endif
+    return;
   }
   //
   // Put a CW event into the ring buffer
@@ -2064,23 +2062,19 @@ void tx_on(const TRANSMITTER *tx) {
 #endif
 }
 
-void tx_ps_getinfo(const TRANSMITTER *tx, int *info) {
+void tx_ps_getinfo(TRANSMITTER *tx) {
   ASSERT_SERVER();
-  GetPSInfo(tx->id, info);
+  GetPSInfo(tx->id, tx->psinfo);
 }
 
-double tx_ps_getmx(const TRANSMITTER *tx) {
-  ASSERT_SERVER(0.0);
-  double mx;
-  GetPSMaxTX(tx->id, &mx);
-  return mx;
+void tx_ps_getmx(TRANSMITTER *tx) {
+  ASSERT_SERVER();
+  GetPSMaxTX(tx->id, &transmitter->ps_getmx);
 }
 
-double tx_ps_getpk(const TRANSMITTER *tx) {
-  ASSERT_SERVER(0.0);
-  double pk;
-  GetPSHWPeak(tx->id, &pk);
-  return pk;
+void tx_ps_getpk(TRANSMITTER *tx) {
+  ASSERT_SERVER();
+  GetPSHWPeak(tx->id, &transmitter->ps_getpk);
 }
 
 void tx_ps_mox(const TRANSMITTER *tx, int state) {
@@ -2092,7 +2086,6 @@ void tx_ps_mox(const TRANSMITTER *tx, int state) {
 }
 
 void tx_ps_onoff(TRANSMITTER *tx, int state) {
-  ASSERT_SERVER();
   //
   // Switch PureSignal on (state !=0) or off (state==0)
   //
@@ -2123,6 +2116,14 @@ void tx_ps_onoff(TRANSMITTER *tx, int state) {
 #ifdef WDSPTXDEBUG
   t_print("TX id=%d PS OnOff=%d\n", tx->id, state);
 #endif
+  if (radio_is_remote) {
+    tx->puresignal = state;
+#ifdef CLIENT_SERVER
+    send_psonoff(client_socket, state);
+#endif
+    g_idle_add(ext_vfo_update, NULL);
+    return;
+  }
 
   if (!state) {
     // see above. Ensure some feedback samples still flow into
@@ -2182,23 +2183,37 @@ void tx_ps_onoff(TRANSMITTER *tx, int state) {
 }
 
 void tx_ps_reset(const TRANSMITTER *tx) {
-  ASSERT_SERVER();
-#ifdef WDSPTXDEBUG
-  t_print("TX id=%d PS Reset\n", tx->id);
+  if (tx->puresignal) {
+    if (radio_is_remote) {
+#ifdef CLIENT_SERVER
+      send_psreset(client_socket);
 #endif
-  SetPSControl(tx->id, 1, 0, 0, 0);
+      return;
+    }
+#ifdef WDSPTXDEBUG
+    t_print("TX id=%d PS Reset\n", tx->id);
+#endif
+    SetPSControl(tx->id, 1, 0, 0, 0);
+  }
 }
 
 void tx_ps_resume(const TRANSMITTER *tx) {
-  ASSERT_SERVER();
+  if (tx->puresignal) {
+    if (radio_is_remote) {
+#ifdef CLIENT_SERVER
+      send_psresume(client_socket);
+#endif
+      return;
+    }
 #ifdef WDSPTXDEBUG
-  t_print("TX id=%d PS Resume OneShot=%d\n", tx->id, tx->ps_oneshot);
+    t_print("TX id=%d PS Resume OneShot=%d\n", tx->id, tx->ps_oneshot);
 #endif
 
-  if (tx->ps_oneshot) {
-    SetPSControl(tx->id, 0, 1, 0, 0);
-  } else {
-    SetPSControl(tx->id, 0, 0, 1, 0);
+    if (tx->ps_oneshot) {
+      SetPSControl(tx->id, 0, 1, 0, 0);
+    } else {
+      SetPSControl(tx->id, 0, 0, 1, 0);
+    }
   }
 }
 
@@ -2211,7 +2226,13 @@ void tx_ps_set_sample_rate(const TRANSMITTER *tx, int rate) {
 }
 
 void tx_ps_setparams(const TRANSMITTER *tx) {
-  ASSERT_SERVER();
+  if (radio_is_remote) {
+#ifdef CLIENT_SERVER
+    send_psparams(client_socket, tx);
+#endif
+    return;
+  }
+  SetPSHWPeak(tx->id, tx->ps_setpk);
   SetPSMapMode(tx->id, tx->ps_map);
   SetPSPtol(tx->id, tx->ps_ptol ? 0.4 : 0.8);
   SetPSIntsAndSpi(tx->id, tx->ps_ints, tx->ps_spi);
@@ -2225,14 +2246,6 @@ void tx_ps_setparams(const TRANSMITTER *tx) {
   t_print("TX id=%d PS map=%d ptol=%d ints=%d spi=%d stbl=%d pin=%d moxdelay=%g ampdelay=%g loopdelay=%g\n",
           tx->id, tx->ps_map, tx->ps_ptol, tx->ps_ints, tx->ps_spi, tx->ps_stbl, tx->ps_pin, tx->ps_moxdelay,
           tx->ps_ampdelay, tx->ps_loopdelay);
-#endif
-}
-
-void tx_ps_setpk(const TRANSMITTER *tx, double peak) {
-  ASSERT_SERVER();
-  SetPSHWPeak(tx->id, peak);
-#ifdef WDSPTXDEBUG
-  t_print("TX id=%d PS HWpeak=%g\n", tx->id, peak);
 #endif
 }
 

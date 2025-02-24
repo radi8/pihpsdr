@@ -117,7 +117,7 @@ static GtkWidget *toolbar;
 // RX and TX calibration
 long long frequency_calibration = 0LL;
 
-int sat_mode;
+int sat_mode = SAT_NONE;
 
 int region = REGION_OTHER;
 
@@ -867,12 +867,12 @@ static void radio_create_visual() {
         case NEW_PROTOCOL:
           switch (device) {
           case NEW_DEVICE_SATURN:
-            tx_ps_setpk(transmitter, 0.6121);
+            transmitter->ps_setpk = 0.6121;
             break;
 
           default:
             // recommended "new protocol value"
-            tx_ps_setpk(transmitter, 0.2899);
+            transmitter->ps_setpk = 0.2899;
             break;
           }
 
@@ -882,17 +882,17 @@ static void radio_create_visual() {
           switch (device) {
           case DEVICE_HERMES_LITE2:
             // measured value: 0.2386
-            tx_ps_setpk(transmitter, 0.2400);
+            transmitter->ps_setpk = 0.2400;
             break;
 
           case DEVICE_STEMLAB:
             // measured value: 0.4155
-            tx_ps_setpk(transmitter, 0.4160);
+            transmitter->ps_setpk = 0.4160;
             break;
 
           default:
             // recommended "old protocol" value
-            tx_ps_setpk(transmitter, 0.4067);
+            transmitter->ps_setpk = 0.4067;
             break;
           }
 
@@ -900,9 +900,10 @@ static void radio_create_visual() {
 
         default:
           // NOTREACHED
-          tx_ps_setpk(transmitter, 1.0000);
+            transmitter->ps_setpk = 1.000;
           break;
         }
+        tx_ps_setparams(transmitter);
       }
     }
   } else {

@@ -25,6 +25,7 @@
 
 #include "mode.h"
 #include "receiver.h"
+#include "transmitter.h"
 
 #define mydouble uint64_t
 
@@ -46,6 +47,7 @@ enum _header_type_enum {
   INFO_SPECTRUM,
   INFO_RXAUDIO,
   INFO_TXAUDIO,
+  INFO_PS,
   CMD_START_RADIO,
   CMD_SPECTRUM,
   CMD_SAMPLE_RATE,
@@ -122,6 +124,11 @@ enum _header_type_enum {
   CMD_TXFILTER,
   CMD_TXMENU,
   CMD_AMCARRIER,
+  CMD_PSONOFF,
+  CMD_PSRESET,
+  CMD_PSRESUME,
+  CMD_PSPARAMS,
+  CMD_PSATT,
   CLIENT_SERVER_COMMANDS,
 };
 
@@ -267,15 +274,25 @@ typedef struct __attribute__((__packed__)) _bandstack_data {
 typedef struct __attribute__((__packed__)) _memory_data {
   HEADER header;
   uint8_t index;
+  uint8_t sat_mode;
   uint8_t ctun;
   uint8_t mode;
   uint8_t filter;
+  uint8_t bd;
+  uint8_t alt_ctun;
+  uint8_t alt_mode;
+  uint8_t alt_filter;
+  uint8_t alt_bd;
   uint8_t ctcss_enabled;
   uint8_t ctcss;
-  uint8_t bd;
+//
+  uint16_t deviation;
+  uint16_t alt_deviation;
 //
   uint64_t frequency;
   uint64_t ctun_frequency;
+  uint64_t alt_frequency;
+  uint64_t alt_ctun_frequency;
 } MEMORY_DATA;
 
 //
@@ -565,7 +582,6 @@ typedef struct __attribute__((__packed__)) _vfo_data {
 typedef struct __attribute__((__packed__)) _spectrum_data {
   HEADER header;
   uint8_t id;
-  uint8_t pscorr;
   uint16_t width;
 //
   uint64_t vfo_a_freq;
@@ -601,6 +617,26 @@ typedef struct __attribute__((__packed__)) _rxaudio_data {
   uint16_t sample[AUDIO_DATA_SIZE * 2];
 } RXAUDIO_DATA;
 
+
+//
+// There are many more such parameters, but they currently
+// cannot be changed.
+//
+typedef struct __attribute__((__packed__)) _ps_params {
+  HEADER header;
+  uint8_t  ps_ptol;
+  uint8_t  ps_oneshot;
+  uint8_t  ps_map;
+  mydouble ps_setpk;
+} PS_PARAMS;
+
+typedef struct __attribute__((__packed__)) _ps_data {
+  HEADER header;
+  uint16_t psinfo[16];
+  uint16_t attenuation;
+  mydouble ps_getpk;
+  mydouble ps_getmx;
+} PS_DATA;
 
 //
 // Universal data structure for commands that need
@@ -776,6 +812,11 @@ extern void send_txmenu(int s);
 extern void send_ctcss(int s);
 extern void send_digidrivemax(int s);
 extern void send_am_carrier(int s);
+extern void send_psatt(int s);
+extern void send_psonoff(int s, int state);
+extern void send_psresume(int s);
+extern void send_psreset(int s);
+extern void send_psparams(int s, const TRANSMITTER *tx);
 
 extern void remote_rxaudio(const RECEIVER *rx, short left_sample, short right_sample);
 extern void server_tx_audio(short sample);
