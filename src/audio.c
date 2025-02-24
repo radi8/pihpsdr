@@ -689,8 +689,8 @@ static void *mic_read_thread(gpointer arg) {
         if (radio_is_remote) {
           short s = sample*32767.0;
           server_tx_audio(s);
+          continue;
         }
-        continue;
 #endif
 
         //
