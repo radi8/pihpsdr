@@ -751,7 +751,6 @@ void audio_get_cards() {
   snd_pcm_info_t *pcminfo;
   snd_ctl_card_info_alloca(&info);
   snd_pcm_info_alloca(&pcminfo);
-  int i;
   char *device_id;
   int card = -1;
   t_print("%s\n", __FUNCTION__);
@@ -842,7 +841,7 @@ void audio_get_cards() {
         output_devices[n_output_devices].name = g_strdup(name);
         output_devices[n_output_devices].description = g_strdup(descr);
 
-        for (i = 0; i < strlen(descr); i++) {
+        for (unsigned int i = 0; i < strlen(descr); i++) {
           if (output_devices[n_output_devices].description[i] == '\n') {
             output_devices[n_output_devices].description[i] = '\0';
             break;
