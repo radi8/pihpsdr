@@ -1579,9 +1579,12 @@ void rx_on(const RECEIVER *rx) {
 }
 
 void rx_set_af_binaural(const RECEIVER *rx) {
-  ASSERT_SERVER();
-#ifdef WDSPRXDEBUG
+  if (radio_is_remote) {
+#ifdef CLIENT_SERVER
+    send_afbinaural(client_socket, rx);
 #endif
+    return;
+   }
   SetRXAPanelBinaural(rx->id, rx->binaural);
 }
 
@@ -1783,7 +1786,12 @@ void rx_set_deviation(const RECEIVER *rx) {
 }
 
 void rx_set_equalizer(RECEIVER *rx) {
-  ASSERT_SERVER();
+  if (radio_is_remote) {
+#ifdef CLIENT_SERVER
+    send_eq(client_socket, rx->id);
+#endif
+    return;
+  }
   //
   // Apply the equalizer parameters stored in rx
   //
@@ -1800,17 +1808,23 @@ void rx_set_equalizer(RECEIVER *rx) {
 }
 
 void rx_set_fft_latency(const RECEIVER *rx) {
-  ASSERT_SERVER();
-  RXASetMP(rx->id, rx->low_latency);
-#ifdef WDSPRXDEBUG
+  if (radio_is_remote) {
+#ifdef CLIENT_SERVER
+    send_rx_fft(client_socket, rx);
 #endif
+    return;
+  }
+  RXASetMP(rx->id, rx->low_latency);
 }
 
 void rx_set_fft_size(const RECEIVER *rx) {
-  ASSERT_SERVER();
-  RXASetNC(rx->id, rx->fft_size);
-#ifdef WDSPRXDEBUG
+  if (radio_is_remote) {
+#ifdef CLIENT_SERVER
+    send_rx_fft(client_socket, rx);
 #endif
+    return;
+  }
+  RXASetNC(rx->id, rx->fft_size);
 }
 
 void rx_set_mode(const RECEIVER *rx) {
@@ -1826,7 +1840,12 @@ void rx_set_mode(const RECEIVER *rx) {
 }
 
 void rx_set_noise(const RECEIVER *rx) {
-  ASSERT_SERVER();
+  if (radio_is_remote) {
+#ifdef CLIENT_SERVER
+    send_noise(client_socket, rx);
+#endif
+    return;
+  }
   //
   // Set/Update all parameters stored  in rx
   // that areassociated with the "QRM fighters"

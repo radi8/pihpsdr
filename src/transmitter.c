@@ -2432,7 +2432,12 @@ void tx_set_dexp(const TRANSMITTER *tx) {
 }
 
 void tx_set_equalizer(TRANSMITTER *tx) {
-  ASSERT_SERVER();
+  if (radio_is_remote) {
+#ifdef CLIENT_SERVER
+    send_eq(client_socket, tx->id);
+#endif
+    return;
+  }
   SetTXAEQProfile(tx->id, 10, tx->eq_freq, tx->eq_gain);
   SetTXAEQRun(tx->id, tx->eq_enable);
 #ifdef WDSPTXDEBUG
@@ -2446,7 +2451,12 @@ void tx_set_equalizer(TRANSMITTER *tx) {
 }
 
 void tx_set_fft_size(const TRANSMITTER *tx) {
-  ASSERT_SERVER();
+  if (radio_is_remote) {
+#ifdef CLIENT_SERVER
+    send_tx_fft(client_socket, tx);
+#endif
+    return;
+  }
   TXASetNC(tx->id, tx->fft_size);
 #ifdef WDSPTXDEBUG
   t_print("TX id=%d FFT size=%d\n", tx->id, tx->fft_size);

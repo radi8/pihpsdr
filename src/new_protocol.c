@@ -313,24 +313,28 @@ static mybuffer *get_my_buffer() {
 }
 
 void schedule_high_priority() {
+  ASSERT_SERVER();
   if (protocol == NEW_PROTOCOL) {
     new_protocol_high_priority();
   }
 }
 
 void schedule_general() {
+  ASSERT_SERVER();
   if (protocol == NEW_PROTOCOL) {
     new_protocol_general();
   }
 }
 
 void schedule_receive_specific() {
+  ASSERT_SERVER();
   if (protocol == NEW_PROTOCOL) {
     new_protocol_receive_specific();
   }
 }
 
 void schedule_transmit_specific() {
+  ASSERT_SERVER();
   if (protocol == NEW_PROTOCOL) {
     new_protocol_transmit_specific();
   }

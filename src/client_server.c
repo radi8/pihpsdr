@@ -135,10 +135,10 @@ TXAUDIO_DATA txaudio_data;
 
 static int remote_command(void * data);
 
-GMutex accumulated_mutex;
-static int accumulated_steps = 0;
-static long long accumulated_hz = 0LL;
-static gboolean accumulated_round = FALSE;
+static GMutex accumulated_mutex;
+static int accumulated_steps[2] = {0, 0};
+static long long accumulated_hz[2] = {0LL, 0LL};
+static int accumulated_round[2] = {FALSE, FALSE};
 guint check_vfo_timer_id = 0;
 
 //
@@ -497,7 +497,14 @@ void send_radiomenu(int sock) {
   data.soapy_iqswap = soapy_iqswap;
   data.enable_tx_inhibit = enable_tx_inhibit;
   data.enable_auto_tune = enable_auto_tune;
+  data.new_pa_board = new_pa_board;
+  data.tx_out_of_band_allowed = tx_out_of_band_allowed;
+  data.OCtune = OCtune;
+//
   data.rx_gain_calibration = to_short(rx_gain_calibration);
+  data.OCfull_tune_time = to_short(OCfull_tune_time);
+  data.OCmemory_tune_time = to_short(OCmemory_tune_time);
+//
   data.frequency_calibration = to_ll(frequency_calibration);
   send_bytes(sock, (char *)&data, sizeof(RADIOMENU_DATA));
 }
@@ -642,7 +649,7 @@ void send_radio_data(int sock) {
 //
   data.drive_digi_max = to_double(drive_digi_max);
 
-  for (int i = 0; i > 11; i++) {
+  for (int i = 0; i < 11; i++) {
     data.pa_trim[i] = to_double(pa_trim[i]);
   }
 
@@ -728,6 +735,7 @@ void send_tx_data(int sock) {
     data.width = to_short(tx->width);
     data.height = to_short(tx->height);
     data.attenuation = to_short(tx->attenuation);
+    data.fft_size = to_ll(tx->fft_size);
 
     //
     for (int i = 0; i < 11; i++) {
@@ -784,6 +792,7 @@ void send_rx_data(int sock, int id) {
   data.binaural              = rx->binaural;
   data.eq_enable             = rx->eq_enable;
   data.smetermode            = rx->smetermode;
+  data.low_latency           = rx->low_latency;
   //
   data.fps                   = to_short(rx->fps);
   data.filter_low            = to_short(rx->filter_low);
@@ -1033,9 +1042,6 @@ static void server_loop() {
     break;
 
     case INFO_BAND: {
-      //
-      // Band data for the XVTR bands are sent back from the XVTR menu on the client side
-      //
       BAND_DATA *command = g_new(BAND_DATA, 1);
       command->header = header;
 
@@ -1047,13 +1053,38 @@ static void server_loop() {
 
 
     case INFO_BANDSTACK: {
-      //
-      // Bandstack data for the XVTR bands are sent back from the XVTR menu on the client side
-      //
       BANDSTACK_DATA *command = g_new(BANDSTACK_DATA, 1);
       command->header = header;
 
       if (recv_bytes(remoteclient.socket, (char *)command + sizeof(HEADER), sizeof(BANDSTACK_DATA) - sizeof(HEADER)) > 0) {
+        g_idle_add(remote_command, command);
+      }
+    }
+    break;
+
+    case INFO_ADC: {
+      //
+      // Sending ADC data from the client to the server has a very limited scope:
+      // - antenna (for SoapySDR)
+      //
+      ADC_DATA *command = g_new(ADC_DATA, 1);
+      command->header = header;
+
+      if (recv_bytes(remoteclient.socket, (char *)command + sizeof(HEADER), sizeof(ADC_DATA) - sizeof(HEADER)) > 0) {
+        g_idle_add(remote_command, command);
+      }
+    }
+    break;
+
+    case INFO_DAC: {
+      //
+      // Sending DAC data from the client to the server has a very limited scope:
+      // - antenna (for SoapySDR)
+      //
+      DAC_DATA *command = g_new(DAC_DATA, 1);
+      command->header = header;
+
+      if (recv_bytes(remoteclient.socket, (char *)command + sizeof(HEADER), sizeof(DAC_DATA) - sizeof(HEADER)) > 0) {
         g_idle_add(remote_command, command);
       }
     }
@@ -1180,6 +1211,17 @@ static void server_loop() {
       }
     }
     break;
+
+    case CMD_PATRIM: {
+      PATRIM_DATA *command = g_new(PATRIM_DATA, 1);
+      command->header = header;
+
+      if (recv_bytes(remoteclient.socket, (char *)command + sizeof(HEADER), sizeof(PATRIM_DATA) - sizeof(HEADER)) > 0) {
+        g_idle_add(remote_command, command);
+      }
+    }
+    break;
+
     //
     // All commands with a single  "double" in the body
     //
@@ -1207,6 +1249,8 @@ static void server_loop() {
     case CMD_SAMPLE_RATE:
     case CMD_VFO_STEPSIZE:
     case CMD_MOVETO:
+    case CMD_RXFFT:
+    case CMD_TXFFT:
     case CMD_FREQ:
     case CMD_MOVE: {
       U64_COMMAND *command = g_new(U64_COMMAND, 1);
@@ -1273,6 +1317,7 @@ static void server_loop() {
     case CMD_PSRESUME:
     case CMD_PSRESET:
     case CMD_PSATT:
+    case CMD_BINAURAL:
     case CMD_AGC: {
       HEADER *command = g_new(HEADER, 1);
       *command = header;
@@ -1307,32 +1352,32 @@ static void server_loop() {
   t_print("Server Loop Terminating\n");
 }
 
-void send_startstop_spectrum(int s, int rx, int state) {
+void send_startstop_spectrum(int s, int id, int state) {
   HEADER header;
   header.sync = REMOTE_SYNC;
   header.data_type = to_short(CMD_SPECTRUM);
   header.version = to_short(CLIENT_SERVER_VERSION);
-  header.b1 = rx;
+  header.b1 = id;
   header.b2 = state;
   send_bytes(s, (char *)&header, sizeof(HEADER));
 }
 
-void send_vfo_frequency(int s, int rx, long long hz) {
+void send_vfo_frequency(int s, int v, long long hz) {
   U64_COMMAND command;
   command.header.sync = REMOTE_SYNC;
   command.header.data_type = to_short(CMD_FREQ);
   command.header.version = to_short(CLIENT_SERVER_VERSION);
-  command.header.b1 = rx;
+  command.header.b1 = v;
   command.u64 = to_ll(hz);
   send_bytes(s, (char *)&command, sizeof(command));
 }
 
-void send_vfo_move_to(int s, int rx, long long hz) {
+void send_vfo_move_to(int s, int v, long long hz) {
   U64_COMMAND command;
   command.header.sync = REMOTE_SYNC;
   command.header.data_type = to_short(CMD_MOVETO);
   command.header.version = to_short(CLIENT_SERVER_VERSION);
-  command.header.b1 = rx;
+  command.header.b1 = v;
   command.u64 = to_ll(hz);
   send_bytes(s, (char *)&command, sizeof(command));
 }
@@ -1348,10 +1393,10 @@ void send_vfo_move(int s, int rx, long long hz, int round) {
   send_bytes(s, (char *)&command, sizeof(command));
  }
 
-void update_vfo_move(int rx, long long hz, int round) {
+void update_vfo_move(int v, long long hz, int round) {
   g_mutex_lock(&accumulated_mutex);
-  accumulated_hz += hz;
-  accumulated_round = round;
+  accumulated_hz[v] += hz;
+  accumulated_round[v] = round;
   g_mutex_unlock(&accumulated_mutex);
 }
 
@@ -1393,19 +1438,19 @@ void send_vfo_step(int s, int rx, int steps) {
   send_bytes(s, (char *)&header, sizeof(HEADER));
 }
 
-void update_vfo_step(int rx, int steps) {
+void update_vfo_step(int v, int steps) {
   g_mutex_lock(&accumulated_mutex);
-  accumulated_steps += steps;
+  accumulated_steps[v] += steps;
   g_mutex_unlock(&accumulated_mutex);
 }
 
-void send_zoom(int s, int rx, int zoom) {
+void send_zoom(int s, const RECEIVER *rx) {
   HEADER header;
   header.sync = REMOTE_SYNC;
   header.data_type = to_short(CMD_ZOOM);
   header.version = to_short(CLIENT_SERVER_VERSION);
-  header.b1 = rx;
-  header.b2 = zoom;
+  header.b1 = rx->id;
+  header.b2 = rx->zoom;
   send_bytes(s, (char *)&header, sizeof(HEADER));
 }
 
@@ -1431,13 +1476,13 @@ void send_screen(int s, int hstack, int width) {
 }
 
 
-void send_pan(int s, int rx, int pan) {
+void send_pan(int s, const RECEIVER *rx) {
   HEADER header;
   header.sync = REMOTE_SYNC;
   header.data_type = to_short(CMD_PAN);
   header.version = to_short(CLIENT_SERVER_VERSION);
-  header.b1 = rx;
-  header.s1 = to_short(pan);
+  header.b1 = rx->id;
+  header.s1 = to_short(rx->pan);
   send_bytes(s, (char *)&header, sizeof(HEADER));
 }
 
@@ -1913,6 +1958,51 @@ void send_psatt(int s) {
   }
 }
 
+void send_afbinaural(int s, const RECEIVER *rx) {
+  HEADER header;
+  header.sync = REMOTE_SYNC;
+  header.data_type = to_short(CMD_BINAURAL);
+  header.version = to_short(CLIENT_SERVER_VERSION);
+  header.b1 = rx->id;
+  header.b2 = rx->binaural;
+  send_bytes(s, (char *)&header, sizeof(HEADER));
+}
+
+void send_rx_fft(int s, const RECEIVER *rx) {
+  U64_COMMAND command;
+  command.header.sync = REMOTE_SYNC;
+  command.header.data_type = to_short(CMD_RXFFT);
+  command.header.version = to_short(CLIENT_SERVER_VERSION);
+  command.header.b1 = rx->id;
+  command.header.b2 = rx->low_latency;
+  command.u64 = to_ll(rx->fft_size);
+  send_bytes(s, (char *)&command, sizeof(U64_COMMAND));
+}
+
+void send_tx_fft(int s, const TRANSMITTER *tx) {
+  U64_COMMAND command;
+  command.header.sync = REMOTE_SYNC;
+  command.header.data_type = to_short(CMD_TXFFT);
+  command.header.version = to_short(CLIENT_SERVER_VERSION);
+  command.header.b1 = tx->id;
+  command.u64 = to_ll(tx->fft_size);
+  send_bytes(s, (char *)&command, sizeof(U64_COMMAND));
+}
+
+void send_patrim(int s) {
+  PATRIM_DATA command;
+  command.header.sync = REMOTE_SYNC;
+  command.header.data_type = to_short(CMD_PATRIM);
+  command.header.version = to_short(CLIENT_SERVER_VERSION);
+  command.pa_power = pa_power;
+
+  for (int i = 0; i < 11; i++) {
+    command.pa_trim[i] = to_double(pa_trim[i]);
+  }
+
+  send_bytes(s, (char *)&command, sizeof(PATRIM_DATA));
+}
+
 void send_split(int s, int state) {
   HEADER header;
   header.sync = REMOTE_SYNC;
@@ -2261,22 +2351,24 @@ int destroy_hpsdr_server() {
 //
 // Not all VFO frequency updates generate a packet to be sent by the client.
 // Instead, frequency updates are "collected" and sent out  (if necessary)
-// every 100 milli seconds. TODO: do this for both receivers independently.
+// every 100 milli seconds.
 //
 static int check_vfo(void *arg) {
   if (!client_running) { return FALSE; }
 
   g_mutex_lock(&accumulated_mutex);
 
-  if (accumulated_steps != 0) {
-    send_vfo_step(client_socket, active_receiver->id, accumulated_steps);
-    accumulated_steps = 0;
-  }
+  for (int v = 0; v < 2; v++) {
+    if (accumulated_steps[v] != 0) {
+      send_vfo_step(client_socket, v, accumulated_steps[v]);
+      accumulated_steps[v] = 0;
+    }
 
-  if (accumulated_hz != 0LL || accumulated_round) {
-    send_vfo_move(client_socket, active_receiver->id, accumulated_hz, accumulated_round);
-    accumulated_hz = 0LL;
-    accumulated_round = FALSE;
+    if (accumulated_hz[v] != 0LL || accumulated_round[v]) {
+      send_vfo_move(client_socket, v, accumulated_hz[v], accumulated_round[v]);
+      accumulated_hz[v] = 0LL;
+      accumulated_round[v] = FALSE;
+    }
   }
 
   g_mutex_unlock(&accumulated_mutex);
@@ -2284,20 +2376,6 @@ static int check_vfo(void *arg) {
 }
 
 static char server_host[128];
-static int delay = 0;
-
-int start_spectrum(void *data) {
-  const RECEIVER *rx = (RECEIVER *)data;
-
-  if (delay != 3) {
-    delay++;
-    t_print("start_spectrum: delay %d\n", delay);
-    return TRUE;
-  }
-
-  send_startstop_spectrum(client_socket, rx->id, 1);
-  return FALSE;
-}
 
 void start_vfo_timer() {
   g_mutex_init(&accumulated_mutex);
@@ -2578,6 +2656,7 @@ static void *client_thread(void* arg) {
       }
 
 #endif
+      g_idle_add(ext_att_type_changed, NULL);
       snprintf(title, 128, "piHPSDR: %s remote at %s", radio->name, server);
       g_idle_add(ext_set_title, (void *)title);
     }
@@ -2641,6 +2720,7 @@ static void *client_thread(void* arg) {
       rx->binaural              = data.binaural;
       rx->eq_enable             = data.eq_enable;
       rx->smetermode            = data.smetermode;
+      rx->low_latency           = data.low_latency;
       //
       rx->fps                   = from_short(data.fps);
       rx->filter_low            = from_short(data.filter_low);
@@ -2727,6 +2807,8 @@ static void *client_thread(void* arg) {
       transmitter->width                     = from_short(data.width);
       transmitter->height                    = from_short(data.height);
       transmitter->attenuation               = from_short(data.attenuation);
+//
+      transmitter->fft_size                  = from_ll(data.fft_size);
 //
       transmitter->dexp_tau                  = from_double(data.dexp_tau);
       transmitter->dexp_attack               = from_double(data.dexp_attack);
@@ -3165,6 +3247,9 @@ static int remote_command(void *data) {
 
   switch (type) {
   case INFO_BAND: {
+    //
+    // Band data is sent from the XVTR, ANT, and PA menu on the client side
+    //
     const BAND_DATA *band_data = (BAND_DATA *)data;
     if (band_data->band > BANDS + XVTRS) {
       t_print("WARNING: band data received for b=%d, too large.\n", band_data->band);
@@ -3192,10 +3277,19 @@ static int remote_command(void *data) {
     band->frequencyMax = from_ll(band_data->frequencyMax);
     band->frequencyLO  = from_ll(band_data->frequencyLO);
     band->errorLO  = from_ll(band_data->errorLO);
+    //
+    // make some changes effective
+    //
+    radio_set_alex_antennas();
+    radio_calc_drive_level();
+    schedule_high_priority();
   }
   break;
 
   case INFO_BANDSTACK: {
+    //
+    // Bandstack data for the XVTR bands are sent back from the XVTR menu on the client side
+    //
     const BANDSTACK_DATA *bandstack_data = (BANDSTACK_DATA *)data;
     if (bandstack_data->band > BANDS + XVTRS) {
       t_print("WARNING: band data received for b=%d, too large.\n", bandstack_data->band);
@@ -3222,6 +3316,39 @@ static int remote_command(void *data) {
   }
   break;
 
+  case INFO_ADC: {
+    //
+    // Sending ADC data from the client to the server has a very limited scope:
+    // - antenna (for SoapySDR)
+    //
+    const ADC_DATA *command = (ADC_DATA *)data;
+    int id = command->adc;
+    adc[id].antenna = from_short(command->antenna);
+
+#ifdef SOAPYSDR
+    if (id == 0 && device == SOAPYSDR_USB_DEVICE) {
+      soapy_protocol_set_rx_antenna(receiver[0], adc[0].antenna);
+    }
+#endif
+  }
+  break;
+
+  case INFO_DAC: {
+    //
+    // Sending DAC data from the client to the server has a very limited scope:
+    // - antenna (for SoapySDR)
+    //
+    const DAC_DATA *command = (DAC_DATA *)data;
+    dac.antenna = from_short(command->antenna);
+
+#ifdef SOAPYSDR
+  if (device == SOAPYSDR_USB_DEVICE && can_transmit) {
+      soapy_protocol_set_tx_antenna(transmitter, dac.antenna);
+    }
+#endif
+  }
+  break;
+
   case CMD_FREQ: {
     const U64_COMMAND *command = (U64_COMMAND *)data;
     int pan = active_receiver->pan;
@@ -3233,7 +3360,7 @@ static int remote_command(void *data) {
     send_vfo_data(remoteclient.socket, VFO_B);
 
     if (pan != active_receiver->pan) {
-      send_pan(remoteclient.socket, active_receiver->id, active_receiver->pan);
+      send_pan(remoteclient.socket, active_receiver);
     }
   }
   break;
@@ -3255,7 +3382,7 @@ static int remote_command(void *data) {
     send_vfo_data(remoteclient.socket, VFO_B);
 
     if (pan != active_receiver->pan) {
-      send_pan(remoteclient.socket, active_receiver->id, active_receiver->pan);
+      send_pan(remoteclient.socket, active_receiver);
     }
   }
   break;
@@ -3269,7 +3396,7 @@ static int remote_command(void *data) {
     send_vfo_data(remoteclient.socket, VFO_B);
 
     if (pan != active_receiver->pan) {
-      send_pan(remoteclient.socket, active_receiver->id, active_receiver->pan);
+      send_pan(remoteclient.socket, active_receiver);
     }
   }
   break;
@@ -3277,8 +3404,8 @@ static int remote_command(void *data) {
   case CMD_ZOOM: {
     int id = header->b1;
     set_zoom(id, (double)header->b2);
-    send_zoom(remoteclient.socket, active_receiver->id, active_receiver->zoom);
-    send_pan(remoteclient.socket, active_receiver->id, active_receiver->pan);
+    send_zoom(remoteclient.socket, active_receiver);
+    send_pan(remoteclient.socket, active_receiver);
   }
   break;
 
@@ -3331,7 +3458,7 @@ static int remote_command(void *data) {
   case CMD_PAN: {
     int id = header->b1;
     set_pan(id, (double)from_short(header->s1));
-    send_pan(remoteclient.socket, id, receiver[id]->pan);
+    send_pan(remoteclient.socket, receiver[id]);
   }
   break;
 
@@ -3819,6 +3946,17 @@ static int remote_command(void *data) {
       rx->eq_gain[i] = from_double(command->gain[i]);
     }
 
+    if (id == 0) {
+      int mode = vfo[id].mode;
+      mode_settings[mode].en_rxeq = rx->eq_enable;
+      for (int i = 0; i < 11; i++) {
+        mode_settings[mode].rx_eq_freq[i] = rx->eq_freq[i];
+        mode_settings[mode].rx_eq_gain[i] = rx->eq_gain[i];
+      }
+
+      copy_mode_settings(mode);
+    }
+
     update_eq();
   }
   break;
@@ -3832,6 +3970,15 @@ static int remote_command(void *data) {
       transmitter->eq_gain[i] = from_double(command->gain[i]);
     }
 
+    int mode = vfo[vfo_get_tx_vfo()].mode;
+    mode_settings[mode].en_txeq = transmitter->eq_enable;
+
+    for (int i = 0; i < 11; i++) {
+      mode_settings[mode].tx_eq_freq[i] = transmitter->eq_freq[i];
+      mode_settings[mode].tx_eq_gain[i] = transmitter->eq_gain[i];
+    }
+
+    copy_mode_settings(mode);
     update_eq();
   }
   break;
@@ -3881,8 +4028,16 @@ static int remote_command(void *data) {
     soapy_iqswap = command->soapy_iqswap;
     enable_tx_inhibit = command->enable_tx_inhibit;
     enable_auto_tune = command->enable_auto_tune;
+    new_pa_board = command->new_pa_board;
+    tx_out_of_band_allowed = command->tx_out_of_band_allowed;
+    OCtune = command->OCtune;
+//
     rx_gain_calibration = from_short(command->rx_gain_calibration);
+    OCfull_tune_time = from_short(command->OCfull_tune_time);
+    OCmemory_tune_time = from_short(command->OCmemory_tune_time);
+//
     frequency_calibration = from_ll(command->frequency_calibration);
+//
     schedule_transmit_specific();
     schedule_general();
     schedule_high_priority();
@@ -4060,6 +4215,44 @@ static int remote_command(void *data) {
       transmitter->ps_setpk = from_double(command->ps_setpk);
       tx_ps_setparams(transmitter);
     }
+  }
+  break;
+
+  case CMD_BINAURAL: {
+    RECEIVER *rx = receiver[header->b1];
+    rx->binaural = header->b2;
+    rx_set_af_binaural(rx);
+  }
+  break;
+
+  case CMD_RXFFT: {
+    const U64_COMMAND *command = (U64_COMMAND *)data;
+    RECEIVER *rx = receiver[command->header.b1];
+    rx->low_latency = command->header.b2;
+    rx->fft_size = from_ll(command->u64);
+    rx_set_fft_latency(rx);
+    rx_set_fft_size(rx);
+  }
+  break;
+
+  case CMD_TXFFT: {
+    if (can_transmit) {
+      const U64_COMMAND *command = (U64_COMMAND *)data;
+      transmitter->fft_size = from_ll(command->u64);
+      tx_set_fft_size(transmitter);
+    }
+  }
+  break;
+
+  case CMD_PATRIM: {
+    const PATRIM_DATA *command = (PATRIM_DATA *)data;
+
+    pa_power = command->pa_power;
+
+    for (int i = 0; i < 11; i++) {
+      pa_trim[i] = from_double(command->pa_trim[i]);
+    }
+
   }
   break;
 

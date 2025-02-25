@@ -80,7 +80,7 @@ static void zoom_value_changed_cb(GtkWidget *widget, gpointer data) {
 
   if (radio_is_remote) {
 #ifdef CLIENT_SERVER
-    send_zoom(client_socket, active_receiver->id, active_receiver->zoom);
+    send_zoom(client_socket, active_receiver);
 #endif
   } else {
     rx_update_zoom(active_receiver);
@@ -148,7 +148,7 @@ static void pan_value_changed_cb(GtkWidget *widget, gpointer data) {
 
     if (radio_is_remote) {
 #ifdef CLIENT_SERVER
-      send_pan(client_socket, active_receiver->id, active_receiver->pan);
+      send_pan(client_socket, active_receiver);
 #endif
     }
   }

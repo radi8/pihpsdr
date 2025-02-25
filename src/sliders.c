@@ -233,23 +233,28 @@ void att_type_changed() {
 
     if (rf_gain_label != NULL) { gtk_widget_hide(rf_gain_label); }
 
-    if (attenuation_scale != NULL) { gtk_widget_hide(attenuation_scale); }
+    if (attenuation_scale != NULL) {
+      set_attenuation_value(0.0);
+      gtk_widget_hide(attenuation_scale);
+    }
+
+    if (rf_gain_scale != NULL) {
+      set_rf_gain(active_receiver->id, rx_gain_calibration);
+      gtk_widget_hide(rf_gain_scale);
+    }
 
     if (c25_container != NULL) { gtk_widget_show(c25_container); }
 
     if (c25_att_label != NULL) { gtk_widget_show(c25_att_label); }
 
-    //
-    // There is no step attenuator visible any more. Set to zero
-    //
-    set_attenuation_value(0.0);
-    set_rf_gain(active_receiver->id, 0.0); // this will be a no-op
   } else {
     if (attenuation_label != NULL) { gtk_widget_show(attenuation_label); }
 
     if (rf_gain_label != NULL) { gtk_widget_show(rf_gain_label); }
 
     if (attenuation_scale != NULL) { gtk_widget_show(attenuation_scale); }
+
+    if (rf_gain_scale != NULL) { gtk_widget_show(rf_gain_scale); }
 
     if (c25_container != NULL) { gtk_widget_hide(c25_container); }
 

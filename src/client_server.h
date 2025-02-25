@@ -123,12 +123,16 @@ enum _header_type_enum {
   CMD_PREEMP,
   CMD_TXFILTER,
   CMD_TXMENU,
+  CMD_PATRIM,
   CMD_AMCARRIER,
   CMD_PSONOFF,
   CMD_PSRESET,
   CMD_PSRESUME,
   CMD_PSPARAMS,
   CMD_PSATT,
+  CMD_BINAURAL,
+  CMD_RXFFT,
+  CMD_TXFFT,
   CLIENT_SERVER_COMMANDS,
 };
 
@@ -166,7 +170,8 @@ typedef struct __attribute__((__packed__)) _header {
 // This is the data that is changed in the radio menu
 // and needs no special processing. Note state variables
 // like "anan10e" (which, if changed,  requires re-starting
-// the protocol) are sent in dedicated commands.
+// the protocol) are sent in dedicated commands. We also
+// include some other radio data (new_pa_board)
 //
 typedef struct __attribute__((__packed__)) _radiomenu_data {
   HEADER header;
@@ -186,8 +191,13 @@ typedef struct __attribute__((__packed__)) _radiomenu_data {
   uint8_t  soapy_iqswap;
   uint8_t  enable_tx_inhibit;
   uint8_t  enable_auto_tune;
+  uint8_t  new_pa_board;
+  uint8_t  tx_out_of_band_allowed;
+  uint8_t  OCtune;
 //
   uint16_t rx_gain_calibration;
+  uint16_t OCfull_tune_time;
+  uint16_t OCmemory_tune_time;
 //
   uint64_t frequency_calibration;
 } RADIOMENU_DATA;
@@ -464,6 +474,8 @@ typedef struct __attribute__((__packed__)) _transmitter_data {
   uint16_t height;
   uint16_t attenuation;
 //
+  uint64_t fft_size;
+//
   mydouble eq_freq[11];
   mydouble eq_gain[11];
   mydouble dexp_tau;
@@ -514,6 +526,7 @@ typedef struct __attribute__((__packed__)) _receiver_data {
   uint8_t binaural;
   uint8_t eq_enable;
   uint8_t smetermode;
+  uint8_t low_latency;
 //
   uint16_t fps;
   uint16_t filter_low;
@@ -574,7 +587,7 @@ typedef struct __attribute__((__packed__)) _vfo_data {
 //
 // Data for a panadapter. Can be used for receivers (id = 0,1)
 // or for the transmitter (id = 8). Sent periodically as long as
-// is is enabled for this panadapter via CMD_SPECTRUM.
+// is is enabled for this panadapter via CMD_??_SPECTRUM.
 // Note that this also contains high-frequency data such as
 // RX S-meter, TX power/ALC/swr and PURESIGNAL status data, toghether
 // with VFO frequencies for "quick" VFO update.
@@ -637,6 +650,12 @@ typedef struct __attribute__((__packed__)) _ps_data {
   mydouble ps_getpk;
   mydouble ps_getmx;
 } PS_DATA;
+
+typedef struct __attribute__((__packed__)) _patrim_data {
+  HEADER header;
+  int pa_power;
+  mydouble pa_trim[11];
+} PATRIM_DATA;
 
 //
 // Universal data structure for commands that need
@@ -738,15 +757,18 @@ extern void send_receiver_data(int sock, int rx);
 extern void send_vfo_data(int sock, int v);
 extern void send_memory_data(int sock, int index);
 
-extern void send_startstop_spectrum(int s, int rx, int state);
-extern void send_vfo_frequency(int s, int rx, long long hz);
-extern void send_vfo_move_to(int s, int rx, long long hz);
-extern void update_vfo_move(int rx, long long hz, int round);
+extern void send_afbinaural(int s, const RECEIVER *rx);
+extern void send_rx_fft(int s, const RECEIVER *rx);
+extern void send_tx_fft(int s, const TRANSMITTER *tx);
+extern void send_startstop_spectrum(int s, int id, int state);
+extern void send_vfo_frequency(int s, int v, long long hz);
+extern void send_vfo_move_to(int s, int v, long long hz);
+extern void update_vfo_move(int v, long long hz, int round);
 extern void send_vfo_stepsize(int s, int v, int stepsize);
-extern void send_vfo_step(int s, int rx, int steps);
-extern void update_vfo_step(int rx, int steps);
-extern void send_zoom(int s, int rx, int zoom);
-extern void send_pan(int s, int rx, int pan);
+extern void send_vfo_step(int s, int v, int steps);
+extern void update_vfo_step(int v, int steps);
+extern void send_zoom(int s, const RECEIVER *rx);
+extern void send_pan(int s, const RECEIVER *rx);
 extern void send_meter(int s, int metermode, int alcmode);
 extern void send_screen(int s, int hstack, int width);
 extern void send_volume(int s, int rx, double volume);
@@ -777,6 +799,7 @@ extern void send_filter_var(int s, int mode, int filter);
 extern void send_filter_cut(int s, int rx);
 extern void send_cwpeak(int s, int id, int state);
 extern void send_split(int s, int state);
+extern void send_patrim(int s);
 extern void send_sat(int s, int sat);
 extern void send_cw(int s, int state,  int wait);
 extern void send_sidetone_freq(int s, int freq);

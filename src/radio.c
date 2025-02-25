@@ -1847,7 +1847,7 @@ static void rxtx(int state) {
       }
     } else {
 #ifdef CLIENT_SERVER
-      send_startstop_spectrum(client_socket, transmitter->id, 1);
+      send_startstop_spectrum(client_socket, 8, 1);
 #endif
     }
 
@@ -1891,7 +1891,7 @@ static void rxtx(int state) {
       tx_set_displaying(transmitter);
     } else {
 #ifdef CLIENT_SERVER
-      send_startstop_spectrum(client_socket, transmitter->id, 0);
+      send_startstop_spectrum(client_socket, 8, 0);
 #endif
     }
 
@@ -3047,6 +3047,20 @@ int radio_remote_start(void *data) {
   remote_started = TRUE;
   return 0;
 }
+
+//int start_spectrum(void *data) {
+//  const RECEIVER *rx = (RECEIVER *)data;
+//  static int delay = 0;
+//  
+//  if (delay != 3) {
+//    delay++;
+//    t_print("start_spectrum: delay %d\n", delay);
+//    return TRUE;
+//  }
+// 
+//  send_startstop_spectrum(client_socket, rx->id, 1);
+//  return FALSE;
+//} 
 
 #endif
 
