@@ -66,7 +66,9 @@ static void pa_value_changed_cb(GtkWidget *widget, gpointer data) {
   band->pa_calibration = gtk_spin_button_get_value(GTK_SPIN_BUTTON(widget));
 
   if (radio_is_remote) {
+#ifdef CLIENT_SERVER
     send_band_data(client_socket, b);
+#endif
     return;
   } else {
     radio_calc_drive_level();
@@ -77,7 +79,9 @@ static void pa_value_changed_cb(GtkWidget *widget, gpointer data) {
 static void tx_out_of_band_cb(GtkWidget *widget, gpointer data) {
   tx_out_of_band_allowed = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
   if (radio_is_remote) {
+#ifdef CLIENT_SERVER
     send_radiomenu(client_socket);
+#endif
   }
 }
 
@@ -114,7 +118,9 @@ static void trim_changed_cb(GtkWidget *widget, gpointer data) {
     }
   }
   if (radio_is_remote) {
+#ifdef CLIENT_SERVER
     send_patrim(client_socket);
+#endif
   }
 }
 
@@ -130,7 +136,9 @@ static void show_W(int watts, gboolean reset) {
       pa_trim[i] = i * increment;
     }
     if (radio_is_remote) {
+#ifdef CLIENT_SERVER
       send_patrim(client_socket);
+#endif
     }
   }
 
@@ -220,7 +228,9 @@ static void max_power_changed_cb(GtkWidget *widget, gpointer data) {
   pa_power = gtk_combo_box_get_active(GTK_COMBO_BOX(widget));
   t_print("max_power_changed_cb: %d\n", pa_power_list[pa_power]);
   if (radio_is_remote) {
+#ifdef CLIENT_SERVER
     send_patrim(client_socket);
+#endif
   }
   clear_W();
   new_calib(TRUE);
