@@ -28,9 +28,7 @@
 #include "band.h"
 #include "bandstack.h"
 #include "channel.h"
-#ifdef CLIENT_SERVER
-  #include "client_server.h"
-#endif
+#include "client_server.h"
 #include "discovered.h"
 #include "ext.h"
 #include "filter.h"
@@ -121,9 +119,7 @@ gboolean rx_button_release_event(GtkWidget *widget, GdkEventButton *event, gpoin
     making_active = FALSE;
 
     if (radio_is_remote) {
-#ifdef CLIENT_SERVER
       send_rx_select(client_socket, rx->id);
-#endif
     } else {
       rx_set_active(rx);
 
@@ -634,7 +630,6 @@ RECEIVER *rx_create_pure_signal_receiver(int id, int sample_rate, int width, int
   return rx;
 }
 
-#ifdef CLIENT_SERVER
 void rx_remote_update_display(RECEIVER *rx) {
   if (rx->displaying) {
     if (rx->pixels > 0) {
@@ -665,8 +660,6 @@ void rx_create_remote(RECEIVER *rx) {
   //
   rx_create_visual(rx);
 }
-
-#endif
 
 RECEIVER *rx_create_receiver(int id, int pixels, int width, int height) {
   ASSERT_SERVER(NULL);
@@ -1121,13 +1114,9 @@ static void rx_process_buffer(RECEIVER *rx) {
       audio_write(rx, (float)left_sample, (float)right_sample);
     }
 
-#ifdef CLIENT_SERVER
-
     if (remoteclient.running) {
       remote_rxaudio(rx, left_audio_sample, right_audio_sample);
     }
-
-#endif
 
     if (rx == active_receiver && capture_state == CAP_RECORDING) {
       if (capture_record_pointer < capture_max) {
@@ -1580,9 +1569,7 @@ void rx_on(const RECEIVER *rx) {
 
 void rx_set_af_binaural(const RECEIVER *rx) {
   if (radio_is_remote) {
-#ifdef CLIENT_SERVER
     send_afbinaural(client_socket, rx);
-#endif
     return;
    }
   SetRXAPanelBinaural(rx->id, rx->binaural);
@@ -1787,9 +1774,7 @@ void rx_set_deviation(const RECEIVER *rx) {
 
 void rx_set_equalizer(RECEIVER *rx) {
   if (radio_is_remote) {
-#ifdef CLIENT_SERVER
     send_eq(client_socket, rx->id);
-#endif
     return;
   }
   //
@@ -1809,9 +1794,7 @@ void rx_set_equalizer(RECEIVER *rx) {
 
 void rx_set_fft_latency(const RECEIVER *rx) {
   if (radio_is_remote) {
-#ifdef CLIENT_SERVER
     send_rx_fft(client_socket, rx);
-#endif
     return;
   }
   RXASetMP(rx->id, rx->low_latency);
@@ -1819,9 +1802,7 @@ void rx_set_fft_latency(const RECEIVER *rx) {
 
 void rx_set_fft_size(const RECEIVER *rx) {
   if (radio_is_remote) {
-#ifdef CLIENT_SERVER
     send_rx_fft(client_socket, rx);
-#endif
     return;
   }
   RXASetNC(rx->id, rx->fft_size);
@@ -1841,9 +1822,7 @@ void rx_set_mode(const RECEIVER *rx) {
 
 void rx_set_noise(const RECEIVER *rx) {
   if (radio_is_remote) {
-#ifdef CLIENT_SERVER
     send_noise(client_socket, rx);
-#endif
     return;
   }
   //

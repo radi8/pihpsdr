@@ -901,11 +901,12 @@ static gpointer receive_thread(gpointer arg) {
           break;
 
         case 2:  // response to a discovery packet
+        case 3:  // response to a discovery packet with "InUse" flag
           t_print("unexepected discovery response when not in discovery mode\n");
           break;
 
         default:
-          t_print("unexpected packet type: 0x%02X\n", buffer[2]);
+          t_print("unexpected packet type: 0x%02X len=%d\n", buffer[2], bytes_read);
           break;
         }
       } else {

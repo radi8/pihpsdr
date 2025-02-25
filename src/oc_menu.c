@@ -25,9 +25,7 @@
 
 #include "band.h"
 #include "bandstack.h"
-#ifdef CLIENT_SERVER
 #include "client_server.h"
-#endif
 #include "filter.h"
 #include "main.h"
 #include "message.h"
@@ -68,9 +66,7 @@ static void oc_rx_cb(GtkWidget *widget, gpointer data) {
   }
 
   if (radio_is_remote) {
-#ifdef CLIENT_SERVER
     send_band_data(client_socket, b);
-#endif
   } else {
     schedule_high_priority();
   }
@@ -90,9 +86,7 @@ static void oc_tx_cb(GtkWidget *widget, gpointer data) {
   }
 
   if (radio_is_remote) {
-#ifdef CLIENT_SERVER
     send_band_data(client_socket, b);
-#endif
   } else {
     schedule_high_priority();
   }
@@ -110,9 +104,7 @@ static void oc_tune_cb(GtkWidget *widget, gpointer data) {
   }
 
   if (radio_is_remote) {
-#ifdef CLIENT_SERVER
     send_radiomenu(client_socket);
-#endif
   } else {
     schedule_high_priority();
   }
@@ -122,9 +114,7 @@ static void oc_full_tune_time_cb(GtkWidget *widget, gpointer data) {
   OCfull_tune_time = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(widget));
 
   if (radio_is_remote) {
-#ifdef CLIENT_SERVER
     send_radiomenu(client_socket);
-#endif
   } else {
     schedule_high_priority();
   }
@@ -134,9 +124,7 @@ static void oc_memory_tune_time_cb(GtkWidget *widget, gpointer data) {
   OCmemory_tune_time = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(widget));
 
   if (radio_is_remote) {
-#ifdef CLIENT_SERVER
     send_radiomenu(client_socket);
-#endif
   } else {
     schedule_high_priority();
   }

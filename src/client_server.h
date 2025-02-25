@@ -35,112 +35,108 @@ typedef enum {
 } CLIENT_STATE;
 
 enum _header_type_enum {
-  INFO_RADIO,
-  INFO_ADC,
-  INFO_DAC,
-  INFO_RECEIVER,
-  INFO_TRANSMITTER,
-  INFO_VFO,
-  INFO_BAND,
-  INFO_BANDSTACK,
-  INFO_MEMORY,
-  INFO_SPECTRUM,
-  INFO_RXAUDIO,
-  INFO_TXAUDIO,
-  INFO_PS,
-  CMD_START_RADIO,
-  CMD_SPECTRUM,
-  CMD_SAMPLE_RATE,
-  CMD_LOCK,
+  CMD_ADC,
+  CMD_AGC,
+  CMD_AGC_GAIN,
+  CMD_AMCARRIER,
+  CMD_ANAN10E,
+  CMD_ATTENUATION,
+  CMD_BAND_SEL,
+  CMD_BANDSTACK,
+  CMD_BINAURAL,
+  CMD_COMPRESSOR,
+  CMD_CTCSS,
   CMD_CTUN,
-  CMD_SPLIT,
-  CMD_SAT,
+  CMD_CW,
+  CMD_CWPEAK,
+  CMD_DEVIATION,
+  CMD_DEXP,
+  CMD_DIGIMAX,
+  CMD_DIVERSITY,
+  CMD_DRIVE,
   CMD_DUP,
-  CMD_STEP,
-  CMD_RECEIVERS,
+  CMD_FILTER_BOARD,
+  CMD_FILTER_CUT,
+  CMD_FILTER_SEL,
+  CMD_FILTER_VAR,
+  CMD_FPS,
   CMD_FREQ,
+  CMD_HEARTBEAT,
+  CMD_LOCK,
+  CMD_METER,
+  CMD_MICGAIN,
+  CMD_MODE,
   CMD_MOVE,
   CMD_MOVETO,
-  CMD_BAND,               // short command: vfo=b1, band=b2
-  CMD_BANDSTACK,          // short command: stack=b1
-  CMD_MODE,               // short command: vfo=b1, mode=b2
-  CMD_FILTER_SEL,         // short command: vfo=b1, filter=b2
-  CMD_FILTER_VAR,         // short command: mode=b1, filter=b2, low=s1, high=s2
-  CMD_FILTER_CUT,         // short command: rx=b1, low=s1, high=s2
-  CMD_AGC,
-  CMD_NOISE,
-  CMD_ZOOM,
-  CMD_PAN,
-  CMD_VOLUME,
-  CMD_AGC_GAIN,
-  CMD_ATTENUATION,
-  CMD_RFGAIN,
-  CMD_SQUELCH,
-  CMD_FPS,                   // short command: id=b1, fps=b2
-  CMD_RX_SELECT,             // short command: rx=b1
-  CMD_VFO_A_TO_B,            // short command: no parameters
-  CMD_VFO_B_TO_A,            // short command: no parameters
-  CMD_VFO_SWAP,              // short command: no parameters
-  CMD_RIT_TOGGLE,            // short command: vfo=b1
-  CMD_RIT_VALUE,             // short command: vfo=b1, rit=s1
-  CMD_RIT_INCR,              // short command: vfo=b1, incr=s1
-  CMD_XIT_TOGGLE,
-  CMD_XIT_CLEAR,
-  CMD_XIT,
-  CMD_RIT_STEP,              // short command: vfo=b1, step=s1
-  CMD_FILTER_BOARD,
-  CMD_SWAP_IQ,
-  CMD_REGION,
   CMD_MUTE_RX,
-  CMD_ANAN10E,
-  CMD_RX_EQ,
-  CMD_TX_EQ,
-  CMD_RX_DISPLAY,
-  CMD_TX_DISPLAY,
-  CMD_PTT,
-  CMD_VOX,
-  CMD_TUNE,
-  CMD_TWOTONE,
-  CMD_MICGAIN,
-  CMD_DRIVE,
-  CMD_SCREEN,
-  CMD_METER,
-  CMD_XVTR,
-  CMD_RCL,
-  CMD_STORE,
-  CMD_VFO_STEPSIZE,
-  CMD_ADC,
-  CMD_CW,
-  CMD_SIDETONEFREQ,
-  CMD_RADIOMENU,
-  CMD_RXMENU,
-  CMD_CWPEAK,
-  CMD_DIVERSITY,
-  CMD_CTCSS,
-  CMD_DEXP,
-  CMD_COMPRESSOR,
-  CMD_DIGIMAX,
-  CMD_PREEMP,
-  CMD_TXFILTER,
-  CMD_TXMENU,
+  CMD_NOISE,
+  CMD_PAN,
   CMD_PATRIM,
-  CMD_AMCARRIER,
+  CMD_PREEMP,
+  CMD_PSATT,
   CMD_PSONOFF,
+  CMD_PSPARAMS,
   CMD_PSRESET,
   CMD_PSRESUME,
-  CMD_PSPARAMS,
-  CMD_PSATT,
-  CMD_BINAURAL,
+  CMD_PTT,
+  CMD_RADIOMENU,
+  CMD_RCL,
+  CMD_RECEIVERS,
+  CMD_REGION,
+  CMD_RFGAIN,
+  CMD_RIT,
+  CMD_RIT_STEP,
   CMD_RXFFT,
+  CMD_RXMENU,
+  CMD_RX_DISPLAY,
+  CMD_RX_EQ,
+  CMD_RX_SELECT,
+  CMD_SAMPLE_RATE,
+  CMD_SAT,
+  CMD_SCREEN,
+  CMD_SIDETONEFREQ,
+  CMD_SPECTRUM,
+  CMD_SPLIT,
+  CMD_SQUELCH,
+  CMD_START_RADIO,
+  CMD_STEP,
+  CMD_STORE,
+  CMD_SWAP_IQ,
+  CMD_TUNE,
+  CMD_TWOTONE,
   CMD_TXFFT,
+  CMD_TXFILTER,
+  CMD_TXMENU,
+  CMD_TX_DISPLAY,
+  CMD_TX_EQ,
+  CMD_VFO_A_TO_B,
+  CMD_VFO_B_TO_A,
+  CMD_VFO_STEPSIZE,
+  CMD_VFO_SWAP,
+  CMD_VOLUME,
+  CMD_VOX,
+  CMD_XIT,
+  CMD_XVTR,
+  CMD_ZOOM,
+  INFO_ADC,
+  INFO_BAND,
+  INFO_BANDSTACK,
+  INFO_DAC,
+  INFO_DISPLAY,
+  INFO_MEMORY,
+  INFO_PS,
+  INFO_RADIO,
+  INFO_RECEIVER,
+  INFO_RXAUDIO,
+  INFO_SPECTRUM,
+  INFO_TRANSMITTER,
+  INFO_TXAUDIO,
+  INFO_VFO,
   CLIENT_SERVER_COMMANDS,
 };
 
-#define CLIENT_SERVER_VERSION 0xFFFF     // This indicates a test version
 #define SPECTRUM_DATA_SIZE 4096          // Maximum width of a panadapter
 #define AUDIO_DATA_SIZE 1024             // 1024 stereo samples
-
-#define REMOTE_SYNC (uint16_t)0xFAFA
 
 typedef struct _remote_client {
   int running;
@@ -152,9 +148,8 @@ typedef struct _remote_client {
 } REMOTE_CLIENT;
 
 typedef struct __attribute__((__packed__)) _header {
-  uint16_t sync;
+  uint8_t sync[4];
   uint16_t data_type;
-  uint16_t version;
   //
   // two bytes and two shorts that can be used
   // to store data for commands that need that little,
@@ -575,10 +570,16 @@ typedef struct __attribute__((__packed__)) _vfo_data {
   uint8_t  filter;
   uint8_t  ctun;
   uint8_t  rit_enabled;
+  uint8_t  xit_enabled;
+  uint8_t  cwAudioPeakFilter;
+//
   uint16_t rit_step;
+  uint16_t deviation;
+//
   uint64_t frequency;
   uint64_t ctun_frequency;
   uint64_t rit;
+  uint64_t xit;
   uint64_t lo;
   uint64_t offset;
   uint64_t step;
@@ -619,15 +620,15 @@ typedef struct __attribute__((__packed__)) _spectrum_data {
 typedef struct __attribute__((__packed__)) _txaudio_data {
   HEADER header;
   uint8_t rx;
-  uint16_t samples;
-  uint16_t sample[AUDIO_DATA_SIZE];
+  uint16_t numsamples;
+  uint16_t samples[AUDIO_DATA_SIZE];
 } TXAUDIO_DATA;
 
 typedef struct __attribute__((__packed__)) _rxaudio_data {
   HEADER header;
   uint8_t rx;
-  uint16_t samples;
-  uint16_t sample[AUDIO_DATA_SIZE * 2];
+  uint16_t numsamples;
+  uint16_t samples[AUDIO_DATA_SIZE * 2];
 } RXAUDIO_DATA;
 
 
@@ -642,6 +643,20 @@ typedef struct __attribute__((__packed__)) _ps_params {
   uint8_t  ps_map;
   mydouble ps_setpk;
 } PS_PARAMS;
+
+typedef struct __attribute__((__packed__)) _display_data {
+  HEADER header;
+  uint8_t adc0_overload;
+  uint8_t adc1_overload;
+  uint8_t high_swr_seen;
+  uint8_t tx_fifo_overrun;
+  uint8_t tx_fifo_underrun;
+  uint8_t TxInhibit;
+  uint16_t exciter_power;
+  uint16_t ADC0;
+  uint16_t ADC1;
+  uint16_t sequence_errors;
+} DISPLAY_DATA;
 
 typedef struct __attribute__((__packed__)) _ps_data {
   HEADER header;
@@ -749,100 +764,99 @@ extern int create_hpsdr_server(void);
 extern int destroy_hpsdr_server(void);
 
 extern int radio_connect_remote(char *host, int port);
-
-extern void send_radio_data(int sock);
-extern void send_adc_data(int sock, int i);
-extern void send_dac_data(int sock);
-extern void send_receiver_data(int sock, int rx);
-extern void send_vfo_data(int sock, int v);
-extern void send_memory_data(int sock, int index);
-
-extern void send_afbinaural(int s, const RECEIVER *rx);
-extern void send_rx_fft(int s, const RECEIVER *rx);
-extern void send_tx_fft(int s, const TRANSMITTER *tx);
-extern void send_startstop_spectrum(int s, int id, int state);
-extern void send_vfo_frequency(int s, int v, long long hz);
-extern void send_vfo_move_to(int s, int v, long long hz);
-extern void update_vfo_move(int v, long long hz, int round);
-extern void send_vfo_stepsize(int s, int v, int stepsize);
-extern void send_vfo_step(int s, int v, int steps);
-extern void update_vfo_step(int v, int steps);
-extern void send_zoom(int s, const RECEIVER *rx);
-extern void send_pan(int s, const RECEIVER *rx);
-extern void send_meter(int s, int metermode, int alcmode);
-extern void send_screen(int s, int hstack, int width);
-extern void send_volume(int s, int rx, double volume);
-extern void send_agc(int s, int rx, int agc);
-extern void send_diversity(int s, int enabled, double gain, double phase);
-extern void send_agc_gain(int s, int rx, double gain, double hang, double thresh, double hang_thresh);
-extern void send_attenuation(int s, int rx, int attenuation);
-extern void send_rfgain(int s, int rx, double gain);
-extern void send_squelch(int s, int rx, int enable, double squelch);
-extern void send_eq(int s, int id);
-extern void send_recall(int s, int index);
-extern void send_store(int s, int index);
-extern void send_micgain(int s, double gain);
-extern void send_drive(int s, double value);
-extern void send_noise(int s, const RECEIVER *rx);
-extern void send_xvtr_changed(int s);
-extern void send_band(int s, int rx, int band);
-extern void send_bandstack(int s, int old, int new);
-extern void send_band_data(int s, int band);
-extern void send_bandstack_data(int s, int band, int stack);
-extern void send_mode(int s, int rx, int mode);
-extern void send_ptt(int s, int state);
-extern void send_vox(int s, int state);
-extern void send_tune(int s, int state);
-extern void send_twotone(int s, int state);
-extern void send_filter_sel(int s, int vfo, int filter);
-extern void send_filter_var(int s, int mode, int filter);
-extern void send_filter_cut(int s, int rx);
-extern void send_cwpeak(int s, int id, int state);
-extern void send_split(int s, int state);
-extern void send_patrim(int s);
-extern void send_sat(int s, int sat);
-extern void send_cw(int s, int state,  int wait);
-extern void send_sidetone_freq(int s, int freq);
-extern void send_duplex(int s, int state);
-extern void send_ctun(int s, int vfo, int ctun);
-extern void send_display(int s, int id);
-extern void send_fps(int s, int rx, int fps);
-extern void send_rx_select(int s, int rx);
-extern void send_lock(int s, int lock);
-extern void send_rit_toggle(int s, int rx);
-extern void send_rit_value(int s, int rx, int ritval);
-extern void send_rit_incr(int s, int rx, int incr);
-extern void send_xit_toggle(int s);
-extern void send_xit_clear(int s);
-extern void send_tx_compressor(int s);
-extern void send_dexp(int s);
-extern void send_xit(int s, int xit);
-extern void send_sample_rate(int s, int rx, int sample_rate);
-extern void send_receivers(int s, int receivers);
-extern void send_rit_step(int s, int v, int step);
-extern void send_filter_board(int s, int filter_board);
-extern void send_swap_iq(int s, int swap_iq);
-extern void send_region(int s, int region);
-extern void send_mute_rx(int s, int id, int mute);
-extern void send_varfilter_data(int s);
-extern void send_anan10E(int s, int new);
-extern void send_adc(int s, int id, int adc);
-extern void send_radiomenu(int s);
-extern void send_rxmenu(int s, int id);
-extern void send_preemp(int s);
-extern void send_txfilter(int s);
-extern void send_txmenu(int s);
-extern void send_ctcss(int s);
-extern void send_digidrivemax(int s);
-extern void send_am_carrier(int s);
-extern void send_psatt(int s);
-extern void send_psonoff(int s, int state);
-extern void send_psresume(int s);
-extern void send_psreset(int s);
-extern void send_psparams(int s, const TRANSMITTER *tx);
-
 extern void remote_rxaudio(const RECEIVER *rx, short left_sample, short right_sample);
 extern void server_tx_audio(short sample);
 extern short remote_get_mic_sample();
+
+extern void send_adc(int s, int id, int adc);
+extern void send_adc_data(int sock, int i);
+extern void send_afbinaural(int s, const RECEIVER *rx);
+extern void send_agc(int s, int rx, int agc);
+extern void send_agc_gain(int s, int rx, double gain, double hang, double thresh, double hang_thresh);
+extern void send_am_carrier(int s);
+extern void send_anan10E(int s, int new);
+extern void send_attenuation(int s, int rx, int attenuation);
+extern void send_band(int s, int rx, int band);
+extern void send_band_data(int s, int band);
+extern void send_bandstack(int s, int old, int new);
+extern void send_bandstack_data(int s, int band, int stack);
+extern void send_ctcss(int s);
+extern void send_ctun(int s, int vfo, int ctun);
+extern void send_cw(int s, int state,  int wait);
+extern void send_cwpeak(int s, int id, int state);
+extern void send_dac_data(int sock);
+extern void send_deviation(int s, int id, int state);
+extern void send_dexp(int s);
+extern void send_digidrivemax(int s);
+extern void send_display(int s, int id);
+extern void send_diversity(int s, int enabled, double gain, double phase);
+extern void send_drive(int s, double value);
+extern void send_duplex(int s, int state);
+extern void send_eq(int s, int id);
+extern void send_filter_board(int s, int filter_board);
+extern void send_filter_cut(int s, int rx);
+extern void send_filter_sel(int s, int vfo, int filter);
+extern void send_filter_var(int s, int mode, int filter);
+extern void send_fps(int s, int rx, int fps);
+extern void send_heartbeat(int s);
+extern void send_lock(int s, int lock);
+extern void send_memory_data(int sock, int index);
+extern void send_meter(int s, int metermode, int alcmode);
+extern void send_micgain(int s, double gain);
+extern void send_mode(int s, int rx, int mode);
+extern void send_mute_rx(int s, int id, int mute);
+extern void send_noise(int s, const RECEIVER *rx);
+extern void send_pan(int s, const RECEIVER *rx);
+extern void send_patrim(int s);
+extern void send_preemp(int s);
+extern void send_psatt(int s);
+extern void send_psonoff(int s, int state);
+extern void send_psparams(int s, const TRANSMITTER *tx);
+extern void send_psreset(int s);
+extern void send_psresume(int s);
+extern void send_ptt(int s, int state);
+extern void send_radio_data(int sock);
+extern void send_radiomenu(int s);
+extern void send_recall(int s, int index);
+extern void send_receiver_data(int sock, int rx);
+extern void send_receivers(int s, int receivers);
+extern void send_region(int s, int region);
+extern void send_rfgain(int s, int rx, double gain);
+extern void send_rit(int s, int id);
+extern void send_rit_step(int s, int v, int step);
+extern void send_rx_fft(int s, const RECEIVER *rx);
+extern void send_rx_select(int s, int rx);
+extern void send_rxmenu(int s, int id);
+extern void send_sample_rate(int s, int rx, int sample_rate);
+extern void send_sat(int s, int sat);
+extern void send_screen(int s, int hstack, int width);
+extern void send_sidetone_freq(int s, int freq);
+extern void send_split(int s, int state);
+extern void send_squelch(int s, int rx, int enable, double squelch);
+extern void send_startstop_spectrum(int s, int id, int state);
+extern void send_store(int s, int index);
+extern void send_swap_iq(int s, int swap_iq);
+extern void send_tune(int s, int state);
+extern void send_twotone(int s, int state);
+extern void send_tx_compressor(int s);
+extern void send_tx_fft(int s, const TRANSMITTER *tx);
+extern void send_txfilter(int s);
+extern void send_txmenu(int s);
+extern void send_varfilter_data(int s);
+extern void send_vfo_atob(int sock);
+extern void send_vfo_btoa(int sock);
+extern void send_vfo_data(int sock, int v);
+extern void send_vfo_frequency(int s, int v, long long hz);
+extern void send_vfo_move_to(int s, int v, long long hz);
+extern void send_vfo_step(int s, int v, int steps);
+extern void send_vfo_stepsize(int s, int v, int stepsize);
+extern void send_vfo_swap(int sock);
+extern void send_volume(int s, int rx, double volume);
+extern void send_vox(int s, int state);
+extern void send_xit(int s, int id);
+extern void send_xvtr_changed(int s);
+extern void send_zoom(int s, const RECEIVER *rx);
+extern void update_vfo_move(int v, long long hz, int round);
+extern void update_vfo_step(int v, int steps);
 
 #endif

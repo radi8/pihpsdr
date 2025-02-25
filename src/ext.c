@@ -136,7 +136,6 @@ int ext_set_duplex(void *data) {
   return G_SOURCE_REMOVE;
 }
 
-#ifdef CLIENT_SERVER
 int ext_tx_remote_update_display(void *data) {
   TRANSMITTER *tx = (TRANSMITTER *)data;
   tx_remote_update_display(tx);
@@ -194,4 +193,3 @@ int ext_att_type_changed(void *data) {
   att_type_changed();
   return G_SOURCE_REMOVE;
 }
-#endif

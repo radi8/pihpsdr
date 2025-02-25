@@ -52,12 +52,10 @@ void vox_clear() {
 void vox_update(double lvl) {
   peak = lvl;
 
-#ifdef CLIENT_SERVER
   //
   // As long as a client controls us, VOX is done there
   // 
   if (remoteclient.running) { return; }
-#endif
 
   if (vox_enabled && !mox && !tune && !TxInhibit) {
     if (peak > vox_threshold) {

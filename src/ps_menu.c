@@ -100,9 +100,7 @@ static void ps_off_on() {
 static void att_spin_cb(GtkWidget *widget, gpointer data) {
   transmitter->attenuation = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(widget));
   if (radio_is_remote) {
-#ifdef CLIENT_SERVER
     send_psatt(client_socket); // this sends auto, attenuation, feedback, and ps antenna
-#endif
   } else {
     schedule_high_priority();
   }
@@ -118,9 +116,7 @@ static void setpk_cb(GtkWidget *widget, gpointer data) {
     transmitter->ps_setpk = newpk;
     transmitter->ps_getpk = newpk;
     if (radio_is_remote) {
-#ifdef CLIENT_SERVER
       send_psparams(client_socket, transmitter);
-#endif
     } else {
       tx_ps_setparams(transmitter);
       ps_off_on();
@@ -427,9 +423,7 @@ static void ps_ant_cb(GtkWidget *widget, gpointer data) {
   }
 
   if (radio_is_remote) {
-#ifdef CLIENT_SERVER
     send_psatt(client_socket);
-#endif
   } else {
     schedule_high_priority();
   }
@@ -464,9 +458,7 @@ static void enable_cb(GtkWidget *widget, gpointer data) {
 static void tol_cb(GtkWidget *widget, gpointer data) {
   transmitter->ps_ptol = gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (widget));
   if (radio_is_remote) {
-#ifdef CLIENT_SERVER
     send_psparams(client_socket, transmitter);
-#endif
   } else {
     tx_ps_setparams(transmitter);
     ps_off_on();
@@ -476,9 +468,7 @@ static void tol_cb(GtkWidget *widget, gpointer data) {
 static void oneshot_cb(GtkWidget *widget, gpointer data) {
   transmitter->ps_oneshot = gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (widget));
   if (radio_is_remote) {
-#ifdef CLIENT_SERVER
     send_psparams(client_socket, transmitter);
-#endif
   } else {
     tx_ps_setparams(transmitter);
     ps_off_on();
@@ -488,9 +478,7 @@ static void oneshot_cb(GtkWidget *widget, gpointer data) {
 static void map_cb(GtkWidget *widget, gpointer data) {
   transmitter->ps_map = gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (widget));
   if (radio_is_remote) {
-#ifdef CLIENT_SERVER
     send_psparams(client_socket, transmitter);
-#endif
   } else {
     tx_ps_setparams(transmitter);
     ps_off_on();
@@ -500,9 +488,7 @@ static void map_cb(GtkWidget *widget, gpointer data) {
 static void auto_cb(GtkWidget *widget, gpointer data) {
   transmitter->auto_on = gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (widget));
   if (radio_is_remote) {
-#ifdef CLIENT_SERVER
     send_psatt(client_socket);
-#endif
   }
 
   if (transmitter->puresignal) {
@@ -546,9 +532,7 @@ static void resume_cb(GtkWidget *widget, gpointer data) {
     if (transmitter->auto_on) {
       transmitter->attenuation = 0;
       if (radio_is_remote) {
-#ifdef CLIENT_SERVER
         send_psatt(client_socket);
-#endif
       }
     }
 
@@ -559,9 +543,7 @@ static void resume_cb(GtkWidget *widget, gpointer data) {
 static void feedback_cb(GtkWidget *widget, gpointer data) {
   transmitter->feedback = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
   if (radio_is_remote) {
-#ifdef CLIENT_SERVER
     send_psatt(client_socket);
-#endif
   }
 }
 

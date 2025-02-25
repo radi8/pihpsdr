@@ -114,9 +114,7 @@ static void cw_keyer_sidetone_frequency_value_changed_cb(GtkWidget *widget, gpoi
   cw_keyer_sidetone_frequency = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(widget));
   cw_changed();
   if (radio_is_remote) {
-#ifdef CLIENT_SERVER
     send_sidetone_freq(client_socket, cw_keyer_sidetone_frequency);
-#endif
   } else {
     rx_filter_changed(active_receiver);
     // changing the side tone frequency affects BFO frequency offsets

@@ -24,9 +24,7 @@
 #include "band.h"
 #include "band_menu.h"
 #include "bandstack.h"
-#ifdef CLIENT_SERVER
-  #include "client_server.h"
-#endif
+#include "client_server.h"
 #include "discovery.h"
 #include "diversity_menu.h"
 #include "equalizer_menu.h"
@@ -1025,9 +1023,7 @@ int process_action(void *data) {
   case LOCK:
     if (a->mode == PRESSED) {
       if (radio_is_remote) {
-#ifdef CLIENT_SERVER
         send_lock(client_socket, NOT(locked));
-#endif
       } else {
         TOGGLE(locked);
         g_idle_add(ext_vfo_update, NULL);
@@ -1954,9 +1950,7 @@ int process_action(void *data) {
       MIDI_cw_is_active = 1;         // disable "CW handled in radio"
       cw_key_hit = 1;                // this tells rigctl to abort CAT CW
       if (radio_is_remote) {
-#ifdef CLIENT_SERVER
         send_ptt(client_socket, 1);
-#endif
       } else {
         schedule_transmit_specific();
         radio_mox_update(1);
@@ -1967,9 +1961,7 @@ int process_action(void *data) {
       MIDI_cw_is_active = 0;         // enable "CW handled in radio", if it was selected
       if (radio_is_remote) {
         usleep(100000);              // since we delayed the start of the first CW, increase hang time
-#ifdef CLIENT_SERVER
         send_ptt(client_socket, 0);
-#endif
       } else {
         schedule_transmit_specific();
 

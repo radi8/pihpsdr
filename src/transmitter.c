@@ -1432,9 +1432,7 @@ static void tx_full_buffer(TRANSMITTER *tx) {
 
 void tx_queue_cw_event(int down, int wait) {
   if (radio_is_remote) {
-#ifdef CLIENT_SERVER
     send_cw(client_socket, down, wait);
-#endif
     return;
   }
   //
@@ -1488,14 +1486,12 @@ void tx_add_mic_sample(TRANSMITTER *tx, short next_mic_sample) {
     }
   }
 
-#ifdef CLIENT_SERVER
   //
   // If we have a client, it overwrites 'local' microphone data.
   //
   if (remoteclient.running) {
     mic_sample_double = remote_get_mic_sample() * 0.00003051;  // divide by 32768;
   }
-#endif
 
   // If there is captured data to re-play, replace incoming
   // mic samples by captured data.
@@ -1769,7 +1765,6 @@ void tx_add_ps_iq_samples(const TRANSMITTER *tx, double i_sample_tx, double q_sa
   }
 }
 
-#ifdef CLIENT_SERVER
 void tx_remote_update_display(TRANSMITTER *tx) {
   if (tx->displaying) {
     if (tx->pixels > 0) {
@@ -1796,7 +1791,6 @@ void tx_create_remote(TRANSMITTER *tx) {
   //
   tx_create_visual(tx);
 }
-#endif
 
 void tx_set_displaying(TRANSMITTER *tx) {
   ASSERT_SERVER();
@@ -2118,9 +2112,7 @@ void tx_ps_onoff(TRANSMITTER *tx, int state) {
 #endif
   if (radio_is_remote) {
     tx->puresignal = state;
-#ifdef CLIENT_SERVER
     send_psonoff(client_socket, state);
-#endif
     g_idle_add(ext_vfo_update, NULL);
     return;
   }
@@ -2185,9 +2177,7 @@ void tx_ps_onoff(TRANSMITTER *tx, int state) {
 void tx_ps_reset(const TRANSMITTER *tx) {
   if (tx->puresignal) {
     if (radio_is_remote) {
-#ifdef CLIENT_SERVER
       send_psreset(client_socket);
-#endif
       return;
     }
 #ifdef WDSPTXDEBUG
@@ -2200,9 +2190,7 @@ void tx_ps_reset(const TRANSMITTER *tx) {
 void tx_ps_resume(const TRANSMITTER *tx) {
   if (tx->puresignal) {
     if (radio_is_remote) {
-#ifdef CLIENT_SERVER
       send_psresume(client_socket);
-#endif
       return;
     }
 #ifdef WDSPTXDEBUG
@@ -2227,9 +2215,7 @@ void tx_ps_set_sample_rate(const TRANSMITTER *tx, int rate) {
 
 void tx_ps_setparams(const TRANSMITTER *tx) {
   if (radio_is_remote) {
-#ifdef CLIENT_SERVER
     send_psparams(client_socket, tx);
-#endif
     return;
   }
   SetPSHWPeak(tx->id, tx->ps_setpk);
@@ -2433,9 +2419,7 @@ void tx_set_dexp(const TRANSMITTER *tx) {
 
 void tx_set_equalizer(TRANSMITTER *tx) {
   if (radio_is_remote) {
-#ifdef CLIENT_SERVER
     send_eq(client_socket, tx->id);
-#endif
     return;
   }
   SetTXAEQProfile(tx->id, 10, tx->eq_freq, tx->eq_gain);
@@ -2452,9 +2436,7 @@ void tx_set_equalizer(TRANSMITTER *tx) {
 
 void tx_set_fft_size(const TRANSMITTER *tx) {
   if (radio_is_remote) {
-#ifdef CLIENT_SERVER
     send_tx_fft(client_socket, tx);
-#endif
     return;
   }
   TXASetNC(tx->id, tx->fft_size);

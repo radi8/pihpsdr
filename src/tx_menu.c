@@ -199,9 +199,7 @@ static void spinbtn_cb(GtkWidget *widget, gpointer data) {
     case TX_LINEIN:
       linein_gain = v;
       if (radio_is_remote) {
-#ifdef CLIENT_SERVER
         send_txmenu(client_socket);
-#endif
       } else {
         schedule_transmit_specific();
       }
@@ -210,9 +208,7 @@ static void spinbtn_cb(GtkWidget *widget, gpointer data) {
     case TX_FPS:
       transmitter->fps = vi;
       if (radio_is_remote) {
-#ifdef CLIENT_SERVER
         send_fps(client_socket, transmitter->id, transmitter->fps);
-#endif
       } else {
         tx_set_framerate(transmitter);
       }
@@ -221,9 +217,7 @@ static void spinbtn_cb(GtkWidget *widget, gpointer data) {
     case TX_COMP:
       transmitter->compressor_level = vi;
       if (radio_is_remote) {
-#ifdef CLIENT_SERVER
         send_tx_compressor(client_socket);
-#endif
       } else {
         mode_settings[mode].compressor_level = vi;
         copy_mode_settings(mode);
@@ -235,9 +229,7 @@ static void spinbtn_cb(GtkWidget *widget, gpointer data) {
     case TX_FILTER_LOW:
       tx_filter_low = vi;
       if (radio_is_remote) {
-#ifdef CLIENT_SERVER
         send_txfilter(client_socket);
-#endif
       } else {
         tx_set_filter(transmitter);
       }
@@ -246,9 +238,7 @@ static void spinbtn_cb(GtkWidget *widget, gpointer data) {
     case TX_FILTER_HIGH:
       tx_filter_high = vi;
       if (radio_is_remote) {
-#ifdef CLIENT_SERVER
         send_txfilter(client_socket);
-#endif
       } else {
         tx_set_filter(transmitter);
       }
@@ -269,9 +259,7 @@ static void spinbtn_cb(GtkWidget *widget, gpointer data) {
     case TX_AM_CARRIER:
       transmitter->am_carrier_level = v;
       if (radio_is_remote) {
-#ifdef CLIENT_SERVER
         send_am_carrier(client_socket);
-#endif
       } else {
         tx_set_am_carrier_level(transmitter);
       }
@@ -280,9 +268,7 @@ static void spinbtn_cb(GtkWidget *widget, gpointer data) {
     case TX_TUNE_DRIVE:
       transmitter->tune_drive = vi;
       if (radio_is_remote) {
-#ifdef CLIENT_SERVER
         send_txmenu(client_socket);
-#endif
       }
       break;
 
@@ -290,9 +276,7 @@ static void spinbtn_cb(GtkWidget *widget, gpointer data) {
       drive_digi_max = v;
 
       if (radio_is_remote) {
-#ifdef CLIENT_SERVER
         send_digidrivemax(client_socket);
-#endif
       } else if ((mode == modeDIGL || mode == modeDIGU) && transmitter->drive > v + 0.5) {
         set_drive(v);
       }
@@ -302,9 +286,7 @@ static void spinbtn_cb(GtkWidget *widget, gpointer data) {
     case TX_SWR_ALARM:
       transmitter->swr_alarm = v;
       if (radio_is_remote) {
-#ifdef CLIENT_SERVER
         send_txmenu(client_socket);
-#endif
       }
       break;
     }
@@ -312,9 +294,7 @@ static void spinbtn_cb(GtkWidget *widget, gpointer data) {
     // The CFC frequency spin buttons
     transmitter->cfc_freq[e] = v;
     if (radio_is_remote) {
-#ifdef CLIENT_SERVER
       send_tx_compressor(client_socket);
-#endif
     } else {
       mode_settings[mode].cfc_freq[e] = v;
       copy_mode_settings(mode);
@@ -324,9 +304,7 @@ static void spinbtn_cb(GtkWidget *widget, gpointer data) {
     // The CFC compression-level spin buttons
     transmitter->cfc_lvl[e] = v;
     if (radio_is_remote) {
-#ifdef CLIENT_SERVER
       send_tx_compressor(client_socket);
-#endif
     } else {
       mode_settings[mode].cfc_lvl[e] = v;
       copy_mode_settings(mode);
@@ -336,9 +314,7 @@ static void spinbtn_cb(GtkWidget *widget, gpointer data) {
     // The CFC Post-equalizer gain spin buttons
     transmitter->cfc_post[e] = v;
     if (radio_is_remote) {
-#ifdef CLIENT_SERVER
       send_tx_compressor(client_socket);
-#endif
     } else {
       mode_settings[mode].cfc_post[e] = v;
       copy_mode_settings(mode);
@@ -396,9 +372,7 @@ static void spinbtn_cb(GtkWidget *widget, gpointer data) {
     }
 
     if (radio_is_remote) {
-#ifdef CLIENT_SERVER
       send_dexp(client_socket);
-#endif
     } else {
       copy_mode_settings(mode);
       tx_set_dexp(transmitter);
@@ -425,9 +399,7 @@ static void chkbtn_cb(GtkWidget *widget, gpointer data) {
     case TX_COMP_ENABLE:
       transmitter->compressor = v;
       if (radio_is_remote) {
-#ifdef CLIENT_SERVER
         send_tx_compressor(client_socket);
-#endif
       } else {
         mode_settings[mode].compressor = transmitter->compressor;
         copy_mode_settings(mode);
@@ -439,9 +411,7 @@ static void chkbtn_cb(GtkWidget *widget, gpointer data) {
     case TX_CTCSS_ENABLE:
       transmitter->ctcss_enabled = v;
       if (radio_is_remote) {
-#ifdef CLIENT_SERVER
         send_ctcss(client_socket);
-#endif
       } else {
         tx_set_ctcss(transmitter);
       }
@@ -451,27 +421,21 @@ static void chkbtn_cb(GtkWidget *widget, gpointer data) {
     case TX_TUNE_USE_DRIVE:
       transmitter->tune_use_drive = v;
       if (radio_is_remote) {
-#ifdef CLIENT_SERVER
         send_txmenu(client_socket);
-#endif
       }
       break;
 
     case TX_SWR_PROTECTION:
       transmitter->swr_protection = v;
       if (radio_is_remote) {
-#ifdef CLIENT_SERVER
         send_txmenu(client_socket);
-#endif
       }
       break;
 
     case TX_USE_RX_FILTER:
       transmitter->use_rx_filter = v;
       if (radio_is_remote) {
-#ifdef CLIENT_SERVER
         send_txfilter(client_socket);
-#endif
       } else {
         tx_set_filter(transmitter);
       }
@@ -506,9 +470,7 @@ static void chkbtn_cb(GtkWidget *widget, gpointer data) {
     case TX_FM_EMP:
       transmitter->pre_emphasize = !v;
       if (radio_is_remote) {
-#ifdef CLIENT_SERVER
         send_preemp(client_socket);
-#endif
       } else {
         tx_set_pre_emphasize(transmitter);
       }
@@ -529,9 +491,7 @@ static void chkbtn_cb(GtkWidget *widget, gpointer data) {
     }
 
     if (radio_is_remote) {
-#ifdef CLIENT_SERVER
       send_tx_compressor(client_socket);
-#endif
     } else {
       copy_mode_settings(mode);
       tx_set_compressor(transmitter);
@@ -553,9 +513,7 @@ static void chkbtn_cb(GtkWidget *widget, gpointer data) {
     }
 
     if (radio_is_remote) {
-#ifdef CLIENT_SERVER
       send_dexp(client_socket);
-#endif
     } else {
       copy_mode_settings(mode);
       tx_set_dexp(transmitter);
@@ -588,9 +546,7 @@ static void mic_in_cb(GtkWidget *widget, gpointer data) {
   }
 
   if (radio_is_remote) {
-#ifdef CLIENT_SERVER
     send_txmenu(client_socket);
-#endif
   } else {
     schedule_transmit_specific();
   }
@@ -599,9 +555,7 @@ static void mic_in_cb(GtkWidget *widget, gpointer data) {
 static void ctcss_frequency_cb(GtkWidget *widget, gpointer data) {
   transmitter->ctcss = gtk_combo_box_get_active(GTK_COMBO_BOX(widget));
   if (radio_is_remote) {
-#ifdef CLIENT_SERVER
     send_ctcss(client_socket);
-#endif
   } else {
     tx_set_ctcss(transmitter);
   }

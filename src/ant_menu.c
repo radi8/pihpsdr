@@ -25,9 +25,7 @@
 
 #include "ant_menu.h"
 #include "band.h"
-#ifdef CLIENT_SERVER
 #include "client_server.h"
-#endif
 #include "message.h"
 #include "new_menu.h"
 #include "new_protocol.h"
@@ -67,9 +65,7 @@ static void rx_ant_cb(GtkToggleButton *widget, gpointer data) {
   BAND *band = band_get_band(b);
   band->alexRxAntenna = ant;
   if (radio_is_remote) {
-#ifdef CLIENT_SERVER
     send_band_data(client_socket, b);
-#endif
   } else {
     radio_set_alex_antennas();
   }
@@ -81,9 +77,7 @@ static void tx_ant_cb(GtkToggleButton *widget, gpointer data) {
   BAND *band = band_get_band(b);
   band->alexTxAntenna = ant;
   if (radio_is_remote) {
-#ifdef CLIENT_SERVER
     send_band_data(client_socket, b);
-#endif
   } else {
     radio_set_alex_antennas();
   }
@@ -94,9 +88,7 @@ static void adc_antenna_cb(GtkComboBox *widget, gpointer data) {
   adc[0].antenna = gtk_combo_box_get_active(widget);
 
   if (radio_is_remote) {
-#ifdef CLIENT_SERVER
     send_adc_data(client_socket, 0);
-#endif
   } else if (device == SOAPYSDR_USB_DEVICE) {
     soapy_protocol_set_rx_antenna(receiver[0], adc[0].antenna);
   }
@@ -106,9 +98,7 @@ static void dac_antenna_cb(GtkComboBox *widget, gpointer data) {
   dac.antenna = gtk_combo_box_get_active(widget);
 
   if (radio_is_remote) {
-#ifdef CLIENT_SERVER
     send_dac_data(client_socket);
-#endif
   } else if (device == SOAPYSDR_USB_DEVICE && can_transmit) {
     soapy_protocol_set_tx_antenna(transmitter, dac.antenna);
   }
@@ -297,9 +287,7 @@ static void newpa_cb(GtkWidget *widget, gpointer data) {
   }
 
   if (radio_is_remote) {
-#ifdef CLIENT_SERVER
     send_radiomenu(client_socket);
-#endif
   } else {
     schedule_high_priority();
   }

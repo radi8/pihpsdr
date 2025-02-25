@@ -334,14 +334,12 @@ extern void   radio_set_anan10E(int new);
 
 extern int compare_doubles(const void *a, const void *b);
 
-#ifdef CLIENT_SERVER
-  extern void radio_remote_change_receivers(int r);
-  extern int  radio_remote_start(void *data);
-  extern void radio_remote_set_mox(int state);
-  extern void radio_remote_set_vox(int state);
-  extern void radio_remote_set_tune(int state);
-  extern void radio_remote_set_twotone(int state);
-#endif
+extern void radio_remote_change_receivers(int r);
+extern int  radio_remote_start(void *data);
+extern void radio_remote_set_mox(int state);
+extern void radio_remote_set_vox(int state);
+extern void radio_remote_set_tune(int state);
+extern void radio_remote_set_twotone(int state);
 
 extern int optimize_for_touchscreen;
 extern void my_combo_attach(GtkGrid *grid, GtkWidget *combo, int row, int col, int spanrow, int spancol);
@@ -352,7 +350,6 @@ extern void my_combo_attach(GtkGrid *grid, GtkWidget *combo, int row, int col, i
 //
 // This results in a fatal error with a dialog box
 //
-#ifdef CLIENT_SERVER
 #define ASSERT_SERVER(ret)                                                    \
     if (radio_is_remote) {                                                    \
       char *msg = g_new(char, 512);                                           \
@@ -360,9 +357,6 @@ extern void my_combo_attach(GtkGrid *grid, GtkWidget *combo, int row, int col, i
       g_idle_add(fatal_error, msg);                                           \
       return ret;                                                             \
    }
-#else
-#define ASSERT_SERVER(ret)
-#endif
 
 //
 // Macro for a memory barrier, preventing changing the execution order

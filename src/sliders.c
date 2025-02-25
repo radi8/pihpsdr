@@ -28,9 +28,7 @@
 #include "band.h"
 #include "bandstack.h"
 #include "channel.h"
-#ifdef CLIENT_SERVER
-  #include "client_server.h"
-#endif
+#include "client_server.h"
 #include "discovered.h"
 #include "ext.h"
 #include "filter.h"
@@ -213,9 +211,7 @@ static void attenuation_value_changed_cb(GtkWidget *widget, gpointer data) {
   adc[active_receiver->adc].attenuation = gtk_range_get_value(GTK_RANGE(attenuation_scale));
 
   if (radio_is_remote) {
-#ifdef CLIENT_SERVER
     send_attenuation(client_socket, active_receiver->id, adc[active_receiver->adc].attenuation);
-#endif
   } else {
     schedule_high_priority();
   }
@@ -355,10 +351,8 @@ static void agcgain_value_changed_cb(GtkWidget *widget, gpointer data) {
   active_receiver->agc_gain = gtk_range_get_value(GTK_RANGE(agc_scale));
 
   if (radio_is_remote) {
-#ifdef CLIENT_SERVER
     send_agc_gain(client_socket, active_receiver->id, active_receiver->agc_gain, active_receiver->agc_hang,
                   active_receiver->agc_thresh, active_receiver->agc_hang_threshold);
-#endif
   } else {
     rx_set_agc(active_receiver);
   }
@@ -384,9 +378,7 @@ static void afgain_value_changed_cb(GtkWidget *widget, gpointer data) {
   active_receiver->volume = gtk_range_get_value(GTK_RANGE(af_gain_scale));
 
   if (radio_is_remote) {
-#ifdef CLIENT_SERVER
     send_volume(client_socket, active_receiver->id, active_receiver->volume);
-#endif
     return;
   }
 
@@ -412,9 +404,7 @@ static void rf_gain_value_changed_cb(GtkWidget *widget, gpointer data) {
   adc[active_receiver->adc].gain = gtk_range_get_value(GTK_RANGE(rf_gain_scale));
 
   if (radio_is_remote) {
-#ifdef CLIENT_SERVER
     send_rfgain(client_socket, active_receiver->id, adc[active_receiver->adc].gain);
-#endif
     return;
   }
 
@@ -492,9 +482,7 @@ void show_filter_shift(int rx, int shift) {
 static void micgain_value_changed_cb(GtkWidget *widget, gpointer data) {
   double gain = gtk_range_get_value(GTK_RANGE(widget));
   if (radio_is_remote) {
-#ifdef CLIENT_SERVER
     send_micgain(client_socket,gain);
-#endif
     return;
   }
   if (can_transmit) {
@@ -520,9 +508,7 @@ void set_mic_gain(double value) {
   }
 
   if (radio_is_remote) {
-#ifdef CLIENT_SERVER
     send_micgain(client_socket, value);
-#endif
     return;
   }
 
@@ -543,9 +529,7 @@ void set_drive(double value) {
   }
 
   if (radio_is_remote) {
-#ifdef CLIENT_SERVER
     send_drive(client_socket, value);
-#endif
     return;
   }
 
@@ -563,9 +547,7 @@ static void drive_value_changed_cb(GtkWidget *widget, gpointer data) {
   double value = gtk_range_get_value(GTK_RANGE(drive_scale));
 
   if (radio_is_remote) {
-#ifdef CLIENT_SERVER
     send_drive(client_socket, value);
-#endif
     return;
   }
 
@@ -640,9 +622,7 @@ static void squelch_value_changed_cb(GtkWidget *widget, gpointer data) {
   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(squelch_enable), active_receiver->squelch_enable);
 
   if (radio_is_remote) {
-#ifdef CLIENT_SERVER
     send_squelch(client_socket, active_receiver->id, active_receiver->squelch_enable, active_receiver->squelch);
-#endif
   } else {
     rx_set_squelch(active_receiver);
   }
@@ -652,9 +632,7 @@ static void squelch_enable_cb(GtkWidget *widget, gpointer data) {
   active_receiver->squelch_enable = gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (widget));
 
   if (radio_is_remote) {
-#ifdef CLIENT_SERVER
     send_squelch(client_socket, active_receiver->id, active_receiver->squelch_enable, active_receiver->squelch);
-#endif
   } else {
     rx_set_squelch(active_receiver);
   }

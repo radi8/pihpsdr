@@ -29,9 +29,7 @@
 #include "agc.h"
 #include "appearance.h"
 #include "band.h"
-#ifdef CLIENT_SERVER
-  #include "client_server.h"
-#endif
+#include "client_server.h"
 #include "discovered.h"
 #include "gpio.h"
 #include "message.h"
@@ -318,8 +316,6 @@ void rx_panadapter_update(RECEIVER *rx) {
     }
   }
 
-#ifdef CLIENT_SERVER
-
   if (remoteclient.running) {
     char text[64];
     cairo_select_font_face(cr, DISPLAY_FONT_FACE, CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
@@ -330,8 +326,6 @@ void rx_panadapter_update(RECEIVER *rx) {
     cairo_move_to(cr, ((double)mywidth / 2.0) - (extents.width / 2.0), (double)myheight / 2.0);
     cairo_show_text(cr, text);
   }
-
-#endif
 
   // agc
   if (rx->agc != AGC_OFF) {
@@ -722,7 +716,7 @@ void display_panadapter_messages(cairo_t *cr, int width, unsigned int fps) {
     cairo_set_source_rgba(cr, COLOUR_ALARM);
     cairo_set_font_size(cr, DISPLAY_FONT_SIZE2);
 
-    if (sequence_errors != 0 && !radio_is_remote) {
+    if (sequence_errors != 0) {
       static unsigned int sequence_error_count = 0;
       cairo_move_to(cr, 100.0, 50.0);
       cairo_show_text(cr, "Sequence Error");
@@ -734,7 +728,7 @@ void display_panadapter_messages(cairo_t *cr, int width, unsigned int fps) {
       }
     }
 
-    if ((adc0_overload || adc1_overload) && !radio_is_remote) {
+    if (adc0_overload || adc1_overload) {
       static unsigned int adc_error_count = 0;
       cairo_move_to(cr, 100.0, 70.0);
 
@@ -778,13 +772,13 @@ void display_panadapter_messages(cairo_t *cr, int width, unsigned int fps) {
 
     static unsigned int tx_fifo_count = 0;
 
-    if (tx_fifo_underrun && !radio_is_remote) {
+    if (tx_fifo_underrun) {
       cairo_move_to(cr, 100.0, 110.0);
       cairo_show_text(cr, "TX Underrun");
       tx_fifo_count++;
     }
 
-    if (tx_fifo_overrun && !radio_is_remote) {
+    if (tx_fifo_overrun) {
       cairo_move_to(cr, 100.0, 130.0);
       cairo_show_text(cr, "TX Overrun");
       tx_fifo_count++;
@@ -797,14 +791,14 @@ void display_panadapter_messages(cairo_t *cr, int width, unsigned int fps) {
     }
   }
 
-  if (TxInhibit && !radio_is_remote) {
+  if (TxInhibit) {
     cairo_set_source_rgba(cr, COLOUR_ALARM);
     cairo_set_font_size(cr, DISPLAY_FONT_SIZE3);
     cairo_move_to(cr, 100.0, 30.0);
     cairo_show_text(cr, "TX Inhibit");
   }
 
-  if (display_pacurr && radio_is_transmitting() && !TxInhibit && !radio_is_remote) {
+  if (display_pacurr && radio_is_transmitting() && !TxInhibit) {
     double v;  // value
     int flag;  // 0: dont, 1: do
     static unsigned int count = 0;
