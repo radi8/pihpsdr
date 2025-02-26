@@ -66,6 +66,7 @@
   #include <endian.h>
 #endif
 #include <semaphore.h>
+#include <fcntl.h>
 
 #include "adc.h"
 #include "audio.h"
