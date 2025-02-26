@@ -3251,10 +3251,9 @@ static void *client_thread(void* arg) {
   return NULL;
 }
 
-int radio_connect_remote(char *host, int port) {
+int radio_connect_remote(char *host, int port, char *pwd) {
   struct sockaddr_in server_address;
   int on = 1;
-  t_print("radio_connect_remote: %s:%d\n", host, port);
   client_socket = socket(AF_INET, SOCK_STREAM, 0);
 
   if (client_socket == -1) {
