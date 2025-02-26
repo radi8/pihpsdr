@@ -87,6 +87,9 @@
 #include "radio_menu.h"
 #include "receiver.h"
 #include "sliders.h"
+#ifdef SOAPYSDR
+#include "soapy_protocol.h"
+#endif
 #include "store.h"
 #include "store_menu.h"
 #include "transmitter.h"
@@ -112,7 +115,8 @@ GMutex client_mutex;
 
 static char title[128];
 
-gboolean hpsdr_server = FALSE;
+int hpsdr_server = FALSE;
+char hpsdr_pwd[HPSDR_PWD_LEN] = { 0 };
 
 int client_socket = -1;
 GThread *client_thread_id;

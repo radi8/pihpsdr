@@ -749,8 +749,10 @@ typedef struct __attribute__((__packed__)) _noise_command {
   mydouble nr4_post_threshold;
 } NOISE_COMMAND;
 
-extern gboolean hpsdr_server;
-extern gboolean hpsdr_server;
+#define HPSDR_PWD_LEN 64
+extern int hpsdr_server;
+extern char hpsdr_pwd[HPSDR_PWD_LEN];
+
 extern int client_socket;
 extern int start_spectrum(void *data);
 extern void start_vfo_timer(void);

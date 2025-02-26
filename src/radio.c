@@ -2582,6 +2582,7 @@ static void radio_restore_state() {
   GetPropF0("vox_threshold",                                 vox_threshold);
   GetPropF0("vox_hang",                                      vox_hang);
   GetPropI0("radio.hpsdr_server",                            hpsdr_server);
+  GetPropS0("radio.hpsdr_pwd",                               hpsdr_pwd);
   GetPropI0("radio.hpsdr_server.listen_port",                listen_port);
 
 #ifdef TCI
@@ -2792,6 +2793,7 @@ void radio_save_state() {
   SetPropF0("vox_threshold",                                 vox_threshold);
   SetPropF0("vox_hang",                                      vox_hang);
   SetPropI0("radio.hpsdr_server",                            hpsdr_server);
+  SetPropS0("radio.hpsdr_pwd",                               hpsdr_pwd);
   SetPropI0("radio.hpsdr_server.listen_port",                listen_port);
 
 #ifdef TCI
