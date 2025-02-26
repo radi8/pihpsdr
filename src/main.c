@@ -57,6 +57,7 @@
   #include "soapy_protocol.h"
 #endif
 #include "startup.h"
+#include "test_menu.h"
 #include "tts.h"
 #include "version.h"
 #include "vfo.h"
@@ -510,6 +511,21 @@ int main(int argc, char **argv) {
     fprintf(stderr, "SATURN min:max major FPGA : %d:%d\n", saturn_major_version_min(), saturn_major_version_max());
 #endif
     exit(0);
+  }
+
+  //
+  // If invoked with -TestMenu, then set a flag for using the test menu
+  // (debug and program development only)
+  //
+  if (argc >= 2 && !strcmp("-TestMenu", argv[1])) {
+    open_test_menu = 1;
+    //
+    // remove this argument from the list since GTK cannot handle it
+    //
+    for (int i = 2; i < argc; i++) {
+      argv[i-1] = argv[i];
+    }
+    argc--;
   }
 
   //

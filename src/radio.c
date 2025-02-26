@@ -68,6 +68,7 @@
 #include "screen_menu.h"
 #include "sliders.h"
 #include "tci.h"
+#include "test_menu.h"
 #include "toolbar.h"
 #include "transmitter.h"
 #include "tx_panadapter.h"
@@ -1636,6 +1637,10 @@ void radio_start_radio() {
   if (hpsdr_server) {
     create_hpsdr_server();
   }
+
+  if (open_test_menu) {
+    test_menu(top_window);
+  }
 }
 
 void radio_remote_change_receivers(int r) {
@@ -3004,6 +3009,10 @@ int radio_remote_start(void *data) {
   for (int i = 0; i < receivers; i++) {
     //(void) gdk_threads_add_timeout_full(G_PRIORITY_DEFAULT_IDLE, 100, start_spectrum, receiver[i], NULL);
     send_startstop_spectrum(client_socket, i, 1);
+  }
+
+  if (open_test_menu) {
+    test_menu(top_window);
   }
 
   start_vfo_timer();

@@ -488,6 +488,7 @@ src/startup.c \
 src/store.c \
 src/store_menu.c \
 src/switch_menu.c \
+src/test_menu.c \
 src/toolbar.c \
 src/toolbar_menu.c \
 src/transmitter.c \
@@ -581,6 +582,7 @@ src/startup.h \
 src/store.h \
 src/store_menu.h \
 src/switch_menu.h \
+src/test_menu.h \
 src/toolbar.h \
 src/toolbar_menu.h \
 src/transmitter.h \
@@ -668,6 +670,7 @@ src/startup.o \
 src/store.o \
 src/store_menu.o \
 src/switch_menu.o \
+src/test_menu.o \
 src/toolbar.o \
 src/toolbar_menu.o \
 src/transmitter.o \

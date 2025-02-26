@@ -135,7 +135,8 @@ void show_popup_slider(enum ACTION action, int rx, double min, double max, doubl
     gtk_widget_set_sensitive(popup_scale, FALSE);
     gtk_container_add(GTK_CONTAINER(content), popup_scale);
     scale_timer = g_timeout_add(2000, scale_timeout_cb, NULL);
-    gtk_dialog_run(GTK_DIALOG(scale_dialog));
+    //gtk_dialog_run(GTK_DIALOG(scale_dialog));
+    gtk_widget_show_all(scale_dialog);
   } else {
     //
     // c) if a pop-up slider for THIS action is still on display, adjust value and reset timeout
