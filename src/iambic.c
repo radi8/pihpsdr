@@ -622,7 +622,8 @@ int keyer_init() {
   rc = pthread_create(&keyer_thread_id, NULL, keyer_thread, NULL);
 
   if (rc < 0) {
-    g_idle_add(fatal_error, "Could not start keyer thread");
+    g_idle_add(fatal_error, "WARNING: Could not start keyer thread");
+    running = 0;
   }
 
   return 0;

@@ -207,6 +207,66 @@ static inline int from_short(uint16_t y) {
   return (int) s16;
 }
 
+//
+// version of connect() which takes a time-out.
+// take from monoxid.net
+//
+
+int connect_wait (int sockno, struct sockaddr * addr, size_t addrlen, struct timeval * timeout) {
+  int res, opt;
+
+  // get socket flags
+  if ((opt = fcntl (sockno, F_GETFL, NULL)) < 0) {
+    return -1;
+  }
+
+  // set socket non-blocking
+  if (fcntl (sockno, F_SETFL, opt | O_NONBLOCK) < 0) {
+    return -1;
+  }
+
+  // try to connect
+  if ((res = connect (sockno, addr, addrlen)) < 0) {
+    if (errno == EINPROGRESS) {
+      fd_set wait_set;
+
+      // make file descriptor set with socket
+      FD_ZERO (&wait_set);
+      FD_SET (sockno, &wait_set);
+
+      // wait for socket to be writable; return after given timeout
+      res = select (sockno + 1, NULL, &wait_set, NULL, timeout);
+    }
+  } else {
+    // connection was successful immediately
+    res = 1;
+  }
+
+  // reset socket flags
+  if (fcntl (sockno, F_SETFL, opt) < 0) {
+    return -1;
+  }
+
+  // an error occured in connect or select
+  if (res <= 0) {
+    return -1;
+  } else {
+    socklen_t len = sizeof (opt);
+
+    // check for errors in socket layer
+   if (getsockopt (sockno, SOL_SOCKET, SO_ERROR, &opt, &len) < 0) {
+     return -1;
+   }
+
+   // there was an error
+   if (opt) {
+     errno = opt;
+     return -1;
+    }
+  }
+
+  return 0;
+}
 
 static int recv_bytes(int s, char *buffer, int bytes) {
   int bytes_read = 0;
@@ -444,7 +504,7 @@ static int send_spectrum(void *arg) {
       int xferlen = sizeof(spectrum_data) - (SPECTRUM_DATA_SIZE - numsamples) * sizeof(uint16_t);
       int payload = xferlen - sizeof(HEADER);
 
-      if (payload > 32000) { fatal_error("Spectrum payload too large"); }
+      if (payload > 32000) { fatal_error("FATAL: Spectrum payload too large"); }
 
       spectrum_data.header.s1 = to_short(payload);
       send_bytes(remoteclient.socket, (char *)&spectrum_data, xferlen);
@@ -3251,8 +3311,15 @@ static void *client_thread(void* arg) {
   return NULL;
 }
 
-int radio_connect_remote(char *host, int port, char *pwd) {
+//
+// Return values:
+//  0  successfully connected
+// -1  error or timeout in connect()
+// -2  wrong password
+//
+int radio_connect_remote(char *host, int port, const char *pwd) {
   struct sockaddr_in server_address;
+  struct timeval timeout;
   int on = 1;
   client_socket = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -3276,7 +3343,10 @@ int radio_connect_remote(char *host, int port, char *pwd) {
   bcopy((char *)server->h_addr, (char *)&server_address.sin_addr.s_addr, server->h_length);
   server_address.sin_port = to_short(port);
 
-  if (connect(client_socket, (struct sockaddr *)&server_address, sizeof(server_address)) != 0) {
+  timeout.tv_sec = 10;
+  timeout.tv_usec = 0;
+
+  if (connect_wait(client_socket, (struct sockaddr *)&server_address, sizeof(server_address), &timeout) != 0) {
     t_print("client_thread: connect failed\n");
     t_perror("client_thread");
     return -1;

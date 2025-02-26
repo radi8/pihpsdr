@@ -566,7 +566,7 @@ int fatal_error(void *data) {
   static int quit = 0;
 
   if (quit) {
-    return 0;
+    return G_SOURCE_REMOVE;
   }
 
   quit = 1;
@@ -577,12 +577,16 @@ int fatal_error(void *data) {
                         flags,
                         GTK_MESSAGE_ERROR,
                         GTK_BUTTONS_CLOSE,
-                        "<span color='red' size='x-large' weight='bold'>piHPSDR termination due to fatal error:</span>"
-                        "\n\n<span size='x-large'>   %s</span>\n\n",
+                        "<span color='red' size='x-large' weight='bold'>piHPSDR warning/error message:</span>"
+                        "\n\n<span size='x-large' weight='bold'>   %s</span>\n\n",
                         msg);
     gtk_dialog_run(GTK_DIALOG(dialog));
     gtk_widget_destroy(dialog);
   }
 
-  exit(1);
+  if (!strncmp(msg, "FATAL", 5)) {
+    exit(1);
+  }
+  quit = 0;
+  return G_SOURCE_REMOVE;
 }
