@@ -1748,6 +1748,7 @@ int process_action(void *data) {
       if (can_transmit) {
         TOGGLE(full_tune);
         memory_tune = FALSE;
+        send_radiomenu(client_socket);
       }
     }
 
@@ -1758,6 +1759,7 @@ int process_action(void *data) {
       if (can_transmit) {
         TOGGLE(memory_tune);
         full_tune = FALSE;
+        send_radiomenu(client_socket);
       }
     }
 

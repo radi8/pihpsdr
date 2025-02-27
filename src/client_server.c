@@ -752,6 +752,7 @@ void send_radio_data(int sock) {
   data.tx_filter_high = to_short(tx_filter_high);
   data.display_width = to_short(display_width);
 //
+  data.drive_max = to_double(drive_max);
   data.drive_digi_max = to_double(drive_digi_max);
   data.div_gain = to_double(div_gain);
   data.div_phase = to_double(div_phase);
@@ -2772,6 +2773,7 @@ static void *client_thread(void* arg) {
       tx_filter_high = from_short(data.tx_filter_high);
       display_width = from_short(data.display_width);
 //
+      drive_max = from_double(data.drive_max);
       drive_digi_max = from_double(data.drive_digi_max);
       div_gain = from_double(div_gain);
       div_phase = from_double(div_phase);

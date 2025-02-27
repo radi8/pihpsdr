@@ -364,6 +364,7 @@ typedef struct __attribute__((__packed__)) _radio_data {
   uint16_t tx_filter_high;
   uint16_t display_width;
 //
+  mydouble drive_max;
   mydouble drive_digi_max;
   mydouble pa_trim[11];
   mydouble div_gain;
