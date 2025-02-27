@@ -736,6 +736,7 @@ void send_radio_data(int sock) {
   data.have_saturn_xdma = have_saturn_xdma;
   data.rx_stack_horizontal = rx_stack_horizontal;
   data.n_adc = n_adc;
+  data.diversity_enabled = diversity_enabled;
 //
   data.pa_power = to_short(pa_power);
   data.OCfull_tune_time = to_short(OCfull_tune_time);
@@ -748,6 +749,8 @@ void send_radio_data(int sock) {
   data.display_width = to_short(display_width);
 //
   data.drive_digi_max = to_double(drive_digi_max);
+  data.div_gain = to_double(div_gain);
+  data.div_phase = to_double(div_phase);
 
   for (int i = 0; i < 11; i++) {
     data.pa_trim[i] = to_double(pa_trim[i]);
@@ -2754,6 +2757,7 @@ static void *client_thread(void* arg) {
       have_saturn_xdma = data.have_saturn_xdma;
       rx_stack_horizontal = data.rx_stack_horizontal;
       n_adc = data.n_adc;
+      diversity_enabled = data.diversity_enabled;
 //
       pa_power = from_short(data.pa_power);
       OCfull_tune_time = from_short(data.OCfull_tune_time);
@@ -2764,7 +2768,10 @@ static void *client_thread(void* arg) {
       tx_filter_low = from_short(data.tx_filter_low);
       tx_filter_high = from_short(data.tx_filter_high);
       display_width = from_short(data.display_width);
+//
       drive_digi_max = from_double(data.drive_digi_max);
+      div_gain = from_double(div_gain);
+      div_phase = from_double(div_phase);
 
       for (int i = 0; i < 11; i++) {
         pa_trim[i] = from_double(data.pa_trim[i]);

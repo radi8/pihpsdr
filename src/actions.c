@@ -878,7 +878,7 @@ int process_action(void *data) {
     break;
 
   case DIV_GAIN_FINE:
-    set_diversity_gain((double)a->val * 0.01);
+    set_diversity_gain(div_gain + (double)a->val * 0.01);
     break;
 
   case DIV_PHASE:

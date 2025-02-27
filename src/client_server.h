@@ -348,6 +348,7 @@ typedef struct __attribute__((__packed__)) _radio_data {
   uint8_t  have_saturn_xdma;
   uint8_t  rx_stack_horizontal;
   uint8_t  n_adc;
+  uint8_t  diversity_enabled;
 //
   uint16_t pa_power;
   uint16_t OCfull_tune_time;
@@ -361,6 +362,8 @@ typedef struct __attribute__((__packed__)) _radio_data {
 //
   mydouble drive_digi_max;
   mydouble pa_trim[11];
+  mydouble div_gain;
+  mydouble div_phase;
 //
   uint64_t frequency_calibration;
   uint64_t soapy_radio_sample_rate;
