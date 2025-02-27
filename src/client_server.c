@@ -271,11 +271,17 @@ int connect_wait (int sockno, struct sockaddr * addr, size_t addrlen, struct tim
 
 static int recv_bytes(int s, char *buffer, int bytes) {
   int bytes_read = 0;
+  int count = 0;
 
   while (bytes_read != bytes) {
     int rc = recv(s, &buffer[bytes_read], bytes - bytes_read, 0);
 
-    if (rc < 0) {
+//
+//  On LINUX (not MacOS), if the client suffered sudden death, the recv()
+//  will endlessly return with zero. So make sure that after 10 bunches
+//  we will return
+//
+    if (rc < 0 && ++count >= 10) {
       // return -1, so we need not check downstream
       // on incomplete messages received
       t_print("%s: read %d bytes, but expected %d.\n", __FUNCTION__, bytes_read, bytes);
@@ -1109,7 +1115,7 @@ static void server_loop() {
     // Now we have a valid header
     //
     int data_type = from_short(header.data_type);
-    //t_print("%s: received header: type=%d\n", __FUNCTION__, data_type);
+    t_print("%s: received header: type=%d\n", __FUNCTION__, data_type);
 
     switch (data_type) {
     case CMD_HEARTBEAT:

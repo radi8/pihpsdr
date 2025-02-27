@@ -245,67 +245,60 @@ static void add_entry_to_list(const gchar *entry_text) {
 }   
 
 static gboolean connect_cb(GtkWidget *widget, GdkEventButton *event, gpointer user_data) {
+  char myhost[256];
+  int  myport;
+  const char *mypwd;
 
-    GtkEntry *entry = GTK_ENTRY(gtk_bin_get_child(GTK_BIN(host_combo)));
-    gchar *selected_entry = g_strdup(gtk_entry_get_text(entry));
-
-    char myhost[256];
-    int  myport;
-    const char *mypwd;
-
-    saveHostList();  // Save the updated list
-
-    *myhost = 0;
-    myport = 0;
-    if (selected_entry) {
-        gchar **split = g_strsplit(selected_entry, ":", 2);
-        if (split[0] && split[1]) {
-            strncpy(myhost, split[0], sizeof(myhost));
-            myport = atoi(split[1]);
-        }
-        g_strfreev(split);
-        g_free(selected_entry);
-    }
-    mypwd = gtk_entry_get_text(GTK_ENTRY(host_pwd_entry));
+  *myhost = 0;
+  myport = 0;
+  gchar **split = g_strsplit(host_addr, ":", 2);
+  if (split[0] && split[1]) {
+     strncpy(myhost, split[0], sizeof(myhost));
+     myport = atoi(split[1]);
+  }
+  g_strfreev(split);
+  mypwd = gtk_entry_get_text(GTK_ENTRY(host_pwd_entry));
 
 
-    t_print("connect_cb: host=%s port=%d pw=%s\n", myhost, myport, mypwd);
+  t_print("connect_cb: host=%s port=%d pw=%s\n", myhost, myport, mypwd);
 
-    if (*myhost == 0 || myport == 0) {
-      return TRUE;
-    }
-
-    switch (radio_connect_remote(myhost, myport, mypwd)) {
-    case 0:
-      gtk_widget_destroy(discovery_dialog);
-      break;
-    case -1:
-      g_idle_add(fatal_error, "NOTICE: remote connection failed.");
-      break;
-    case -2:
-      g_idle_add(fatal_error, "NOTICE: wrong password for remote.");
-      break;
-    default:
-      g_idle_add(fatal_error, "NOTICE: unknown error in connect.");
-      break;
-    }
-
+  if (*myhost == 0 || myport == 0) {
     return TRUE;
+  }
+
+  switch (radio_connect_remote(myhost, myport, mypwd)) {
+  case 0:
+    gtk_widget_destroy(discovery_dialog);
+    break;
+  case -1:
+    g_idle_add(fatal_error, "NOTICE: remote connection failed.");
+    break;
+  case -2:
+    g_idle_add(fatal_error, "NOTICE: wrong password for remote.");
+    break;
+  default:
+    g_idle_add(fatal_error, "NOTICE: unknown error in connect.");
+    break;
+  }
+
+  return TRUE;
 }
 
 // Callback when user selects an item from the dropdown
 static void on_combo_changed(GtkComboBox *combo, gpointer user_data) {
-    GtkEntry *entry = GTK_ENTRY(gtk_bin_get_child(GTK_BIN(combo)));
-    GtkTreeIter iter;
-    GtkTreeModel *model;
-    gchar *selected_entry;
+  GtkEntry *entry = GTK_ENTRY(gtk_bin_get_child(GTK_BIN(combo)));
+  GtkTreeIter iter;
+  GtkTreeModel *model;
+  gchar *selected_entry;
 
-    if (gtk_combo_box_get_active_iter(combo, &iter)) {
-        model = gtk_combo_box_get_model(combo);
-        gtk_tree_model_get(model, &iter, 1, &selected_entry, -1);
-        gtk_entry_set_text(entry, selected_entry);
-        g_free(selected_entry);
-    }
+  if (gtk_combo_box_get_active_iter(combo, &iter)) {
+    model = gtk_combo_box_get_model(combo);
+    gtk_tree_model_get(model, &iter, 1, &selected_entry, -1);
+    gtk_entry_set_text(entry, selected_entry);
+    snprintf(host_addr, sizeof(host_addr), "%s", selected_entry);
+    saveHostList();
+    g_free(selected_entry);
+  }
 }
 
 // Callback when user presses Enter in the editable field
@@ -326,6 +319,7 @@ static void on_entry_activated(GtkEntry *entry, gpointer user_data) {
     return;
   }
 
+  snprintf(host_addr, sizeof(host_addr), "%s", text);
   add_entry_to_list(text);
 }
 

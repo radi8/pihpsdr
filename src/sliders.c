@@ -380,24 +380,29 @@ static void afgain_value_changed_cb(GtkWidget *widget, gpointer data) {
 
   if (radio_is_remote) {
     send_volume(client_socket, active_receiver->id, active_receiver->volume);
-    return;
+  } else {
+    rx_set_af_gain(active_receiver);
   }
-
-  rx_set_af_gain(active_receiver);
 }
 
-void set_af_gain(int rx, double value) {
-  if (rx >= receivers) { return; }
+void set_af_gain(int id, double value) {
+  if (id >= receivers) { return; }
+  RECEIVER *rx = receiver[id];
 
-  receiver[rx]->volume = value;
-  rx_set_af_gain(receiver[rx]);
+  rx->volume = value;
 
-  if (display_sliders && rx == active_receiver->id) {
+  if (radio_is_remote) {
+    send_volume(client_socket, rx->id, rx->volume);
+  } else {
+    rx_set_af_gain(rx);
+  }
+
+  if (display_sliders && id == active_receiver->id) {
     gtk_range_set_value (GTK_RANGE(af_gain_scale), value);
   } else {
     char title[64];
-    snprintf(title, 64, "AF Gain RX%d", rx + 1);
-    show_popup_slider(AF_GAIN, rx, -40.0, 0.0, 1.0, value, title);
+    snprintf(title, 64, "AF Gain RX%d", id + 1);
+    show_popup_slider(AF_GAIN, id, -40.0, 0.0, 1.0, value, title);
   }
 }
 
