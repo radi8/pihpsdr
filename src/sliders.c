@@ -135,7 +135,6 @@ void show_popup_slider(enum ACTION action, int rx, double min, double max, doubl
     gtk_widget_set_sensitive(popup_scale, FALSE);
     gtk_container_add(GTK_CONTAINER(content), popup_scale);
     scale_timer = g_timeout_add(2000, scale_timeout_cb, NULL);
-    //gtk_dialog_run(GTK_DIALOG(scale_dialog));
     gtk_widget_show_all(scale_dialog);
   } else {
     //
@@ -193,15 +192,22 @@ void set_attenuation_value(double value) {
   //t_print("%s value=%f\n",__FUNCTION__,value);
   if (!have_rx_att) { return; }
 
-  adc[active_receiver->adc].attenuation = (int)value;
-  schedule_high_priority();
+  int id = active_receiver->adc;
+
+  adc[id].attenuation = (int)value;
+
+  if (radio_is_remote) {
+    send_attenuation(client_socket, id, adc[id].attenuation);
+  } else {
+    schedule_high_priority();
+  }
 
   if (display_sliders) {
-    gtk_range_set_value (GTK_RANGE(attenuation_scale), (double)adc[active_receiver->adc].attenuation);
+    gtk_range_set_value (GTK_RANGE(attenuation_scale), (double)adc[id].attenuation);
   } else {
     char title[64];
-    snprintf(title, 64, "Attenuation - ADC-%d (dB)", active_receiver->adc);
-    show_popup_slider(ATTENUATION, active_receiver->adc, 0.0, 31.0, 1.0, (double)adc[active_receiver->adc].attenuation,
+    snprintf(title, 64, "Attenuation - ADC-%d (dB)", id);
+    show_popup_slider(ATTENUATION, id, 0.0, 31.0, 1.0, (double)adc[id].attenuation,
                       title);
   }
 }
@@ -485,6 +491,11 @@ static void micgain_value_changed_cb(GtkWidget *widget, gpointer data) {
 void set_linein_gain(double value) {
   //t_print("%s value=%f\n",__FUNCTION__, value);
   linein_gain = value;
+  if (radio_is_remote) {
+    send_txmenu(client_socket);
+  } else {
+    schedule_high_priority();
+  }
   show_popup_slider(LINEIN_GAIN, 0, -34.0, 12.0, 1.0, linein_gain, "LineIn Gain");
 }
 

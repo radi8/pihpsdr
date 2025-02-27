@@ -1226,7 +1226,7 @@ int process_action(void *data) {
 
       if (active_receiver->nb > 2) { active_receiver->nb = 0; }
 
-      if (id == 0) {
+      if (id == 0 && !radio_is_remote) {
         int mode = vfo[id].mode;
         mode_settings[mode].nb = active_receiver->nb;
         copy_mode_settings(mode);
@@ -1251,7 +1251,7 @@ int process_action(void *data) {
 
 #endif
 
-      if (id == 0) {
+      if (id == 0 && !radio_is_remote) {
         int mode = vfo[id].mode;
         mode_settings[mode].nr = active_receiver->nr;
         copy_mode_settings(mode);

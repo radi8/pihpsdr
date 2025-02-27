@@ -2184,7 +2184,6 @@ void send_ctun(int s, int vfo, int ctun) {
 
 void send_rx_select(int s, int rx) {
   HEADER header;
-  t_print("%s: rx=%d\n", __FUNCTION__, rx);
   SYNC(header.sync);
   header.data_type = to_short(CMD_RX_SELECT);
   header.b1 = rx;
@@ -3108,7 +3107,7 @@ static void *client_thread(void* arg) {
           }
         }
 
-        if (rx != active_receiver && rx->mute_when_not_active) {
+        if (rx->mute_radio || (rx != active_receiver && rx->mute_when_not_active)) {
           left_sample = 0;
           right_sample = 0;
         }
@@ -3303,11 +3302,6 @@ static void *client_thread(void* arg) {
       }
     }
     break;
-
-    case CMD_RX_SELECT: {
-      int rx = header.b1;
-      rx_set_active(receiver[rx]);
-    }
 
     g_idle_add(ext_vfo_update, NULL);
     break;
@@ -4005,7 +3999,6 @@ static int remote_command(void *data) {
     int rx = header->b1;
     CHECK_RX(rx);
     rx_set_active(receiver[rx]);
-    send_rx_select(remoteclient.socket, rx);
   }
   break;
 
@@ -4487,6 +4480,7 @@ static int remote_command(void *data) {
       rx_set_bandpass(rx);
       rx_set_agc(rx);
       send_agc_gain(remoteclient.socket, rx);
+      g_idle_add(ext_vfo_update, NULL);
     }
   }
   break;

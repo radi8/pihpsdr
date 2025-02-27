@@ -90,6 +90,9 @@ gboolean rx_button_press_event(GtkWidget *widget, GdkEventButton *event, gpointe
 }
 
 void rx_set_active(RECEIVER *rx) {
+  if (radio_is_remote) {
+    send_rx_select(client_socket, rx->id);
+  }
   //
   // Abort any frequency entering in the current receiver
   //
@@ -117,15 +120,10 @@ gboolean rx_button_release_event(GtkWidget *widget, GdkEventButton *event, gpoin
 
   if (making_active) {
     making_active = FALSE;
+    rx_set_active(rx);
 
-    if (radio_is_remote) {
-      send_rx_select(client_socket, rx->id);
-    } else {
-      rx_set_active(rx);
-
-      if (event->button == GDK_BUTTON_SECONDARY) {
-        g_idle_add(ext_start_rx, NULL);
-      }
+    if (event->button == GDK_BUTTON_SECONDARY) {
+      g_idle_add(ext_start_rx, NULL);
     }
   } else {
     if (pressed) {

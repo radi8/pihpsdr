@@ -853,7 +853,14 @@ void filter_shift_changed(int id, int increment) {
   }
 
   g_idle_add(ext_vfo_update, NULL);
-  show_filter_shift(id, sgn * shft);
+
+  shft = sgn * shft;
+
+  if (mode == modeCWU ||  mode == modeCWL) {
+    shft -= cw_keyer_sidetone_frequency;
+  }
+
+  show_filter_shift(id, shft);
 }
 
 void filter_set_cwpeak(int id, int peak) {
