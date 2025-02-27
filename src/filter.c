@@ -477,6 +477,18 @@ void filter_cut_default(int id) {
     rx->filter_high = filter->high;
   }
 
+  if (radio_is_remote) {
+    send_filter_cut(client_socket, rx->id);
+  } else {
+    rx_set_bandpass(rx);
+    rx_set_agc(rx);
+
+    if (mode == modeCWL || mode == modeCWU) {
+      int have_peak = vfo[id].cwAudioPeakFilter;
+      rx_set_cw_peak(rx, have_peak, (double) cw_keyer_sidetone_frequency);
+    }
+  }
+
   g_idle_add(ext_vfo_update, NULL);
 }
 
@@ -561,7 +573,7 @@ void filter_high_changed(int id, int increment) {
   rx->filter_low = low;
   rx->filter_high = high;
 
-  if (!radio_is_remote) {
+  if (radio_is_remote) {
     send_filter_cut(client_socket, rx->id);
   } else {
     rx_set_bandpass(rx);
@@ -648,7 +660,7 @@ void filter_low_changed(int id, int increment) {
   rx->filter_low = low;
   rx->filter_high = high;
 
-  if (!radio_is_remote) {
+  if (radio_is_remote) {
     send_filter_cut(client_socket, rx->id);
   } else {
     rx_set_bandpass(rx);
@@ -749,8 +761,10 @@ void filter_width_changed(int id, int increment) {
   //
   // Apply changed filter settings to the running rx
   //
+  rx->filter_low = low;
+  rx->filter_high = high;
 
-  if (!radio_is_remote) {
+  if (radio_is_remote) {
     send_filter_cut(client_socket, rx->id);
   } else {
     rx_set_bandpass(rx);
@@ -826,7 +840,7 @@ void filter_shift_changed(int id, int increment) {
   rx->filter_low = low;
   rx->filter_high = high;
 
-  if (!radio_is_remote) {
+  if (radio_is_remote) {
     send_filter_cut(client_socket, rx->id);
   } else {
     rx_set_bandpass(rx);
