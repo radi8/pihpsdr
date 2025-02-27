@@ -253,7 +253,7 @@ static gboolean connect_cb(GtkWidget *widget, GdkEventButton *event, gpointer us
   myport = 0;
   gchar **split = g_strsplit(host_addr, ":", 2);
   if (split[0] && split[1]) {
-     strncpy(myhost, split[0], sizeof(myhost));
+     snprintf(myhost, sizeof(myhost), "%s", split[0]);
      myport = atoi(split[1]);
   }
   g_strfreev(split);
