@@ -3886,12 +3886,16 @@ static int remote_command(void *data) {
     vfo_id_filter_changed(v, f);
 
     //
+    // AGC line positions have changed
     // filter edges in receiver(s) may have changed
     //
     for (int id = 0; id < receivers; id++) {
       send_filter_cut(remoteclient.socket, id);
+      send_agc_gain(remoteclient.socket, receiver[id]);
     }
     if (can_transmit) {
+      // This is only necessary if the transmitter uses the
+      // filter edges of the active receiver
       send_filter_cut(remoteclient.socket, transmitter->id);
     }
     g_idle_add(ext_vfo_update, NULL);
