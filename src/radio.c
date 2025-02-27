@@ -812,6 +812,7 @@ static void radio_create_visual() {
   }
 
   active_receiver = receiver[0];
+  send_rx_select(client_socket, 0);
 
   if (!radio_is_remote) {
     //

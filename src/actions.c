@@ -1636,22 +1636,12 @@ int process_action(void *data) {
     if (a->mode == PRESSED) {
       int id = active_receiver->id;
 
-      if (active_receiver->snb == 0) {
-        active_receiver->snb = 1;
+      TOGGLE(active_receiver->snb);
 
-        if (id == 0) {
-          int mode = vfo[id].mode;
-          mode_settings[mode].snb = 1;
-          copy_mode_settings(mode);
-        }
-      } else {
-        active_receiver->snb = 0;
-
-        if (id == 0) {
-          int mode = vfo[id].mode;
-          mode_settings[mode].snb = 0;
-          copy_mode_settings(mode);
-        }
+      if (id == 0 && !radio_is_remote) {
+        int mode = vfo[id].mode;
+        mode_settings[mode].snb = active_receiver->snb;
+        copy_mode_settings(mode);
       }
 
       update_noise();
@@ -1745,6 +1735,9 @@ int process_action(void *data) {
       value = KnobOrWheel(a, (double) transmitter->tune_drive, 0.0, 100.0, 1.0);
       transmitter->tune_drive = (int) value;
       transmitter->tune_use_drive = 1;
+      if (radio_is_remote) {
+        send_txmenu(client_socket);
+      }
       show_popup_slider(TUNE_DRIVE, 0, 0.0, 100.0, 1.0, value, "TUNE DRIVE");
     }
 

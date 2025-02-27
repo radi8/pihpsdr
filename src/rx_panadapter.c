@@ -107,7 +107,7 @@ void rx_panadapter_update(RECEIVER *rx) {
   long long f;
   long long divisor;
   double soffset;
-  gboolean active = active_receiver == rx;
+  gboolean active = (active_receiver == rx);
   int mywidth = gtk_widget_get_allocated_width (rx->panadapter);
   int myheight = gtk_widget_get_allocated_height (rx->panadapter);
   samples = rx->pixel_samples;

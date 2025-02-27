@@ -605,6 +605,8 @@ void send_radiomenu(int sock) {
   data.new_pa_board = new_pa_board;
   data.tx_out_of_band_allowed = tx_out_of_band_allowed;
   data.OCtune = OCtune;
+  data.full_tune = full_tune;
+  data.memory_tune = memory_tune;
 //
   data.rx_gain_calibration = to_short(rx_gain_calibration);
   data.OCfull_tune_time = to_short(OCfull_tune_time);
@@ -721,6 +723,8 @@ void send_radio_data(int sock) {
   data.mic_input_xlr = mic_input_xlr;
   data.cw_keyer_sidetone_volume = cw_keyer_sidetone_volume;
   data.OCtune = OCtune;
+  data.full_tune = full_tune;
+  data.memory_tune = memory_tune;
   data.mute_rx_while_transmitting = mute_rx_while_transmitting;
   data.mute_spkr_amp = mute_spkr_amp;
   data.adc0_filter_bypass = adc0_filter_bypass;
@@ -4245,6 +4249,8 @@ static int remote_command(void *data) {
     new_pa_board = command->new_pa_board;
     tx_out_of_band_allowed = command->tx_out_of_band_allowed;
     OCtune = command->OCtune;
+    full_tune = command->full_tune;
+    memory_tune = command->memory_tune;
 //
     rx_gain_calibration = from_short(command->rx_gain_calibration);
     OCfull_tune_time = from_short(command->OCfull_tune_time);

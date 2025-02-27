@@ -189,6 +189,8 @@ typedef struct __attribute__((__packed__)) _radiomenu_data {
   uint8_t  new_pa_board;
   uint8_t  tx_out_of_band_allowed;
   uint8_t  OCtune;
+  uint8_t  full_tune;
+  uint8_t  memory_tune;
 //
   uint16_t rx_gain_calibration;
   uint16_t OCfull_tune_time;
@@ -333,6 +335,8 @@ typedef struct __attribute__((__packed__)) _radio_data {
   uint8_t  mic_input_xlr;
   uint8_t  cw_keyer_sidetone_volume;
   uint8_t  OCtune;
+  uint8_t  full_tune;
+  uint8_t  memory_tune;
   uint8_t  mute_rx_while_transmitting;
   uint8_t  mute_spkr_amp;
   uint8_t  adc0_filter_bypass;
