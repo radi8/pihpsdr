@@ -437,9 +437,15 @@ void remote_rxaudio(const RECEIVER *rx, short left_sample, short right_sample) {
   }
 }
 
-static int send_spectrum(void *arg) {
+//
+// Note that this is now only called when
+// - display mutex is locked
+// - displaying is set and a pixel_samples contain valid data
+//
+void remote_send_spectrum(int id) {
   const float *samples;
   SPECTRUM_DATA spectrum_data;
+  int numsamples = 0;
 
   SYNC(spectrum_data.header.sync);
   spectrum_data.header.data_type = to_short(INFO_SPECTRUM);
@@ -450,75 +456,63 @@ static int send_spectrum(void *arg) {
   spectrum_data.vfo_a_offset = to_ll(vfo[VFO_A].offset);
   spectrum_data.vfo_b_offset = to_ll(vfo[VFO_B].offset);
 
-  for (int r = 0; r < 10; r++) {
-    int numsamples=0;
-    spectrum_data.id = r;
-    RECEIVER *rx = NULL;
-    TRANSMITTER *tx = NULL;
+  if (!remoteclient.send_spectrum[id]) {
+    return;
+  }
 
-    if (!remoteclient.send_spectrum[r]) { continue; }
+  spectrum_data.id = id;
 
-    if (r < receivers)  {
-      rx = receiver[r];
-      spectrum_data.meter = to_double(rx->meter);
-      spectrum_data.width = to_short(rx->width);
+  if (id < receivers) {
+    RECEIVER *rx = receiver[id];
+    spectrum_data.meter = to_double(rx->meter);
+    spectrum_data.width = to_short(rx->width);
 
-      if (rx->displaying && (rx->pixels > 0) && (rx->pixel_samples != NULL)) {
-        g_mutex_lock(&rx->display_mutex);
-        samples = rx->pixel_samples;
-        numsamples = rx->width;
+    samples = rx->pixel_samples;
+    numsamples = rx->width;
 
-        if (numsamples > SPECTRUM_DATA_SIZE) { numsamples = SPECTRUM_DATA_SIZE; }
+    if (numsamples > SPECTRUM_DATA_SIZE) { numsamples = SPECTRUM_DATA_SIZE; }
 
-        for (int i = 0; i < numsamples; i++) {
-          spectrum_data.sample[i] = to_short(samples[i + rx->pan]);
-        }
-
-        g_mutex_unlock(&rx->display_mutex);
-     }
-
-    } else if (can_transmit) {
-      tx = transmitter;
-      spectrum_data.alc   = to_double(tx->alc);
-      spectrum_data.fwd   = to_double(tx->fwd);
-      spectrum_data.swr   = to_double(tx->swr);
-      spectrum_data.width = to_short(tx->width);
-
-      if (tx->displaying && (tx->pixels > 0) && (tx->pixel_samples != NULL)) {
-        g_mutex_lock(&tx->display_mutex);
-        samples = tx->pixel_samples;
-        numsamples = tx->width;
-
-        if (numsamples > SPECTRUM_DATA_SIZE) { numsamples = SPECTRUM_DATA_SIZE; }
-
-        //
-        // When running duplex, tx->pixels = 4*tx->width, so transfer only  a part
-        //
-        int offset = (tx->pixels - tx->width) / 2;
-        for (int i = 0; i < numsamples; i++) {
-          spectrum_data.sample[i] = to_short(samples[i + offset]);
-        }
-
-        g_mutex_unlock(&tx->display_mutex);
-      }
+    for (int i = 0; i < numsamples; i++) {
+      spectrum_data.sample[i] = to_short(samples[i + rx->pan]);
     }
+  } else if (can_transmit) {
+    TRANSMITTER *tx = transmitter;
+    spectrum_data.alc   = to_double(tx->alc);
+    spectrum_data.fwd   = to_double(tx->fwd);
+    spectrum_data.swr   = to_double(tx->swr);
+    spectrum_data.width = to_short(tx->width);
 
-    if (numsamples > 0) {
-      //
-      // spectrum commands have a variable length, since this depends on the
-      // width of the screen. To this end, calculate the total number of bytes
-      // in THIS command (xferlen) and the length  of the payload.
-      //
-      int xferlen = sizeof(spectrum_data) - (SPECTRUM_DATA_SIZE - numsamples) * sizeof(uint16_t);
-      int payload = xferlen - sizeof(HEADER);
+    samples = tx->pixel_samples;
+    numsamples = tx->width;
 
-      if (payload > 32000) { fatal_error("FATAL: Spectrum payload too large"); }
+    if (numsamples > SPECTRUM_DATA_SIZE) { numsamples = SPECTRUM_DATA_SIZE; }
 
-      spectrum_data.header.s1 = to_short(payload);
-      send_bytes(remoteclient.socket, (char *)&spectrum_data, xferlen);
+    //
+    // When running duplex, tx->pixels = 4*tx->width, so transfer only  a part
+    //
+    int offset = (tx->pixels - tx->width) / 2;
+    for (int i = 0; i < numsamples; i++) {
+      spectrum_data.sample[i] = to_short(samples[i + offset]);
     }
   }
 
+  if (numsamples > 0) {
+    //
+    // spectrum commands have a variable length, since this depends on the
+    // width of the screen. To this end, calculate the total number of bytes
+    // in THIS command (xferlen) and the length  of the payload.
+    //
+    int xferlen = sizeof(spectrum_data) - (SPECTRUM_DATA_SIZE - numsamples) * sizeof(uint16_t);
+    int payload = xferlen - sizeof(HEADER);
+
+    if (payload > 32000) { fatal_error("FATAL: Spectrum payload too large"); }
+
+    spectrum_data.header.s1 = to_short(payload);
+    send_bytes(remoteclient.socket, (char *)&spectrum_data, xferlen);
+  }
+}
+
+static int send_periodic_data(gpointer arg) {
   //
   // Use this periodic function to update PS info
   //
@@ -1209,19 +1203,7 @@ static void server_loop() {
     case CMD_SPECTRUM: {
       int id = header.b1;
       int state = header.b2;
-
-      int fps = 10;
-
-      if (state) {
-        remoteclient.send_spectrum[id] = TRUE;
-
-        if (remoteclient.spectrum_update_timer_id == 0) {
-          t_print("start send_spectrum thread: fps=%d\n", fps);
-          remoteclient.spectrum_update_timer_id = gdk_threads_add_timeout_full(G_PRIORITY_HIGH_IDLE, 1000 / fps, send_spectrum, NULL, NULL);
-        }
-      } else {
-        remoteclient.send_spectrum[id] = FALSE;
-      }
+      remoteclient.send_spectrum[id] = state;
     }
     break;
 
@@ -1447,22 +1429,6 @@ static void server_loop() {
       remoteclient.running = FALSE;
       break;
     }
-  }
-
-  // close the socket to force listen to terminate
-  t_print("client disconnected\n");
-
-  if (remoteclient.socket != -1) {
-    close(remoteclient.socket);
-    remoteclient.socket = -1;
-  }
-
-  //
-  // Stop sending spectra to the client
-  //
-  if (remoteclient.spectrum_update_timer_id != 0) {
-    g_source_remove(remoteclient.spectrum_update_timer_id);
-    remoteclient.spectrum_update_timer_id = 0;
   }
 
   t_print("Server Loop Terminating\n");
@@ -2362,10 +2328,10 @@ static void *listen_thread(void *arg) {
     }
 
     //
-    // To save network bandwith, we re-send panadpater data every 100 msec
+    // Send PS and on-display data periodically
     //
     remoteclient.running = TRUE;
-    remoteclient.spectrum_update_timer_id = gdk_threads_add_timeout_full(G_PRIORITY_HIGH_IDLE, 100, send_spectrum, NULL, NULL);
+    remoteclient.timer_id = gdk_threads_add_timeout_full(G_PRIORITY_HIGH_IDLE, 150, send_periodic_data, NULL, NULL);
 
     //
     // We disable "CW handled in Radio" since this makes no sense
@@ -2386,11 +2352,11 @@ static void *listen_thread(void *arg) {
     schedule_transmit_specific();
 
     //
-    // Stop sending spectra to the client
+    // Stop sending periodic data
     //
-    if (remoteclient.spectrum_update_timer_id != 0) {
-      g_source_remove(remoteclient.spectrum_update_timer_id);
-      remoteclient.spectrum_update_timer_id = 0;
+    if (remoteclient.timer_id != 0) {
+      g_source_remove(remoteclient.timer_id);
+      remoteclient.timer_id = 0;
     }
 
     if (remoteclient.socket != -1) {
@@ -3024,22 +2990,15 @@ static void *client_thread(void* arg) {
         rx->meter = from_double(spectrum_data.meter);
         int width = from_short(spectrum_data.width);
 
-        if (rx->pixel_samples == NULL) {
-          rx->pixel_samples = g_new(float, (int) rx->width);
-        }
-
-        if (width != rx->width) {
-          //
-          // The spectral data does not fit to the panadapter,
-          // simply draw a line at -98 dBm
-          //
-          for (int i = 0; i < rx->width; i++) {
-            rx->pixel_samples[i] = -98.0;
+        if (width == rx->width) {
+          g_mutex_lock(&rx->display_mutex);
+          if (rx->pixel_samples == NULL) {
+            rx->pixel_samples = g_new(float, (int) rx->width);
           }
-        } else {
           for (int i = 0; i < rx->width; i++) {
             rx->pixel_samples[i] = (float)from_short(spectrum_data.sample[i]);
           }
+          g_mutex_unlock(&rx->display_mutex);
         }
         g_idle_add(ext_rx_remote_update_display, rx);
       } else if (can_transmit) {
@@ -3297,21 +3256,6 @@ static void *client_thread(void* arg) {
     }
     break;
 
-    case CMD_FPS: {
-      int id = header.b1;
-      int fps = header.b2;
-
-      if (id == 8 && can_transmit) {
-        transmitter->fps = fps;
-      } else {
-        receiver[id]->fps = fps;
-      }
-    }
-    break;
-
-    g_idle_add(ext_vfo_update, NULL);
-    break;
-
     case CMD_RIT_STEP: {
       int v = header.b1;
       int step = from_short(header.s1);
@@ -3340,7 +3284,6 @@ static void *client_thread(void* arg) {
     }
     break;
 
-    break;
     default:
       t_print("client_thread: Unknown type=%d\n", from_short(header.data_type));
       break;
@@ -3988,15 +3931,12 @@ static int remote_command(void *data) {
     int id = header->b1;
     int fps = header->b2;
 
-    if (id == 8 && can_transmit) {
-      transmitter->fps = fps;
-      tx_set_framerate(transmitter);
-      send_fps(remoteclient.socket, id, transmitter->fps);
-    } else {
-      CHECK_RX(id);
+    if (id < receivers) {
       receiver[id]->fps = fps;
       rx_set_framerate(receiver[id]);
-      send_fps(remoteclient.socket, id, receiver[id]->fps);
+    } else if (can_transmit) {
+      transmitter->fps = fps;
+      tx_set_framerate(transmitter);
     }
   }
   break;

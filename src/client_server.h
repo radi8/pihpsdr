@@ -143,7 +143,7 @@ typedef struct _remote_client {
   int socket;
   socklen_t address_length;
   struct sockaddr_in address;
-  guint spectrum_update_timer_id;
+  guint timer_id;
   int send_spectrum[10];  // slot #8 is for the transmitter
 } REMOTE_CLIENT;
 
@@ -777,6 +777,7 @@ extern int radio_connect_remote(char *host, int port, const char *pwd);
 extern void remote_rxaudio(const RECEIVER *rx, short left_sample, short right_sample);
 extern void server_tx_audio(short sample);
 extern short remote_get_mic_sample();
+extern void  remote_send_spectrum(int id);
 
 extern void send_adc(int s, int id, int adc);
 extern void send_adc_data(int sock, int i);

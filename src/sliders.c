@@ -518,34 +518,23 @@ void set_mic_gain(double value) {
 }
 
 void set_drive(double value) {
-  if (display_sliders) {
-    gtk_range_set_value (GTK_RANGE(drive_scale), value);
-  } else {
-    show_popup_slider(DRIVE, 0, 0.0, drive_max, 1.0, value, "TX Drive");
-  }
-
-  if (radio_is_remote) {
-    send_drive(client_socket, value);
-    return;
-  }
-
   int txmode = vfo_get_tx_mode();
 
   if (txmode == modeDIGU || txmode == modeDIGL) {
     if (value > drive_digi_max) { value = drive_digi_max; }
   }
 
-  radio_set_drive(value);
+  if (display_sliders) {
+    gtk_range_set_value (GTK_RANGE(drive_scale), value);
+  } else {
+    show_popup_slider(DRIVE, 0, 0.0, drive_max, 1.0, value, "TX Drive");
+  }
 
+  radio_set_drive(value);
 }
 
 static void drive_value_changed_cb(GtkWidget *widget, gpointer data) {
   double value = gtk_range_get_value(GTK_RANGE(drive_scale));
-
-  if (radio_is_remote) {
-    send_drive(client_socket, value);
-    return;
-  }
 
   //t_print("%s: value=%f\n", __FUNCTION__, value);
   int txmode = vfo_get_tx_mode();

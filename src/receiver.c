@@ -484,53 +484,52 @@ static int rx_update_display(gpointer data) {
   ASSERT_SERVER(0);
   RECEIVER *rx = (RECEIVER *)data;
 
-  if (rx->displaying) {
-    if (rx->pixels > 0) {
-      int rc;
-      g_mutex_lock(&rx->display_mutex);
-      rc = rx_get_pixels(rx);
+  if (rx->displaying && rx->pixels > 0) {
+    int rc;
 
-      if (rc) {
-        if (rx->display_panadapter) {
-          rx_panadapter_update(rx);
-        }
+    if (active_receiver == rx) {
+      //
+      // since rx->meter is used in other places as well (e.g. rigctl),
+      // the value obtained from WDSP is best corrected HERE for
+      // possible gain and attenuation
+      //
+      int id = rx->id;
+      int b  = vfo[id].band;
+      const BAND *band = band_get_band(b);
+      int calib = rx_gain_calibration - band->gain;
+      double level = rx_get_smeter(rx);
+      level += (double)calib + (double)adc[rx->adc].attenuation - adc[rx->adc].gain;
 
-        if (rx->display_waterfall) {
-          waterfall_update(rx);
-        }
+      if (filter_board == CHARLY25 && rx->adc == 0) {
+        level += (double)(12 * rx->alex_attenuation - 18 * rx->preamp - 18 * rx->dither);
       }
 
-      g_mutex_unlock(&rx->display_mutex);
-
-      if (active_receiver == rx) {
-        //
-        // since rx->meter is used in other places as well (e.g. rigctl),
-        // the value obtained from WDSP is best corrected HERE for
-        // possible gain and attenuation
-        //
-        int id = rx->id;
-        int b  = vfo[id].band;
-        const BAND *band = band_get_band(b);
-        int calib = rx_gain_calibration - band->gain;
-        double level = rx_get_smeter(rx);
-        level += (double)calib + (double)adc[rx->adc].attenuation - adc[rx->adc].gain;
-
-        if (filter_board == CHARLY25 && rx->adc == 0) {
-          level += (double)(12 * rx->alex_attenuation - 18 * rx->preamp - 18 * rx->dither);
-        }
-
-        if (filter_board == ALEX && rx->adc == 0) {
-          level += (double)(10 * rx->alex_attenuation);
-        }
-
-        rx->meter = level;
-        meter_update(rx, SMETER, rx->meter, 0.0, 0.0);
+      if (filter_board == ALEX && rx->adc == 0) {
+        level += (double)(10 * rx->alex_attenuation);
       }
 
-      return TRUE;
+      rx->meter = level;
+      meter_update(rx, SMETER, rx->meter, 0.0, 0.0);
     }
-  }
 
+    g_mutex_lock(&rx->display_mutex);
+    rc = rx_get_pixels(rx);
+
+    if (rc) {
+      if (remoteclient.running) {
+        remote_send_spectrum(rx->id);
+      }
+      if (rx->display_panadapter) {
+        rx_panadapter_update(rx);
+      }
+
+      if (rx->display_waterfall) {
+        waterfall_update(rx);
+      }
+    }
+    g_mutex_unlock(&rx->display_mutex);
+    return TRUE;
+  }
   return FALSE;
 }
 
@@ -1545,6 +1544,12 @@ void rx_set_analyzer(const RECEIVER *rx) {
               span_max_freq,                        // frequency at last pixel value
               max_w                                 // max samples to hold in input ring buffers
              );
+
+  //
+  // Clear pixel samples since these might be transferred to a client
+  // before they contain valid data
+  //
+  //memset(rx->pixel_samples, 0, rx->pixels *sizeof(float));
 }
 
 void rx_off(const RECEIVER *rx) {

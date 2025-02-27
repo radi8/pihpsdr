@@ -2432,6 +2432,11 @@ void radio_set_drive(double value) {
 
   transmitter->drive = value;
 
+  if (radio_is_remote) {
+    send_drive(client_socket, value);
+    return;
+  }
+
   switch (protocol) {
   case ORIGINAL_PROTOCOL:
   case NEW_PROTOCOL:
