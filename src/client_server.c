@@ -67,6 +67,7 @@
 #endif
 #include <semaphore.h>
 #include <fcntl.h>
+#include <math.h>
 
 #include "adc.h"
 #include "audio.h"
@@ -1848,7 +1849,7 @@ void send_sidetone_freq(int s, int f) {
   HEADER header;
   SYNC(header.sync);
   header.data_type = to_short(CMD_SIDETONEFREQ);
-  header.s1 = f;
+  header.s1 = to_short(f);
   send_bytes(s, (char *)&header, sizeof(HEADER));
 }
 
@@ -3072,20 +3073,40 @@ static void *client_thread(void* arg) {
       RECEIVER *rx = receiver[adata.rx];
       int numsamples = from_short(adata.numsamples);
 
-      if (rx->local_audio) {
-        for (int i = 0; i < numsamples; i++) {
-          short left_sample = from_short(adata.samples[(i * 2)]);
-          short right_sample = from_short(adata.samples[(i * 2) + 1]);
+      for (int i = 0; i < numsamples; i++) {
+        short left_sample = from_short(adata.samples[(i * 2)]);
+        short right_sample = from_short(adata.samples[(i * 2) + 1]);
 
-          if (rx != active_receiver && rx->mute_when_not_active) {
-            left_sample = 0;
-            right_sample = 0;
+        //
+        // If CAPTURing, record the audio samples *before*
+        // manipulating them
+        //
+        if (rx == active_receiver && capture_state == CAP_RECORDING) {
+          if (capture_record_pointer < capture_max) {
+            //
+            // normalize samples:
+            // when using AGC, the samples of strong s9 signals are about 0.8
+            //
+            double scale = 0.6 * pow(10.0, -0.05 * rx->volume);
+            capture_data[capture_record_pointer++] = scale * (left_sample + right_sample);
+          } else {
+            // switching the state to RECORD_DONE takes care that the
+            // CAPTURE switch is "pressed" only once
+            capture_state = CAP_RECORD_DONE;
+            schedule_action(CAPTURE, PRESSED, 0);
           }
+        }
 
-          if (rx->audio_channel == LEFT)  { right_sample = 0; }
+        if (rx != active_receiver && rx->mute_when_not_active) {
+          left_sample = 0;
+          right_sample = 0;
+        }
 
-          if (rx->audio_channel == RIGHT) { left_sample  = 0; }
+        if (rx->audio_channel == LEFT)  { right_sample = 0; }
 
+        if (rx->audio_channel == RIGHT) { left_sample  = 0; }
+
+        if (rx->local_audio) {
           audio_write(rx, (float)left_sample / 32767.0, (float)right_sample / 32767.0);
         }
       }
@@ -3900,7 +3921,7 @@ static int remote_command(void *data) {
   break;
 
   case CMD_SIDETONEFREQ: {
-    cw_keyer_sidetone_frequency = from_short(header->b2);
+    cw_keyer_sidetone_frequency = from_short(header->s1);
     rx_filter_changed(active_receiver);
     schedule_high_priority();
     g_idle_add(ext_vfo_update, NULL);

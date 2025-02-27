@@ -350,13 +350,7 @@ void update_c25_att() {
 
 static void agcgain_value_changed_cb(GtkWidget *widget, gpointer data) {
   active_receiver->agc_gain = gtk_range_get_value(GTK_RANGE(agc_scale));
-
-  if (radio_is_remote) {
-    send_agc_gain(client_socket, active_receiver->id, active_receiver->agc_gain, active_receiver->agc_hang,
-                  active_receiver->agc_thresh, active_receiver->agc_hang_threshold);
-  } else {
-    rx_set_agc(active_receiver);
-  }
+  rx_set_agc(active_receiver);
 }
 
 void set_agc_gain(int rx, double value) {
@@ -377,12 +371,7 @@ void set_agc_gain(int rx, double value) {
 
 static void afgain_value_changed_cb(GtkWidget *widget, gpointer data) {
   active_receiver->volume = gtk_range_get_value(GTK_RANGE(af_gain_scale));
-
-  if (radio_is_remote) {
-    send_volume(client_socket, active_receiver->id, active_receiver->volume);
-  } else {
-    rx_set_af_gain(active_receiver);
-  }
+  rx_set_af_gain(active_receiver);
 }
 
 void set_af_gain(int id, double value) {
@@ -390,12 +379,7 @@ void set_af_gain(int id, double value) {
   RECEIVER *rx = receiver[id];
 
   rx->volume = value;
-
-  if (radio_is_remote) {
-    send_volume(client_socket, rx->id, rx->volume);
-  } else {
-    rx_set_af_gain(rx);
-  }
+  rx_set_af_gain(rx);
 
   if (display_sliders && id == active_receiver->id) {
     gtk_range_set_value (GTK_RANGE(af_gain_scale), value);
@@ -486,17 +470,15 @@ void show_filter_shift(int rx, int shift) {
 }
 
 static void micgain_value_changed_cb(GtkWidget *widget, gpointer data) {
-  double gain = gtk_range_get_value(GTK_RANGE(widget));
-  if (radio_is_remote) {
-    send_micgain(client_socket,gain);
-    return;
-  }
   if (can_transmit) {
-    int mode = vfo_get_tx_mode();
+    double gain = gtk_range_get_value(GTK_RANGE(widget));
     transmitter->mic_gain = gain;
-    mode_settings[mode].mic_gain = transmitter->mic_gain;
-    copy_mode_settings(mode);
     tx_set_mic_gain(transmitter);
+    if (!radio_is_remote) {
+      int mode = vfo_get_tx_mode();
+      mode_settings[mode].mic_gain = transmitter->mic_gain;
+      copy_mode_settings(mode);
+    }
   }
 }
 
@@ -513,17 +495,14 @@ void set_mic_gain(double value) {
     show_popup_slider(MIC_GAIN, 0, -12.0, 50.0, 1.0, value, "Mic Gain");
   }
 
-  if (radio_is_remote) {
-    send_micgain(client_socket, value);
-    return;
-  }
-
   if (can_transmit) {
-    int mode = vfo_get_tx_mode();
     transmitter->mic_gain = value;
-    mode_settings[mode].mic_gain = transmitter->mic_gain;
-    copy_mode_settings(mode);
     tx_set_mic_gain(transmitter);
+    if (!radio_is_remote) {
+      int mode = vfo_get_tx_mode();
+      mode_settings[mode].mic_gain = transmitter->mic_gain;
+      copy_mode_settings(mode);
+    }
   }
 }
 
@@ -626,22 +605,12 @@ static void squelch_value_changed_cb(GtkWidget *widget, gpointer data) {
   active_receiver->squelch = gtk_range_get_value(GTK_RANGE(widget));
   active_receiver->squelch_enable = (active_receiver->squelch > 0.5);
   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(squelch_enable), active_receiver->squelch_enable);
-
-  if (radio_is_remote) {
-    send_squelch(client_socket, active_receiver->id, active_receiver->squelch_enable, active_receiver->squelch);
-  } else {
-    rx_set_squelch(active_receiver);
-  }
+  rx_set_squelch(active_receiver);
 }
 
 static void squelch_enable_cb(GtkWidget *widget, gpointer data) {
   active_receiver->squelch_enable = gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (widget));
-
-  if (radio_is_remote) {
-    send_squelch(client_socket, active_receiver->id, active_receiver->squelch_enable, active_receiver->squelch);
-  } else {
-    rx_set_squelch(active_receiver);
-  }
+  rx_set_squelch(active_receiver);
 }
 
 void set_squelch(RECEIVER *rx) {

@@ -642,7 +642,7 @@ void rx_panadapter_update(RECEIVER *rx) {
         }
     }
   }
-  if (rx->id == 0 && !radio_is_remote) {
+  if (rx->id == 0) {
     display_panadapter_messages(cr, mywidth, rx->fps);
   }
 

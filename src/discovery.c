@@ -325,8 +325,13 @@ static void on_entry_activated(GtkEntry *entry, gpointer user_data) {
 
 static void on_toggle_password_visibility(GtkToggleButton *button, gpointer user_data) {
     GtkEntry *entry = GTK_ENTRY(user_data);
-    gboolean visible = gtk_entry_get_visibility(entry);
-    gtk_entry_set_visibility(entry, !visible);
+    gboolean visible = !gtk_entry_get_visibility(entry);
+    gtk_entry_set_visibility(entry, visible);
+    if (visible) {
+      gtk_button_set_label(GTK_BUTTON(button), "Hide");
+    } else {
+      gtk_button_set_label(GTK_BUTTON(button), "Show");
+    }
 } 
 
 //----------------------------------------------------+
@@ -456,6 +461,7 @@ void discovery() {
 
   if (devices == 0) {
     GtkWidget *label = gtk_label_new("No local devices found!");
+    gtk_widget_set_name(label, "med_txt");
     gtk_grid_attach(GTK_GRID(grid), label, 0, row, 3, 1);
     row++;
   } else {
@@ -667,25 +673,16 @@ void discovery() {
   // Attach to grid (Replacing the old host address entry)
   gtk_grid_attach(GTK_GRID(grid), host_combo, 1, row, 1, 1);
 
-  // Save reference to host_combo for later use
-  g_object_set_data(G_OBJECT(grid), "host_combo", host_combo);
-
-  // Create a horizontal box to hold password entry and toggle button
-  GtkWidget *hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
-  gtk_grid_attach(GTK_GRID(grid), hbox, 2, row, 1, 1);  // Attach hbox to grid
-
   // Create the password entry box
   host_pwd_entry = gtk_entry_new();
   gtk_entry_set_visibility(GTK_ENTRY(host_pwd_entry), FALSE);
-  gtk_entry_set_placeholder_text(GTK_ENTRY(host_pwd_entry), "Password");
-  gtk_box_pack_start(GTK_BOX(hbox), host_pwd_entry, TRUE, TRUE, 5);
-  // Create the password visibility toggle button
-  GtkWidget *toggle_button = gtk_toggle_button_new_with_label("👁 ");
-  g_signal_connect(toggle_button, "toggled", G_CALLBACK(on_toggle_password_visibility), host_pwd_entry);
-  gtk_box_pack_start(GTK_BOX(hbox), toggle_button, FALSE, FALSE, 5);
+  gtk_entry_set_placeholder_text(GTK_ENTRY(host_pwd_entry), "Server Password");
+  gtk_grid_attach(GTK_GRID(grid), host_pwd_entry, 2, row, 1, 1);
 
-  // Ensure all child widgets are visible
-  gtk_widget_show_all(hbox);
+  // Create the password visibility toggle button
+  GtkWidget *toggle_button = gtk_toggle_button_new_with_label("Show");
+  g_signal_connect(toggle_button, "toggled", G_CALLBACK(on_toggle_password_visibility), host_pwd_entry);
+  gtk_grid_attach(GTK_GRID(grid), toggle_button, 3, row, 1, 1);
 
   row++;
   controller = NO_CONTROLLER;
@@ -708,22 +705,15 @@ void discovery() {
   g_signal_connect (protocols_b, "button-press-event", G_CALLBACK(protocols_cb), NULL);
   gtk_grid_attach(GTK_GRID(grid), protocols_b, 2, row, 1, 1);
   row++;
-#ifdef GPIO
-#if 0
-  GtkWidget *gpio_b = gtk_button_new_with_label("Configure GPIO");
-  g_signal_connect (gpio_b, "button-press-event", G_CALLBACK(gpio_cb), NULL);
-  gtk_grid_attach(GTK_GRID(grid), gpio_b, 0, row, 1, 1);
-#endif
-#endif
   GtkWidget *tcp_b = gtk_label_new("Radio IP Addr:");
   gtk_widget_set_name(tcp_b, "boldlabel");
-  gtk_grid_attach(GTK_GRID(grid), tcp_b, 1, row, 1, 1);
+  gtk_grid_attach(GTK_GRID(grid), tcp_b, 0, row, 1, 1);
   tcpaddr = gtk_entry_new();
   gtk_entry_set_max_length(GTK_ENTRY(tcpaddr), 20);
-  gtk_grid_attach(GTK_GRID(grid), tcpaddr, 2, row, 1, 1);
+  gtk_grid_attach(GTK_GRID(grid), tcpaddr, 1, row, 1, 1);
   gtk_entry_set_text(GTK_ENTRY(tcpaddr), ipaddr_radio);
   g_signal_connect (tcpaddr, "changed", G_CALLBACK(radio_ip_cb), NULL);
-  GtkWidget *exit_b = gtk_button_new_with_label("Exit");
+  GtkWidget *exit_b = gtk_button_new_with_label("Close");
   gtk_widget_set_name(exit_b, "close_button");
   g_signal_connect (exit_b, "button-press-event", G_CALLBACK(exit_cb), NULL);
   gtk_grid_attach(GTK_GRID(grid), exit_b, 3, row, 1, 1);

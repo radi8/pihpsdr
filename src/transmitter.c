@@ -1810,7 +1810,10 @@ void tx_set_displaying(TRANSMITTER *tx) {
 }
 
 void tx_set_filter(TRANSMITTER *tx) {
-  ASSERT_SERVER();
+  if (radio_is_remote) {
+    send_txfilter(client_socket);
+    return;
+  }
   int txmode = vfo_get_tx_mode();
   // load default values
   int low  = tx_filter_low;
@@ -2298,7 +2301,10 @@ void tx_set_bandpass(const TRANSMITTER *tx) {
 }
 
 void tx_set_compressor(TRANSMITTER *tx) {
-  ASSERT_SERVER();
+  if (radio_is_remote) {
+    send_tx_compressor(client_socket);
+    return;
+  }
   //
   // - Although I see not much juice therein, the
   //   usage of CFC alongside with the speech processor
@@ -2446,7 +2452,10 @@ void tx_set_fft_size(const TRANSMITTER *tx) {
 }
 
 void tx_set_mic_gain(const TRANSMITTER *tx) {
-  ASSERT_SERVER();
+  if (radio_is_remote) {
+    send_micgain(client_socket, tx->mic_gain);
+    return;
+  }
   SetTXAPanelGain1(tx->id, pow(10.0, tx->mic_gain * 0.05));
 #ifdef WDSPTXDEBUG
   t_print("TX id=%d MicGain(dB)=%g\n", tx->id, tx->mic_gain);

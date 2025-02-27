@@ -25,6 +25,7 @@
 #include "band_menu.h"
 #include "bandstack.h"
 #include "client_server.h"
+#include "cw_menu.h"
 #include "discovery.h"
 #include "diversity_menu.h"
 #include "equalizer_menu.h"
@@ -502,7 +503,7 @@ int process_action(void *data) {
       int id = active_receiver->id;
       TOGGLE(active_receiver->anf);
 
-      if (id == 0) {
+      if (id == 0 && !radio_is_remote) {
         int mode = vfo[id].mode;
         mode_settings[mode].anf = active_receiver->anf;
         copy_mode_settings(mode);
@@ -805,11 +806,13 @@ int process_action(void *data) {
 
   case COMP_ENABLE:
     if (can_transmit && a->mode == PRESSED) {
-      int mode = vfo_get_tx_mode();
       TOGGLE(transmitter->compressor);
-      mode_settings[mode].compressor = transmitter->compressor;
-      copy_mode_settings(mode);
       tx_set_compressor(transmitter);
+      if (!radio_is_remote) {
+        int mode = vfo_get_tx_mode();
+        mode_settings[mode].compressor = transmitter->compressor;
+        copy_mode_settings(mode);
+      }
       g_idle_add(ext_vfo_update, NULL);
     }
 
@@ -821,10 +824,12 @@ int process_action(void *data) {
       value = KnobOrWheel(a, transmitter->compressor_level, 0.0, 20.0, 1.0);
       transmitter->compressor = SET(value > 0.5);
       transmitter->compressor_level = value;
-      mode_settings[mode].compressor = transmitter->compressor;
-      mode_settings[mode].compressor_level = transmitter->compressor_level;
-      copy_mode_settings(mode);
       tx_set_compressor(transmitter);
+      if (!radio_is_remote) {
+        mode_settings[mode].compressor = transmitter->compressor;
+        mode_settings[mode].compressor_level = transmitter->compressor_level;
+        copy_mode_settings(mode);
+      }
       g_idle_add(ext_vfo_update, NULL);
     }
 
@@ -840,19 +845,14 @@ int process_action(void *data) {
 
   case CW_AUDIOPEAKFILTER:
     if (a->mode == PRESSED) {
-      TOGGLE(vfo[active_receiver->id].cwAudioPeakFilter);
-      rx_filter_changed(active_receiver);
-      g_idle_add(ext_vfo_update, NULL);
+      int id = active_receiver->id;
+      filter_set_cwpeak(id, NOT(vfo[id].cwAudioPeakFilter));
     }
-
     break;
 
   case CW_FREQUENCY:
     value = KnobOrWheel(a, (double)cw_keyer_sidetone_frequency, 300.0, 1000.0, 10.0);
-    cw_keyer_sidetone_frequency = (int)value;
-    rx_filter_changed(active_receiver);
-    // we may omit the P2 high-prio packet since this is sent out at regular intervals
-    g_idle_add(ext_vfo_update, NULL);
+    cw_set_sidetone_freq((int) value);
     break;
 
   case CW_SPEED:
