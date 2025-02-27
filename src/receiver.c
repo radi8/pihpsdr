@@ -1603,7 +1603,7 @@ void rx_set_af_gain(const RECEIVER *rx) {
 
 void rx_set_agc(RECEIVER *rx) {
   if (radio_is_remote) {
-    send_agc_gain(client_socket, rx->id, rx->agc_gain, rx->agc_hang, rx->agc_thresh, rx->agc_hang_threshold);
+    send_agc_gain(client_socket, rx);
     return;
   }
 #ifdef WDSPRXDEBUG

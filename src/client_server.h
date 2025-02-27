@@ -774,7 +774,7 @@ extern void send_adc(int s, int id, int adc);
 extern void send_adc_data(int sock, int i);
 extern void send_afbinaural(int s, const RECEIVER *rx);
 extern void send_agc(int s, int rx, int agc);
-extern void send_agc_gain(int s, int rx, double gain, double hang, double thresh, double hang_thresh);
+extern void send_agc_gain(int s, const RECEIVER *rx);
 extern void send_am_carrier(int s);
 extern void send_anan10E(int s, int new);
 extern void send_attenuation(int s, int rx, int attenuation);

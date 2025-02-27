@@ -1624,16 +1624,15 @@ void send_agc(int s, int rx, int agc) {
   send_bytes(s, (char *)&header, sizeof(HEADER));
 }
 
-void send_agc_gain(int s, int rx, double gain, double hang, double thresh, double hang_thresh) {
+void send_agc_gain(int s, const RECEIVER *rx) {
   AGC_GAIN_COMMAND command;
-  t_print("send_agc_gain rx=%d gain=%f hang=%f thresh=%f hang_thresh=%f\n", rx, gain, hang, thresh, hang_thresh);
   SYNC(command.header.sync);
   command.header.data_type = to_short(CMD_AGC_GAIN);
-  command.id = rx;
-  command.gain = to_double(gain);
-  command.hang = to_double(hang);
-  command.thresh = to_double(thresh);
-  command.hang_thresh = to_double(hang_thresh);
+  command.id = rx->id;
+  command.gain = to_double(rx->agc_gain);
+  command.hang = to_double(rx->agc_hang);
+  command.thresh = to_double(rx->agc_thresh);
+  command.hang_thresh = to_double(rx->agc_hang_threshold);
   send_bytes(s, (char *)&command, sizeof(command));
 }
 
@@ -3705,7 +3704,7 @@ static int remote_command(void *data) {
     //
     // Now hang and thresh have been calculated and need be sent back
     //
-    send_agc_gain(remoteclient.socket, rx->id, rx->agc_gain, rx->agc_hang, rx->agc_thresh, rx->agc_hang_threshold);
+    send_agc_gain(remoteclient.socket, rx);
   }
   break;
 
@@ -4464,6 +4463,20 @@ static int remote_command(void *data) {
       pa_trim[i] = from_double(command->pa_trim[i]);
     }
 
+  }
+  break;
+
+  case CMD_FILTER_CUT: {
+    int id = header->b1;
+
+    if (id < receivers) {
+      RECEIVER *rx = receiver[id];
+      rx->filter_low = from_short(header->s1);
+      rx->filter_high = from_short(header->s2);
+      rx_set_bandpass(rx);
+      rx_set_agc(rx);
+      send_agc_gain(remoteclient.socket, rx);
+    }
   }
   break;
 
