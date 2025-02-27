@@ -114,7 +114,7 @@ ACTION_TABLE ActionTable[] = {
   {CW_SPEED,            "CW Speed",             "CWSPD",        MIDI_KNOB  | MIDI_WHEEL | CONTROLLER_ENCODER},
   {CW_KEYER_KEYDOWN,    "CW Key\n(Keyer)",      "CWKy",         MIDI_KEY   | CONTROLLER_SWITCH},
   {CW_KEYER_PTT,        "PTT\n(CW Keyer)",      "CWKyPTT",      MIDI_KEY   | CONTROLLER_SWITCH},
-  {CW_KEYER_SPEED,      "Speed\n(Keyer)",       "CWKySpd",      MIDI_KNOB},
+  {CW_KEYER_SPEED,      "Speed\n(Keyer)",       "CWKySpd",      MIDI_KNOB  | MIDI_WHEEL | CONTROLLER_ENCODER},
   {DIV,                 "DIV On/Off",           "DIVT",         MIDI_KEY   | CONTROLLER_SWITCH},
   {DIV_GAIN,            "DIV Gain",             "DIVG",         MIDI_WHEEL | CONTROLLER_ENCODER},
   {DIV_GAIN_COARSE,     "DIV Gain\nCoarse",     "DIVGC",        MIDI_WHEEL | CONTROLLER_ENCODER},
@@ -1054,7 +1054,7 @@ int process_action(void *data) {
     break;
 
   case MENU_DIVERSITY:
-    if (a->mode == PRESSED) {
+    if (a->mode == PRESSED && RECEIVERS == 2 && n_adc > 1) {
       start_diversity();
     }
 
@@ -1982,10 +1982,8 @@ int process_action(void *data) {
     // This is a MIDI message from a CW keyer. The MIDI controller
     // value maps 1:1 to the speed, but we keep it within limits.
     //
-    i = a->val;
-
-    if (i >= 1 && i <= 60) { cw_keyer_speed = i; }
-
+    value = KnobOrWheel(a, cw_keyer_speed, 1.0, 60.0, 1.0);
+    cw_keyer_speed = (int) value;
     keyer_update();
     g_idle_add(ext_vfo_update, NULL);
     break;

@@ -1820,16 +1820,21 @@ void send_filter_var(int s, int m, int f) {
   }
 }
 
-void send_filter_cut(int s, int rx) {
+void send_filter_cut(int s, int id) {
   //
   // This changes the filter cuts in the "receiver"
   //
   HEADER header;
   SYNC(header.sync);
   header.data_type = to_short(CMD_FILTER_CUT);
-  header.b1 = rx;
-  header.s1  =  to_short(receiver[rx]->filter_low);
-  header.s2  =  to_short(receiver[rx]->filter_high);
+  header.b1 = id;
+  if (id < receivers) {
+    header.s1  =  to_short(receiver[id]->filter_low);
+    header.s2  =  to_short(receiver[id]->filter_high);
+  } else if (can_transmit) {
+    header.s1  =  to_short(transmitter->filter_low);
+    header.s2  =  to_short(transmitter->filter_high);
+  }
   send_bytes(s, (char *)&header, sizeof(HEADER));
 }
 
