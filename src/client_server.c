@@ -68,6 +68,7 @@
 #include <semaphore.h>
 #include <fcntl.h>
 #include <math.h>
+#include <errno.h>
 
 #include "adc.h"
 #include "audio.h"
