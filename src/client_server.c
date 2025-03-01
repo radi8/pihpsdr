@@ -736,6 +736,7 @@ void send_radio_data(int sock) {
   data.rx_stack_horizontal = rx_stack_horizontal;
   data.n_adc = n_adc;
   data.diversity_enabled = diversity_enabled;
+  data.soapy_iqswap = soapy_iqswap;
 //
   data.pa_power = to_short(pa_power);
   data.OCfull_tune_time = to_short(OCfull_tune_time);
@@ -1407,7 +1408,6 @@ static void server_loop() {
     case CMD_SPLIT:
     case CMD_STEP:
     case CMD_STORE:
-    case CMD_SWAP_IQ:
     case CMD_TUNE:
     case CMD_TWOTONE:
     case CMD_TXFILTER:
@@ -2218,15 +2218,6 @@ void send_filter_board(int s, int filter_board) {
   send_bytes(s, (char *)&header, sizeof(HEADER));
 }
 
-void send_swap_iq(int s, int iqswap) {
-  HEADER header;
-  t_print("send_swap_iq iqswap=%d\n", iqswap);
-  SYNC(header.sync);
-  header.data_type = to_short(CMD_SWAP_IQ);
-  header.b1 = soapy_iqswap;
-  send_bytes(s, (char *)&header, sizeof(HEADER));
-}
-
 void send_adc(int s, int rx, int adc) {
   HEADER header;
   SYNC(header.sync);
@@ -2729,6 +2720,7 @@ static void *client_thread(void* arg) {
       rx_stack_horizontal = data.rx_stack_horizontal;
       n_adc = data.n_adc;
       diversity_enabled = data.diversity_enabled;
+      soapy_iqswap = data.soapy_iqswap;
 //
       pa_power = from_short(data.pa_power);
       OCfull_tune_time = from_short(data.OCfull_tune_time);
@@ -4054,12 +4046,6 @@ static int remote_command(void *data) {
         send_band_data(remoteclient.socket, b);
       }
     }
-  }
-  break;
-
-  case CMD_SWAP_IQ: {
-    soapy_iqswap = header->b1;
-    send_swap_iq(remoteclient.socket, soapy_iqswap);
   }
   break;
 

@@ -101,7 +101,6 @@ enum _header_type_enum {
   CMD_START_RADIO,
   CMD_STEP,
   CMD_STORE,
-  CMD_SWAP_IQ,
   CMD_TUNE,
   CMD_TWOTONE,
   CMD_TXFFT,
@@ -353,6 +352,7 @@ typedef struct __attribute__((__packed__)) _radio_data {
   uint8_t  rx_stack_horizontal;
   uint8_t  n_adc;
   uint8_t  diversity_enabled;
+  uint8_t  soapy_iqswap;
 //
   uint16_t pa_power;
   uint16_t OCfull_tune_time;

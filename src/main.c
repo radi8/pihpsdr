@@ -254,6 +254,7 @@ gboolean keypress_cb(GtkWidget *widget, GdkEventKey *event, gpointer data) {
     break;
 
   case GDK_KEY_KP_Decimal:
+  case GDK_KEY_KP_Separator:
     vfo_num_pad(-5, active_receiver->id);
     break;
 
