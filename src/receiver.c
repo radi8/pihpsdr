@@ -90,6 +90,9 @@ gboolean rx_button_press_event(GtkWidget *widget, GdkEventButton *event, gpointe
 }
 
 void rx_set_active(RECEIVER *rx) {
+  if (radio_is_remote) {
+    send_rx_select(client_socket, rx->id);
+  }
   //
   // Abort any frequency entering in the current receiver
   //
@@ -117,15 +120,10 @@ gboolean rx_button_release_event(GtkWidget *widget, GdkEventButton *event, gpoin
 
   if (making_active) {
     making_active = FALSE;
+    rx_set_active(rx);
 
-    if (radio_is_remote) {
-      send_rx_select(client_socket, rx->id);
-    } else {
-      rx_set_active(rx);
-
-      if (event->button == GDK_BUTTON_SECONDARY) {
-        g_idle_add(ext_start_rx, NULL);
-      }
+    if (event->button == GDK_BUTTON_SECONDARY) {
+      g_idle_add(ext_start_rx, NULL);
     }
   } else {
     if (pressed) {
@@ -486,53 +484,52 @@ static int rx_update_display(gpointer data) {
   ASSERT_SERVER(0);
   RECEIVER *rx = (RECEIVER *)data;
 
-  if (rx->displaying) {
-    if (rx->pixels > 0) {
-      int rc;
-      g_mutex_lock(&rx->display_mutex);
-      rc = rx_get_pixels(rx);
+  if (rx->displaying && rx->pixels > 0) {
+    int rc;
 
-      if (rc) {
-        if (rx->display_panadapter) {
-          rx_panadapter_update(rx);
-        }
+    if (active_receiver == rx) {
+      //
+      // since rx->meter is used in other places as well (e.g. rigctl),
+      // the value obtained from WDSP is best corrected HERE for
+      // possible gain and attenuation
+      //
+      int id = rx->id;
+      int b  = vfo[id].band;
+      const BAND *band = band_get_band(b);
+      int calib = rx_gain_calibration - band->gain;
+      double level = rx_get_smeter(rx);
+      level += (double)calib + (double)adc[rx->adc].attenuation - adc[rx->adc].gain;
 
-        if (rx->display_waterfall) {
-          waterfall_update(rx);
-        }
+      if (filter_board == CHARLY25 && rx->adc == 0) {
+        level += (double)(12 * rx->alex_attenuation - 18 * rx->preamp - 18 * rx->dither);
       }
 
-      g_mutex_unlock(&rx->display_mutex);
-
-      if (active_receiver == rx) {
-        //
-        // since rx->meter is used in other places as well (e.g. rigctl),
-        // the value obtained from WDSP is best corrected HERE for
-        // possible gain and attenuation
-        //
-        int id = rx->id;
-        int b  = vfo[id].band;
-        const BAND *band = band_get_band(b);
-        int calib = rx_gain_calibration - band->gain;
-        double level = rx_get_smeter(rx);
-        level += (double)calib + (double)adc[rx->adc].attenuation - adc[rx->adc].gain;
-
-        if (filter_board == CHARLY25 && rx->adc == 0) {
-          level += (double)(12 * rx->alex_attenuation - 18 * rx->preamp - 18 * rx->dither);
-        }
-
-        if (filter_board == ALEX && rx->adc == 0) {
-          level += (double)(10 * rx->alex_attenuation);
-        }
-
-        rx->meter = level;
-        meter_update(rx, SMETER, rx->meter, 0.0, 0.0);
+      if (filter_board == ALEX && rx->adc == 0) {
+        level += (double)(10 * rx->alex_attenuation);
       }
 
-      return TRUE;
+      rx->meter = level;
+      meter_update(rx, SMETER, rx->meter, 0.0, 0.0);
     }
-  }
 
+    g_mutex_lock(&rx->display_mutex);
+    rc = rx_get_pixels(rx);
+
+    if (rc) {
+      if (remoteclient.running) {
+        remote_send_spectrum(rx->id);
+      }
+      if (rx->display_panadapter) {
+        rx_panadapter_update(rx);
+      }
+
+      if (rx->display_waterfall) {
+        waterfall_update(rx);
+      }
+    }
+    g_mutex_unlock(&rx->display_mutex);
+    return TRUE;
+  }
   return FALSE;
 }
 
@@ -1081,17 +1078,36 @@ static void rx_process_buffer(RECEIVER *rx) {
   int i;
 
   for (i = 0; i < rx->output_samples; i++) {
+    left_sample = rx->audio_output_buffer[i * 2];
+    right_sample = rx->audio_output_buffer[(i * 2) + 1];
+    //
+    // If CAPTURing, record the audio samples *before*
+    // manipulating them
+    //
+    if (rx == active_receiver && capture_state == CAP_RECORDING) {
+      if (capture_record_pointer < capture_max) {
+        //
+        // normalize samples:
+        // when using AGC, the samples of strong s9 signals are about 0.8
+        //
+        double scale = 0.6 * pow(10.0, -0.05 * rx->volume);
+        capture_data[capture_record_pointer++] = scale * (left_sample + right_sample);
+      } else {
+        // switching the state to RECORD_DONE takes care that the
+        // CAPTURE switch is "pressed" only once
+        capture_state = CAP_RECORD_DONE;
+        schedule_action(CAPTURE, PRESSED, 0);
+      }
+    }
+
     if (radio_is_transmitting() && (!duplex || mute_rx_while_transmitting)) {
       left_sample = 0.0;
       right_sample = 0.0;
-    } else {
-      left_sample = rx->audio_output_buffer[i * 2];
-      right_sample = rx->audio_output_buffer[(i * 2) + 1];
     }
 
     if (rx->mute_radio || (rx != active_receiver && rx->mute_when_not_active)) {
-      left_sample = 0;
-      right_sample = 0;
+      left_sample = 0.0;
+      right_sample = 0.0;
     }
 
     switch (rx->audio_channel) {
@@ -1118,28 +1134,7 @@ static void rx_process_buffer(RECEIVER *rx) {
       remote_rxaudio(rx, left_audio_sample, right_audio_sample);
     }
 
-    if (rx == active_receiver && capture_state == CAP_RECORDING) {
-      if (capture_record_pointer < capture_max) {
-        //
-        // normalize samples:
-        // when using AGC, the samples of strong s9 signals are about 0.8
-        //
-        double scale = 0.6 * pow(10.0, -0.05 * rx->volume);
-        capture_data[capture_record_pointer++] = scale * (left_sample + right_sample);
-      } else {
-        // switching the state to RECORD_DONE takes care that the
-        // CAPTURE switch is "pressed" only once
-        capture_state = CAP_RECORD_DONE;
-        schedule_action(CAPTURE, PRESSED, 0);
-      }
-    }
-
     if (rx == active_receiver && !pre_mox) {
-      //
-      // Note the "Mute Radio" checkbox in the RX menu mutes the
-      // audio in the HPSDR data stream *only*, local audio is
-      // not affected.
-      //
       switch (protocol) {
       case ORIGINAL_PROTOCOL:
         old_protocol_audio_samples(left_audio_sample, right_audio_sample);
@@ -1576,7 +1571,10 @@ void rx_set_af_binaural(const RECEIVER *rx) {
 }
 
 void rx_set_af_gain(const RECEIVER *rx) {
-  ASSERT_SERVER();
+  if (radio_is_remote) {
+    send_volume(client_socket, rx->id, rx->volume);
+    return;
+  }
 #ifdef WDSPRXDEBUG
 #endif
   //
@@ -1601,7 +1599,10 @@ void rx_set_af_gain(const RECEIVER *rx) {
 }
 
 void rx_set_agc(RECEIVER *rx) {
-  ASSERT_SERVER();
+  if (radio_is_remote) {
+    send_agc_gain(client_socket, rx);
+    return;
+  }
 #ifdef WDSPRXDEBUG
 #endif
   //
@@ -1908,7 +1909,10 @@ void rx_set_offset(const RECEIVER *rx, long long offset) {
 }
 
 void rx_set_squelch(const RECEIVER *rx) {
-  ASSERT_SERVER();
+  if (radio_is_remote) {
+    send_squelch(client_socket, rx->id, rx->squelch_enable, rx->squelch);
+    return;
+  }
   //
   // This applies the squelch mode stored in rx
   //
