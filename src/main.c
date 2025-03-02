@@ -253,6 +253,12 @@ gboolean keypress_cb(GtkWidget *widget, GdkEventKey *event, gpointer data) {
     vfo_num_pad(-4, active_receiver->id);
     break;
 
+  //
+  // Some countries (e.g. Germany) do not have a "decimal point"
+  // in a properly localised OS. In Germany we have a comma instead.
+  // A quick-and-dirty fix accepts both a decimal and a comma
+  // (a.k.a. separator) here.
+  //
   case GDK_KEY_KP_Decimal:
   case GDK_KEY_KP_Separator:
     vfo_num_pad(-5, active_receiver->id);
