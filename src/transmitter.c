@@ -2044,11 +2044,6 @@ void tx_set_analyzer(const TRANSMITTER *tx) {
               span_max_freq,         // frequency at last pixel value
               max_w                  // max samples to hold in input ring buffers
              );
-  //
-  // Clear pixel samples since these might be transferred to a client
-  // before they contain valid data
-  //
-  //memset(tx->pixel_samples, 0, tx->pixels *sizeof(float));
 }
 
 void tx_off(const TRANSMITTER *tx) {

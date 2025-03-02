@@ -1544,12 +1544,6 @@ void rx_set_analyzer(const RECEIVER *rx) {
               span_max_freq,                        // frequency at last pixel value
               max_w                                 // max samples to hold in input ring buffers
              );
-
-  //
-  // Clear pixel samples since these might be transferred to a client
-  // before they contain valid data
-  //
-  //memset(rx->pixel_samples, 0, rx->pixels *sizeof(float));
 }
 
 void rx_off(const RECEIVER *rx) {
