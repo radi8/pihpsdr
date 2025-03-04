@@ -215,7 +215,7 @@ static inline int from_short(uint16_t y) {
 // take from monoxid.net
 //
 
-int connect_wait (int sockno, struct sockaddr * addr, size_t addrlen, struct timeval * timeout) {
+static int connect_wait (int sockno, struct sockaddr * addr, size_t addrlen, struct timeval * timeout) {
   int res, opt;
 
   // get socket flags
@@ -464,7 +464,7 @@ void remote_send_spectrum(int id) {
   spectrum_data.id = id;
 
   if (id < receivers) {
-    RECEIVER *rx = receiver[id];
+    const RECEIVER *rx = receiver[id];
     spectrum_data.meter = to_double(rx->meter);
     spectrum_data.width = to_short(rx->width);
 
@@ -477,7 +477,7 @@ void remote_send_spectrum(int id) {
       spectrum_data.sample[i] = to_short(samples[i + rx->pan]);
     }
   } else if (can_transmit) {
-    TRANSMITTER *tx = transmitter;
+    const TRANSMITTER *tx = transmitter;
     spectrum_data.alc   = to_double(tx->alc);
     spectrum_data.fwd   = to_double(tx->fwd);
     spectrum_data.swr   = to_double(tx->swr);
@@ -506,6 +506,7 @@ void remote_send_spectrum(int id) {
     int xferlen = sizeof(spectrum_data) - (SPECTRUM_DATA_SIZE - numsamples) * sizeof(uint16_t);
     int payload = xferlen - sizeof(HEADER);
 
+    //cppcheck-suppress knownConditionTrueFalse
     if (payload > 32000) { fatal_error("FATAL: Spectrum payload too large"); }
 
     spectrum_data.header.s1 = to_short(payload);
@@ -557,7 +558,7 @@ static int send_periodic_data(gpointer arg) {
   return remoteclient.running;
 }
 
-void send_start_radio(int sock) {
+static void send_start_radio(int sock) {
   HEADER header;
   SYNC(header.sync);
   header.data_type = to_short(CMD_START_RADIO);
@@ -794,7 +795,7 @@ void send_adc_data(int sock, int i) {
   send_bytes(sock, (char *)&data, sizeof(ADC_DATA));
 }
 
-void send_tx_data(int sock) {
+static void send_tx_data(int sock) {
   if (can_transmit) {
     TRANSMITTER_DATA data;
     const TRANSMITTER *tx = transmitter;
@@ -863,7 +864,7 @@ void send_tx_data(int sock) {
   }
 }
 
-void send_rx_data(int sock, int id) {
+static void send_rx_data(int sock, int id) {
   RECEIVER_DATA data;
   SYNC(data.header.sync);
   data.header.data_type = to_short(INFO_RECEIVER);
@@ -1462,7 +1463,7 @@ void send_vfo_move_to(int s, int v, long long hz) {
   send_bytes(s, (char *)&command, sizeof(command));
 }
 
-void send_vfo_move(int s, int rx, long long hz, int round) {
+static void send_vfo_move(int s, int rx, long long hz, int round) {
   U64_COMMAND command;
   SYNC(command.header.sync);
   command.header.data_type = to_short(CMD_MOVE);

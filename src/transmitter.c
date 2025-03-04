@@ -728,7 +728,7 @@ static gboolean tx_update_display(gpointer data) {
         int width = tx->pixels;           // number of pixels to copy from the feedback spectrum
         int start = (full - width) / 2;   // Copy from start ... (end-1)
         float *tfp = tx->pixel_samples;
-        float *rfp = rx_feedback->pixel_samples + start;
+        const float *rfp = rx_feedback->pixel_samples + start;
         float offset;
         int i;
 
@@ -2069,11 +2069,13 @@ void tx_ps_getinfo(TRANSMITTER *tx) {
   GetPSInfo(tx->id, tx->psinfo);
 }
 
+// cppcheck-suppress constParameterPointer
 void tx_ps_getmx(TRANSMITTER *tx) {
   ASSERT_SERVER();
   GetPSMaxTX(tx->id, &transmitter->ps_getmx);
 }
 
+// cppcheck-suppress constParameterPointer
 void tx_ps_getpk(TRANSMITTER *tx) {
   ASSERT_SERVER();
   GetPSHWPeak(tx->id, &transmitter->ps_getpk);

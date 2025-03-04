@@ -94,6 +94,7 @@ static void test_action_changed_cb(GtkWidget *widget, gpointer data) {
   repeat_state = 0;
 }
 
+// cppcheck-suppress constParameterCallback
 static void test_press_cb(GtkWidget *widget, GdkEventButton *event, gpointer data) {
   if (event->type != GDK_BUTTON_PRESS) { return; }
   repeat_state = 1;
@@ -104,6 +105,7 @@ static void test_press_cb(GtkWidget *widget, GdkEventButton *event, gpointer dat
   repeat_timer = g_timeout_add(500, repeat_cb, NULL);
 }
 
+// cppcheck-suppress constParameterCallback
 static void test_release_cb(GtkWidget *widget, GdkEventButton *event, gpointer data) {
   repeat_state = 0;
   if (repeat_timer != 0) {
@@ -113,6 +115,7 @@ static void test_release_cb(GtkWidget *widget, GdkEventButton *event, gpointer d
   schedule_action(test_action, RELEASED, 1);
 }
 
+// cppcheck-suppress constParameterCallback
 static void test_ccw_cb(GtkWidget *widget, GdkEventButton *event, gpointer data) {
   if (event->type != GDK_BUTTON_PRESS) { return; }
   repeat_state = 2;
@@ -123,6 +126,7 @@ static void test_ccw_cb(GtkWidget *widget, GdkEventButton *event, gpointer data)
   repeat_timer = g_timeout_add(250, repeat_cb, NULL);
 }
 
+// cppcheck-suppress constParameterCallback
 static void test_cw_cb(GtkWidget *widget, GdkEventButton *event, gpointer data) {
   if (event->type != GDK_BUTTON_PRESS) { return; }
   repeat_state = 3;
@@ -133,6 +137,7 @@ static void test_cw_cb(GtkWidget *widget, GdkEventButton *event, gpointer data) 
   repeat_timer = g_timeout_add(250, repeat_cb, NULL);
 }
 
+// cppcheck-suppress constParameterCallback
 static void cancel_repeat_cb(GtkWidget *widget, GdkEventButton *event, gpointer data) {
   if (repeat_timer != 0) {
     g_source_remove(repeat_timer);

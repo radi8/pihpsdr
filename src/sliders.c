@@ -81,7 +81,7 @@ static GtkWidget *squelch_enable;
 // Putting this into a separate function avoids much code repetition.
 //
 
-int scale_timeout_cb(gpointer data) {
+static int scale_timeout_cb(gpointer data) {
   gtk_widget_destroy(scale_dialog);
   scale_status = NO_ACTION;
   return FALSE;

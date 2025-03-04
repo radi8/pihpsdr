@@ -279,7 +279,7 @@ gboolean keypress_cb(GtkWidget *widget, GdkEventKey *event, gpointer data) {
 }
 
 // cppcheck-suppress constParameterCallback
-gboolean main_delete (GtkWidget *widget) {
+static gboolean main_delete (GtkWidget *widget) {
   if (radio != NULL) {
     stop_program();
   }

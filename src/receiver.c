@@ -65,7 +65,7 @@ static gboolean making_active = FALSE;
 // PART 1. Functions releated to the receiver display
 //
 
-void rx_weak_notify(gpointer data, GObject  *obj) {
+static void rx_weak_notify(gpointer data, GObject  *obj) {
   RECEIVER *rx = (RECEIVER *)data;
   t_print("%s: id=%d obj=%p\n", __FUNCTION__, rx->id, obj);
 }
@@ -587,6 +587,10 @@ RECEIVER *rx_create_pure_signal_receiver(int id, int sample_rate, int width, int
   // so we fill the entire data with zeroes
   //
   RECEIVER *rx = malloc(sizeof(RECEIVER));
+  if (!rx) {
+    fatal_error("FATAL: cannot allocate PS-rx");
+    return NULL;
+  }
   memset (rx, 0, sizeof(RECEIVER));
   //
   // Setting the non-zero parameters.
@@ -662,6 +666,10 @@ RECEIVER *rx_create_receiver(int id, int pixels, int width, int height) {
   ASSERT_SERVER(NULL);
   t_print("%s: RXid=%d pixels=%d width=%d height=%d\n", __FUNCTION__, id, pixels, width, height);
   RECEIVER *rx = malloc(sizeof(RECEIVER));
+  if (!rx) {
+    fatal_error("FATAL: cannot allocate rx");
+    return NULL;
+  }
   //
   // This is to guard against programming errors
   // (missing initializations)
@@ -1073,13 +1081,10 @@ void rx_vfo_changed(RECEIVER *rx) {
 
 static void rx_process_buffer(RECEIVER *rx) {
   ASSERT_SERVER();
-  double left_sample, right_sample;
-  short left_audio_sample, right_audio_sample;
-  int i;
 
-  for (i = 0; i < rx->output_samples; i++) {
-    left_sample = rx->audio_output_buffer[i * 2];
-    right_sample = rx->audio_output_buffer[(i * 2) + 1];
+  for (int i = 0; i < rx->output_samples; i++) {
+    double left_sample = rx->audio_output_buffer[i * 2];
+    double right_sample = rx->audio_output_buffer[(i * 2) + 1];
     //
     // If CAPTURing, record the audio samples *before*
     // manipulating them
@@ -1123,8 +1128,8 @@ static void rx_process_buffer(RECEIVER *rx) {
       break;
     }
 
-    left_audio_sample = (short)(left_sample * 32767.0);
-    right_audio_sample = (short)(right_sample * 32767.0);
+    int left_audio_sample = (short)(left_sample * 32767.0);
+    int right_audio_sample = (short)(right_sample * 32767.0);
 
     if (rx->local_audio) {
       audio_write(rx, (float)left_sample, (float)right_sample);
@@ -1151,7 +1156,7 @@ static void rx_process_buffer(RECEIVER *rx) {
   }
 }
 
-void rx_full_buffer(RECEIVER *rx) {
+static void rx_full_buffer(RECEIVER *rx) {
   ASSERT_SERVER();
   int error;
 

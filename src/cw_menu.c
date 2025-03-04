@@ -50,7 +50,7 @@ void cw_set_sidetone_freq(int val) {
   g_idle_add(ext_vfo_update, NULL);
 }
 
-void cw_changed() {
+static void cw_changed() {
   // inform the local keyer about CW parameter changes
   // NewProtocol: rely on periodically sent HighPrio packets
   keyer_update();

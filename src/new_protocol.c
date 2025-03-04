@@ -300,10 +300,14 @@ static mybuffer *get_my_buffer() {
   //
   for (i = 0; i < 25; i++) {
     bp = malloc(sizeof(mybuffer));
-    bp->free = 1;
-    bp->next = buflist;
-    buflist = bp;
-    num_buf++;
+    if (!bp) {
+      fatal_error("FATAL: P2: out of memory");
+    } else {
+      bp->free = 1;
+      bp->next = buflist;
+      buflist = bp;
+      num_buf++;
+    }
   }
 
   t_print("NewProtocol: number of buffers increased to %d\n", num_buf);
@@ -340,7 +344,7 @@ void schedule_transmit_specific() {
   }
 }
 
-void update_action_table() {
+static void update_action_table() {
   //
   // Depending on the values of mox, puresignal, and diversity,
   // determine the actions to be taken when a DDC packet arrives

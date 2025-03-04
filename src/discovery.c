@@ -251,12 +251,12 @@ static gboolean connect_cb(GtkWidget *widget, GdkEventButton *event, gpointer us
 
   *myhost = 0;
   myport = 0;
-  gchar **split = g_strsplit(host_addr, ":", 2);
-  if (split[0] && split[1]) {
-     snprintf(myhost, sizeof(myhost), "%s", split[0]);
-     myport = atoi(split[1]);
+  gchar **splitstr = g_strsplit(host_addr, ":", 2);
+  if (splitstr[0] && splitstr[1]) {
+     snprintf(myhost, sizeof(myhost), "%s", splitstr[0]);
+     myport = atoi(splitstr[1]);
   }
-  g_strfreev(split);
+  g_strfreev(splitstr);
   mypwd = gtk_entry_get_text(GTK_ENTRY(host_pwd_entry));
 
 
@@ -306,8 +306,8 @@ static void on_entry_activated(GtkEntry *entry, gpointer user_data) {
   const char *text = gtk_entry_get_text(entry);
 
   // Validate format "Host:Port"
-  char *cp1 = index(text, ':');
-  char *cp2 = rindex(text, ':');
+  const char *cp1 = index(text, ':');
+  const char *cp2 = rindex(text, ':');
 
   if (cp1 == NULL || cp1 != cp2) {
     return;
@@ -337,7 +337,7 @@ static void on_toggle_password_visibility(GtkToggleButton *button, gpointer user
 //----------------------------------------------------+
 // Build the discovery window                         |
 //----------------------------------------------------+
-void discovery() {
+static void discovery() {
   //
   // On the discovery screen, make the combo-boxes "touchscreen-friendly"
   //
