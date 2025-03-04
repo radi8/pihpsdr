@@ -29,7 +29,10 @@ THISDIR="$(cd "$(dirname "$0")" && pwd -P)"
 #
 # At this point, there is a "brew" command either in /usr/local/bin (Intel Mac) or in
 # /opt/homebrew/bin (Silicon Mac). Look what applies, and set the variable OPTHOMEBREW to 1
-# if homebrew is installed in /opt/homebrew rather than in /usr/local
+# if homebrew is installed in /opt/homebrew rather than in /usr/local.
+# Prepeare the environment variables CPATH and LIBRARY_PATH. These are usually not needed
+# for Intel Macs, but if "homebrew" is installed in /opt/homebrew, these guarantee
+# that include files are found by the preprocessor, and libraries are found by the linker.
 #
 BREW=junk
 OPTHOMEBREW=0
@@ -70,9 +73,10 @@ fi
 
 ################################################################
 #
-# This adjusts the PATH. This is not bullet-proof, so if some-
+# This adjusts the PATH in the shell startup file, together with
+# CPATH and LIBRARY_PATH. This is not bullet-proof, so if some-
 # thing goes wrong here, the user will later not find the
-# 'brew' command.
+# 'brew' command. 
 #
 ################################################################
 
@@ -87,14 +91,15 @@ echo "setenv CPATH $CPATH" >> $HOME/.cshrc
 echo "setenv LIBRARY_PATH $LIBRARY_PATH" >> $HOME/.cshrc
 fi
 if [ $SHELL == "/bin/zsh" ]; then
-$BREW shellenv zsh >> $HOME/.zprofile
-echo "export CPATH=$CPATH" >> $HOME/.profile
+$BREW shellenv zsh >> $HOME/.profile
+echo "export CPATH=$CPATH" >> $HOME/.zprofile
 echo "export LIBRARY_PATH=$LIBRARY_PATH" >> $HOME/.profile
 fi
 
 ################################################################
 #
-# All homebrew packages needed for pihpsdr
+# All homebrew packages needed for pihpsdr (makedepend and
+# cppcheck are useful for maintainers)
 #
 ################################################################
 $BREW install gtk+3
@@ -103,6 +108,9 @@ $BREW install pkg-config
 $BREW install portaudio
 $BREW install fftw
 $BREW install libusb
+$BREW install makedepend
+$BREW install cppcheck
+$BREW install openssl@3
 
 ################################################################
 #
@@ -118,7 +126,7 @@ $BREW install cmake
 $BREW install python-setuptools
 #
 # If an older version of SoapySDR exist, a forced
-# re-install may be necessary (note parts of this
+# re-install may be necessary (note parts the Soapy stuff
 # is always compiled from the sources).
 #
 $BREW tap pothosware/pothos
@@ -131,7 +139,7 @@ $BREW reinstall pothosware/pothos/soapyairspy
 # NOTE: due to an error in the homebrew formula, airspayhf will not build
 #       on M2 macs since its homebrew formula contains an explicit reference
 #       to /usr/local. If /usr/local is sym-linked to /opt/homebrew/local,
-#       it works.
+#       it works fine but this cannot be enforced.
 #
 $BREW reinstall pothosware/pothos/soapyairspyhf
 $BREW reinstall pothosware/pothos/soapyhackrf
