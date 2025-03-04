@@ -36,11 +36,31 @@ OPTHOMEBREW=0
 
 if [ -x /usr/local/bin/brew ]; then
   BREW=/usr/local/bin/brew
+  if [ z$CPATH == z ]; then
+    export CPATH=/usr/local/include
+  else
+    export CPATH=$CPATH:/usr/local/include
+  fi
+  if [ z$LIBRARY_PATH == z ]; then
+    export LIBRARY_PATH=/usr/local/lib
+  else
+    export LIBRARY_PATH=$LIBRARY_PATH:/usr/local/lib
+  fi
 fi
 
 if [ -x /opt/homebrew/bin/brew ]; then
   BREW=/opt/homebrew/bin/brew
   OPTHOMEBREW=1
+  if [ z$CPATH == z ]; then
+    export CPATH=/opt/homebrew/include
+  else
+    export CPATH=$CPATH:/opt/homebrew/include
+  fi
+  if [ z$LIBRARY_PATH == z ]; then
+    export LIBRARY_PATH=/opt/homebrew/lib
+  else
+    export LIBRARY_PATH=$LIBRARY_PATH:/opt/homebrew/lib
+  fi
 fi
 
 if [ $BREW == "junk" ]; then
@@ -58,61 +78,20 @@ fi
 
 if [ $SHELL == "/bin/sh" ]; then
 $BREW shellenv sh >> $HOME/.profile
+echo "export CPATH=$CPATH" >> $HOME/.profile
+echo "export LIBRARY_PATH=$LIBRARY_PATH" >> $HOME/.profile
 fi
 if [ $SHELL == "/bin/csh" ]; then
 $BREW shellenv csh >> $HOME/.cshrc
+echo "setenv CPATH $CPATH" >> $HOME/.cshrc
+echo "setenv LIBRARY_PATH $LIBRARY_PATH" >> $HOME/.cshrc
 fi
 if [ $SHELL == "/bin/zsh" ]; then
 $BREW shellenv zsh >> $HOME/.zprofile
+echo "export CPATH=$CPATH" >> $HOME/.profile
+echo "export LIBRARY_PATH=$LIBRARY_PATH" >> $HOME/.profile
 fi
 
-################################################################
-#
-# create links in /usr/local if necessary (only if
-# HomeBrew is installed in /opt/homebrew)
-#
-# Should be done HERE if some of the following packages
-# have to be compiled from the sources
-#
-# Note existing DIRECTORIES in /usr/local will not be deleted,
-# the "rm" commands only remove symbolic links should they
-# already exist.
-################################################################
-
-if [ $OPTHOMEBREW == 0 ]; then
-  # we assume that bin, lib, include, and share exist in /usr/(local
-  if [ ! -d /usr/local/share/pihpsdr ]; then
-    echo "/usr/local/share/pihpsdr does not exist, creating ..."
-    # this will (and should) file if /usr/local/share/pihpsdr is a symbolic link
-    mkdir /usr/local/share/pihpsdr
-  fi
-else
-  if [ ! -d /usr/local/lib ]; then
-    echo "/usr/local/lib does not exist, creating symbolic link ..."
-    sudo rm -f /usr/local/lib
-    sudo ln -s /opt/homebrew/lib /usr/local/lib
-  fi
-  if [ ! -d /usr/local/bin ]; then
-    echo "/usr/local/bin does not exist, creating symbolic link ..."
-    sudo rm -f /usr/local/bin
-    sudo ln -s /opt/homebrew/bin /usr/local/bin
-  fi
-  if [ ! -d /usr/local/include ]; then
-    echo "/usr/local/include does not exist, creating symbolic link ..."
-    sudo rm -f /usr/local/include
-    sudo ln -s /opt/homebrew/include /usr/local/include
-  fi
-  if [ ! -d /usr/local/share ]; then
-    echo "/usr/local/share does not exist, creating symbolic link ..."
-    sudo rm -f /usr/local/share
-    sudo ln -s /opt/homebrew/share /usr/local/share
-  fi
-  if [ ! -d /opt/homebrew/share/pihpsdr ]; then
-    echo "/opt/homebrew/share/pihpsdr does not exist, creating ..."
-    # this will (and should) file if /opt/homebrew/share/pihpsdr is a symbolic link
-    sudo mkdir /opt/homebrew/share/pihpsdr
-  fi
-fi
 ################################################################
 #
 # All homebrew packages needed for pihpsdr
@@ -148,6 +127,12 @@ $BREW reinstall pothosware/pothos/soapyplutosdr
 $BREW reinstall pothosware/pothos/limesuite
 $BREW reinstall pothosware/pothos/soapyrtlsdr
 $BREW reinstall pothosware/pothos/soapyairspy
+#
+# NOTE: due to an error in the homebrew formula, airspayhf will not build
+#       on M2 macs since its homebrew formula contains an explicit reference
+#       to /usr/local. If /usr/local is sym-linked to /opt/homebrew/local,
+#       it works.
+#
 $BREW reinstall pothosware/pothos/soapyairspyhf
 $BREW reinstall pothosware/pothos/soapyhackrf
 $BREW reinstall pothosware/pothos/soapyredpitaya
