@@ -622,8 +622,8 @@ static void discovery() {
 
   t_print("current host: %s\n", host_addr);
 
-  // Create a "Start Server" button
-  GtkWidget *start_server_button = gtk_button_new_with_label("Start Server");
+  // Create a "Server" button
+  GtkWidget *start_server_button = gtk_button_new_with_label("Use Server");
   g_signal_connect(start_server_button, "clicked", G_CALLBACK(connect_cb), grid);
   gtk_grid_attach(GTK_GRID(grid), start_server_button, 0, row, 1, 1);
 
@@ -690,8 +690,9 @@ static void discovery() {
   g_signal_connect (protocols_b, "button-press-event", G_CALLBACK(protocols_cb), NULL);
   gtk_grid_attach(GTK_GRID(grid), protocols_b, 2, row, 1, 1);
   row++;
-  GtkWidget *tcp_b = gtk_label_new("Radio IP Addr:");
+  GtkWidget *tcp_b = gtk_label_new("Radio IP Addr ");
   gtk_widget_set_name(tcp_b, "boldlabel");
+  gtk_widget_set_halign (label, GTK_ALIGN_END);
   gtk_grid_attach(GTK_GRID(grid), tcp_b, 0, row, 1, 1);
   tcpaddr = gtk_entry_new();
   gtk_entry_set_max_length(GTK_ENTRY(tcpaddr), 20);
