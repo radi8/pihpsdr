@@ -2341,7 +2341,7 @@ static void *listen_thread(void *arg) {
 
     int pwdlen = strlen(hpsdr_pwd);
 
-    if (pwdlen < 3) { remoteclient.running = FALSE; }
+    if (pwdlen < 5) { remoteclient.running = FALSE; }
 
     if (pwdlen > 50) { pwdlen = 50; }
 
