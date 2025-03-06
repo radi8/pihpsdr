@@ -279,12 +279,12 @@ void rigctl_menu(GtkWidget *parent) {
 
   /* Put the Serial Port stuff here, one port per line */
   for (int i = 0; i < MAX_SERIAL; i++) {
-    char str[64];
+    char str[512];
     row++;
     //
     // If this serial port is used internally in a G2 simply state port name
     //
-    snprintf (str, 64, "Serial");
+    snprintf (str, sizeof(str), "Serial");
     w = gtk_label_new(str);
     gtk_widget_set_name(w, "boldlabel");
     gtk_widget_set_halign(w, GTK_ALIGN_END);
@@ -345,7 +345,7 @@ void rigctl_menu(GtkWidget *parent) {
       // If the Serial port is used for the G2 panel, just report port name.
       // If it is not enabled, this means the initial launch_serial() failed.
       //
-      snprintf (str, 64, "%s %s for G2-internal communication", SerialPorts[i].port,
+      snprintf (str, sizeof(str), "%s %s for G2-internal communication", SerialPorts[i].port,
                 SerialPorts[i].enable ? "used" : "failed");
       w = gtk_label_new(str);
       gtk_widget_set_name(w, "boldlabel");
