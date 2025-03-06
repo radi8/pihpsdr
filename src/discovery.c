@@ -692,7 +692,7 @@ static void discovery() {
   row++;
   GtkWidget *tcp_b = gtk_label_new("Radio IP Addr ");
   gtk_widget_set_name(tcp_b, "boldlabel");
-  gtk_widget_set_halign (label, GTK_ALIGN_END);
+  gtk_widget_set_halign (tcp_b, GTK_ALIGN_END);
   gtk_grid_attach(GTK_GRID(grid), tcp_b, 0, row, 1, 1);
   tcpaddr = gtk_entry_new();
   gtk_entry_set_max_length(GTK_ENTRY(tcpaddr), 20);
