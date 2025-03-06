@@ -715,7 +715,7 @@ static gpointer tci_server(gpointer data) {
     //
     // 4. Send answer back, containing the magic string in key
     //
-    snprintf(buf, 1024,
+    snprintf(buf, sizeof(buf),
              "HTTP/1.1 101 Switching Protocols\r\n"
              "Connection: Upgrade\r\n"
              "Upgrade: websocket\r\n"
