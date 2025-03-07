@@ -3205,6 +3205,11 @@ static void *client_thread(void* arg) {
           }
         }
 
+        if (radio_is_transmitting() && (!duplex || mute_rx_while_transmitting)) {
+          left_sample = 0.0;
+          right_sample = 0.0;
+        }
+
         if (rx->mute_radio || (rx != active_receiver && rx->mute_when_not_active)) {
           left_sample = 0;
           right_sample = 0;

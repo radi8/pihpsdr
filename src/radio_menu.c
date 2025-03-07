@@ -823,12 +823,14 @@ void radio_menu(GtkWidget *parent) {
     gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (ChkBtn), mute_rx_while_transmitting);
     gtk_grid_attach(GTK_GRID(grid), ChkBtn, col, row, 1, 1);
     g_signal_connect(ChkBtn, "toggled", G_CALLBACK(toggle_cb), &mute_rx_while_transmitting);
-    col++;
-    ChkBtn = gtk_check_button_new_with_label("PA enable");
-    gtk_widget_set_name(ChkBtn, "boldlabel");
-    gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (ChkBtn), pa_enabled);
-    gtk_grid_attach(GTK_GRID(grid), ChkBtn, col, row, 1, 1);
-    g_signal_connect(ChkBtn, "toggled", G_CALLBACK(toggle_cb), &pa_enabled);
+    if (protocol ==  ORIGINAL_PROTOCOL || protocol == NEW_PROTOCOL) {
+      col++;
+      ChkBtn = gtk_check_button_new_with_label("PA enable");
+      gtk_widget_set_name(ChkBtn, "boldlabel");
+      gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (ChkBtn), pa_enabled);
+      gtk_grid_attach(GTK_GRID(grid), ChkBtn, col, row, 1, 1);
+      g_signal_connect(ChkBtn, "toggled", G_CALLBACK(toggle_cb), &pa_enabled);
+    }
     row++;
   }
 
